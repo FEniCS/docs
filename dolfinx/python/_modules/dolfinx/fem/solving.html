@@ -1,0 +1,350 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dolfinx.fem.solving &#8212; DOLFINX  documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/nature.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.solving</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for dolfinx.fem.solving</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># Copyright (C) 2011 Anders Logg</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINX (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Simple interface for solving variational problems</span>
+
+<span class="sd">A small Python layer on top of the C++ VariationalProblem/Solver classes</span>
+<span class="sd">as well as the solve function.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="k">import</span> <span class="n">PETSc</span>
+
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="n">cpp</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">function</span>
+
+<span class="c1"># FIXME: The code is this file is outrageously convoluted because one</span>
+<span class="c1"># function an do a number of unrelated operations, depending in the</span>
+<span class="c1"># arguments passed.</span>
+
+<span class="c1"># Problem classes need special handling since they involve JIT</span>
+<span class="c1"># compilation</span>
+
+
+<span class="c1"># Solve function handles both linear systems and variational problems</span>
+<div class="viewcode-block" id="solve"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.solve">[docs]</a><span class="k">def</span> <span class="nf">solve</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Solve variational problem a == L or F == 0.</span>
+
+<span class="sd">    The following list explains the</span>
+<span class="sd">    various ways in which the solve() function can be used.</span>
+
+<span class="sd">    *1. Solving linear variational problems*</span>
+
+<span class="sd">    A linear variational problem a(u, v) = L(v) for all v may be</span>
+<span class="sd">    solved by calling solve(a == L, u, ...), where a is a bilinear</span>
+<span class="sd">    form, L is a linear form, u is a Function (the solution). Optional</span>
+<span class="sd">    arguments may be supplied to specify boundary conditions or solver</span>
+<span class="sd">    parameters. Some examples are given below:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        solve(a == L, u)</span>
+<span class="sd">        solve(a == L, u, bcs=bc)</span>
+<span class="sd">        solve(a == L, u, bcs=[bc1, bc2])</span>
+
+<span class="sd">        solve(a == L, u, bcs=bcs,</span>
+<span class="sd">              solver_parameters={&quot;linear_solver&quot;: &quot;lu&quot;},</span>
+<span class="sd">              form_compiler_parameters={&quot;optimize&quot;: True})</span>
+
+<span class="sd">    For available choices for the &#39;solver_parameters&#39; kwarg, look at:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        info(LinearVariationalSolver.default_parameters(), True)</span>
+
+<span class="sd">    *2. Solving nonlinear variational problems*</span>
+
+<span class="sd">    A nonlinear variational problem F(u; v) = 0 for all v may be</span>
+<span class="sd">    solved by calling solve(F == 0, u, ...), where the residual F is a</span>
+<span class="sd">    linear form (linear in the test function v but possibly nonlinear</span>
+<span class="sd">    in the unknown u) and u is a Function (the solution). Optional</span>
+<span class="sd">    arguments may be supplied to specify boundary conditions, the</span>
+<span class="sd">    Jacobian form or solver parameters. If the Jacobian is not</span>
+<span class="sd">    supplied, it will be computed by automatic differentiation of the</span>
+<span class="sd">    residual form. Some examples are given below:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        solve(F == 0, u)</span>
+<span class="sd">        solve(F == 0, u, bcs=bc)</span>
+<span class="sd">        solve(F == 0, u, bcs=[bc1, bc2])</span>
+
+<span class="sd">        solve(F == 0, u, bcs, J=J,</span>
+<span class="sd">              petsc_options={&quot;ksp_type&quot;: &quot;preonly&quot;, &quot;pc_type&quot;: &quot;lu&quot;},</span>
+<span class="sd">              form_compiler_parameters={&quot;optimize&quot;: True})</span>
+
+
+<span class="sd">    For available choices for the &#39;solver_parameters&#39; kwarg, look at:</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        info(NonlinearVariationalSolver.default_parameters(), True)</span>
+
+<span class="sd">    *4. Solving linear/nonlinear variational problems adaptively*</span>
+
+<span class="sd">    Linear and nonlinear variational problems maybe solved adaptively,</span>
+<span class="sd">    with automated goal-oriented error control. The automated error</span>
+<span class="sd">    control algorithm is based on adaptive mesh refinement in</span>
+<span class="sd">    combination with automated generation of dual-weighted</span>
+<span class="sd">    residual-based error estimates and error indicators.</span>
+
+<span class="sd">    An adaptive solve may be invoked by giving two additional</span>
+<span class="sd">    arguments to the solve call, a numerical error tolerance and a</span>
+<span class="sd">    goal functional (a Form).</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        M = u*dx()</span>
+<span class="sd">        tol = 1.e-6</span>
+
+<span class="sd">        # Linear variational problem</span>
+<span class="sd">        solve(a == L, u, bcs=bc, tol=tol, M=M)</span>
+
+<span class="sd">        # Nonlinear problem:</span>
+<span class="sd">        solve(F == 0, u, bcs=bc, tol=tol, M=M)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Equation</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_solve_varproblem</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_solve_varproblem</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="s2">&quot;Solve variational problem a == L or F == 0&quot;</span>
+
+    <span class="c1"># Extract arguments</span>
+    <span class="n">eq</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">form_compiler_parameters</span><span class="p">,</span> <span class="n">petsc_options</span> \
+        <span class="o">=</span> <span class="n">_extract_args</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Solve linear variational problem</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eq</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eq</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">(</span><span class="n">eq</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="n">form_compiler_parameters</span><span class="o">=</span><span class="n">form_compiler_parameters</span><span class="p">)</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">(</span><span class="n">eq</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">form_compiler_parameters</span><span class="o">=</span><span class="n">form_compiler_parameters</span><span class="p">)</span>
+
+        <span class="n">b</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+        <span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">],</span> <span class="p">[</span><span class="n">bcs</span><span class="p">])</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+        <span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+
+        <span class="n">A</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+
+        <span class="n">comm</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">()</span>
+        <span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="p">)</span>
+        <span class="n">ksp</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+
+        <span class="n">ksp</span><span class="o">.</span><span class="n">setOptionsPrefix</span><span class="p">(</span><span class="s2">&quot;dolfin_solve_&quot;</span><span class="p">)</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">prefixPush</span><span class="p">(</span><span class="s2">&quot;dolfin_solve_&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">petsc_options</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">opts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">prefixPop</span><span class="p">()</span>
+
+        <span class="n">ksp</span><span class="o">.</span><span class="n">setFromOptions</span><span class="p">()</span>
+        <span class="n">ksp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+
+    <span class="c1"># Solve nonlinear variational problem</span>
+    <span class="k">else</span><span class="p">:</span>
+
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Not implemented&quot;</span><span class="p">)</span>
+        <span class="c1"># Create Jacobian if missing</span>
+        <span class="c1"># if J is None:</span>
+        <span class="c1">#    cpp.log.info(</span>
+        <span class="c1">#        &quot;No Jacobian form specified for nonlinear variational problem.&quot;)</span>
+        <span class="c1">#    cpp.log.info(</span>
+        <span class="c1">#        &quot;Differentiating residual form F to obtain Jacobian J = F&#39;.&quot;)</span>
+        <span class="c1">#    F = eq.lhs</span>
+        <span class="c1">#    J = formmanipulations.derivative(F, u)</span>
+
+        <span class="c1"># Create problem</span>
+        <span class="c1"># problem = NonlinearVariationalProblem(eq.lhs, u, bcs, J,</span>
+        <span class="c1">#                                      form_compiler_parameters=form_compiler_parameters)</span>
+
+        <span class="c1"># Create solver and call solve</span>
+        <span class="c1"># solver = NonlinearVariationalSolver(problem)</span>
+        <span class="c1"># solver.parameters.update(petsc_options)</span>
+        <span class="c1"># solver.solve()</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_args</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="s2">&quot;Common extraction of arguments for _solve_varproblem[_adaptive]&quot;</span>
+
+    <span class="c1"># Check for use of valid kwargs</span>
+    <span class="n">valid_kwargs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;bcs&quot;</span><span class="p">,</span> <span class="s2">&quot;J&quot;</span><span class="p">,</span> <span class="s2">&quot;tol&quot;</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="s2">&quot;form_compiler_parameters&quot;</span><span class="p">,</span> <span class="s2">&quot;petsc_options&quot;</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">kwarg</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">kwarg</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;Illegal keyword argument </span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;</span><span class="s2">.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwarg</span><span class="p">))</span>
+
+    <span class="c1"># Extract equation</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Missing arguments, expecting solve(lhs == rhs, u, bcs=bcs), where bcs is optional&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Too many arguments, expecting solve(lhs == rhs, u, bcs=bcs), where bcs is optional&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Extract equation</span>
+    <span class="n">eq</span> <span class="o">=</span> <span class="n">_extract_eq</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Extract solution function</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">_extract_u</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="c1"># Extract boundary conditions</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="n">_extract_bcs</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="s2">&quot;bcs&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="n">_extract_bcs</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;bcs&quot;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Extract Jacobian</span>
+    <span class="n">J</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;J&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">J</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Solve variational problem. Expecting Jacobian J to be a UFL Form.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Extract tolerance</span>
+    <span class="n">tol</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tol&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">tol</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span> <span class="ow">and</span> <span class="n">tol</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Solve variational problem. Expecting tolerance tol to be a non-negative number.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Extract functional</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">M</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Solve variational problem. Expecting goal functional M to be a UFL Form.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Extract parameters</span>
+    <span class="n">form_compiler_parameters</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;form_compiler_parameters&quot;</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">petsc_options</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;petsc_options&quot;</span><span class="p">,</span> <span class="p">{})</span>
+
+    <span class="k">return</span> <span class="n">eq</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">tol</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">form_compiler_parameters</span><span class="p">,</span> <span class="n">petsc_options</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_eq</span><span class="p">(</span><span class="n">eq</span><span class="p">):</span>
+    <span class="s2">&quot;Extract and check argument eq&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eq</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Equation</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Solve variational problem. Expecting first argument to be an Equation.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">eq</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_u</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+    <span class="s2">&quot;Extract and check argument u&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expecting second argument to be a Function.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">u</span>
+
+
+<span class="k">def</span> <span class="nf">_extract_bcs</span><span class="p">(</span><span class="n">bcs</span><span class="p">):</span>
+    <span class="s2">&quot;Extract and check argument bcs&quot;</span>
+    <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bcs</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bcs</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bc</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">DirichletBC</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;solve variational problem. Unable to extract boundary condition arguments&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bcs</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.solving</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
+    </div>
+  </body>
+</html>

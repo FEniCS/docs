@@ -1,0 +1,423 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cahn-Hilliard equation &#8212; DOLFINX  documentation</title>
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Stokes equations with Taylor-Hood elements" href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" />
+    <link rel="prev" title="Poisson equation" href="../poisson/demo_poisson.py.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" title="Stokes equations with Taylor-Hood elements"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../poisson/demo_poisson.py.html" title="Poisson equation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" accesskey="U">Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Cahn-Hilliard equation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="cahn-hilliard-equation">
+<h1>Cahn-Hilliard equation<a class="headerlink" href="#cahn-hilliard-equation" title="Permalink to this headline">¶</a></h1>
+<p>This demo is implemented in a single Python file,
+<a class="reference download internal" download="" href="../../_downloads/0270d57c8a4ee0f2b22c8225a1b0bd85/demo_cahn-hilliard.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_cahn-hilliard.py</span></code></a>, which contains both the variational
+forms and the solver.</p>
+<p>This example demonstrates the solution of the Cahn-Hilliard equation,
+a nonlinear time-dependent fourth-order PDE.</p>
+<ul class="simple">
+<li><p>The built-in Newton solver</p></li>
+<li><p>Advanced use of the base class <code class="docutils literal notranslate"><span class="pre">NonlinearProblem</span></code></p></li>
+<li><p>Automatic linearisation</p></li>
+<li><p>A mixed finite element method</p></li>
+<li><p>The <span class="math notranslate nohighlight">\(\theta\)</span>-method for time-dependent equations</p></li>
+<li><p>User-defined Expressions as Python classes</p></li>
+<li><p>Form compiler options</p></li>
+<li><p>Interpolation of functions</p></li>
+</ul>
+<div class="section" id="equation-and-problem-definition">
+<h2>Equation and problem definition<a class="headerlink" href="#equation-and-problem-definition" title="Permalink to this headline">¶</a></h2>
+<p>The Cahn-Hilliard equation is a parabolic equation and is typically used
+to model phase separation in binary mixtures.  It involves first-order
+time derivatives, and second- and fourth-order spatial derivatives.  The
+equation reads:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\frac{\partial c}{\partial t} - \nabla \cdot M \left(\nabla\left(\frac{d f}{d c}
+          - \lambda \nabla^{2}c\right)\right) &amp;= 0 \quad {\rm in} \ \Omega, \\
+M\left(\nabla\left(\frac{d f}{d c} - \lambda \nabla^{2}c\right)\right) \cdot n
+&amp;= 0 \quad {\rm on} \ \partial\Omega, \\
+M \lambda \nabla c \cdot n &amp;= 0 \quad {\rm on} \ \partial\Omega.\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(c\)</span> is the unknown field, the function <span class="math notranslate nohighlight">\(f\)</span> is usually
+non-convex in <span class="math notranslate nohighlight">\(c\)</span> (a fourth-order polynomial is commonly used),
+<span class="math notranslate nohighlight">\(n\)</span> is the outward directed boundary normal, and <span class="math notranslate nohighlight">\(M\)</span> is a
+scalar parameter.</p>
+<div class="section" id="mixed-form">
+<h3>Mixed form<a class="headerlink" href="#mixed-form" title="Permalink to this headline">¶</a></h3>
+<p>The Cahn-Hilliard equation is a fourth-order equation, so casting it in
+a weak form would result in the presence of second-order spatial
+derivatives, and the problem could not be solved using a standard
+Lagrange finite element basis.  A solution is to rephrase the problem as
+two coupled second-order equations:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\frac{\partial c}{\partial t} - \nabla \cdot M \nabla\mu  &amp;= 0 \quad {\rm in} \ \Omega, \\
+\mu -  \frac{d f}{d c} + \lambda \nabla^{2}c &amp;= 0 \quad {\rm in} \ \Omega.\end{split}\]</div>
+<p>The unknown fields are now <span class="math notranslate nohighlight">\(c\)</span> and <span class="math notranslate nohighlight">\(\mu\)</span>. The weak
+(variational) form of the problem reads: find <span class="math notranslate nohighlight">\((c, \mu) \in V
+\times V\)</span> such that</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\int_{\Omega} \frac{\partial c}{\partial t} q \, {\rm d} x
++ \int_{\Omega} M \nabla\mu \cdot \nabla q \, {\rm d} x
+       &amp;= 0 \quad \forall \ q \in V,  \\
+\int_{\Omega} \mu v \, {\rm d} x - \int_{\Omega} \frac{d f}{d c} v \, {\rm d} x
+- \int_{\Omega} \lambda \nabla c \cdot \nabla v \, {\rm d} x
+       &amp;= 0 \quad \forall \ v \in V.\end{split}\]</div>
+</div>
+<div class="section" id="time-discretisation">
+<h3>Time discretisation<a class="headerlink" href="#time-discretisation" title="Permalink to this headline">¶</a></h3>
+<p>Before being able to solve this problem, the time derivative must be
+dealt with. Apply the <span class="math notranslate nohighlight">\(\theta\)</span>-method to the mixed weak form of
+the equation:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\int_{\Omega} \frac{c_{n+1} - c_{n}}{dt} q \, {\rm d} x
++ \int_{\Omega} M \nabla \mu_{n+\theta} \cdot \nabla q \, {\rm d} x
+       &amp;= 0 \quad \forall \ q \in V  \\
+\int_{\Omega} \mu_{n+1} v  \, {\rm d} x - \int_{\Omega} \frac{d f_{n+1}}{d c} v  \, {\rm d} x
+- \int_{\Omega} \lambda \nabla c_{n+1} \cdot \nabla v \, {\rm d} x
+       &amp;= 0 \quad \forall \ v \in V\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(dt = t_{n+1} - t_{n}\)</span> and <span class="math notranslate nohighlight">\(\mu_{n+\theta} =
+(1-\theta) \mu_{n} + \theta \mu_{n+1}\)</span>.  The task is: given
+<span class="math notranslate nohighlight">\(c_{n}\)</span> and <span class="math notranslate nohighlight">\(\mu_{n}\)</span>, solve the above equation to find
+<span class="math notranslate nohighlight">\(c_{n+1}\)</span> and <span class="math notranslate nohighlight">\(\mu_{n+1}\)</span>.</p>
+</div>
+<div class="section" id="demo-parameters">
+<h3>Demo parameters<a class="headerlink" href="#demo-parameters" title="Permalink to this headline">¶</a></h3>
+<p>The following domains, functions and time stepping parameters are used
+in this demo:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\Omega = (0, 1) \times (0, 1)\)</span> (unit square)</p></li>
+<li><p><span class="math notranslate nohighlight">\(f = 100 c^{2} (1-c)^{2}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda = 1 \times 10^{-2}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(M = 1\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(dt = 5 \times 10^{-6}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(\theta = 0.5\)</span></p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this headline">¶</a></h2>
+<p>This demo is implemented in the <a class="reference download internal" download="" href="../../_downloads/0270d57c8a4ee0f2b22c8225a1b0bd85/demo_cahn-hilliard.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_cahn-hilliard.py</span></code></a>
+file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="k">import</span> <span class="n">MPI</span>
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="k">import</span> <span class="n">PETSc</span>
+
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="p">(</span><span class="n">Form</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">NewtonSolver</span><span class="p">,</span>
+                     <span class="n">NonlinearProblem</span><span class="p">,</span> <span class="n">UnitSquareMesh</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.mesh</span> <span class="k">import</span> <span class="n">CellType</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.assemble</span> <span class="k">import</span> <span class="n">assemble_matrix</span><span class="p">,</span> <span class="n">assemble_vector</span>
+<span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="k">import</span> <span class="n">XDMFFile</span>
+<span class="kn">from</span> <span class="nn">ufl</span> <span class="k">import</span> <span class="p">(</span><span class="n">FiniteElement</span><span class="p">,</span> <span class="n">TestFunctions</span><span class="p">,</span> <span class="n">TrialFunction</span><span class="p">,</span> <span class="n">derivative</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span>
+                 <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+
+<span class="c1"># Save all logging to file</span>
+<span class="n">log</span><span class="o">.</span><span class="n">set_output_file</span><span class="p">(</span><span class="s2">&quot;log.txt&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p id="index-0">A class which will represent the Cahn-Hilliard in an abstract from for
+use in the Newton solver is now defined. It is a subclass of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NonlinearProblem</span></code>.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">CahnHilliardEquation</span><span class="p">(</span><span class="n">NonlinearProblem</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">L</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">Form</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_J</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">f_local</span><span class="p">:</span>
+                <span class="n">f_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span>
+
+    <span class="k">def</span> <span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_J</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_J</span> <span class="o">=</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_J</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_J</span> <span class="o">=</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_J</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_J</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_J</span>
+</pre></div>
+</div>
+<p>The constructor (<code class="docutils literal notranslate"><span class="pre">__init__</span></code>) stores references to the bilinear (<code class="docutils literal notranslate"><span class="pre">a</span></code>)
+and linear (<code class="docutils literal notranslate"><span class="pre">L</span></code>) forms. These will used to compute the Jacobian matrix
+and the residual vector, respectively, for use in a Newton solver.  The
+function <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">J</span></code> are virtual member functions of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NonlinearProblem</span></code>. The function
+<code class="docutils literal notranslate"><span class="pre">F</span></code> computes the residual vector <code class="docutils literal notranslate"><span class="pre">b</span></code>, and the function <code class="docutils literal notranslate"><span class="pre">J</span></code>
+computes the Jacobian matrix <code class="docutils literal notranslate"><span class="pre">A</span></code>.</p>
+<p>Next, various model parameters are defined:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Model parameters</span>
+<span class="n">lmbda</span> <span class="o">=</span> <span class="mf">1.0e-02</span>  <span class="c1"># surface parameter</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">5.0e-06</span>  <span class="c1"># time step</span>
+<span class="n">theta</span> <span class="o">=</span> <span class="mf">0.5</span>      <span class="c1"># time stepping family, e.g. theta=1 -&gt; backward Euler, theta=0.5 -&gt; Crank-Nicolson</span>
+</pre></div>
+</div>
+<p>A unit square mesh with 97 (= 96 + 1) vertices in each direction is
+created, and on this mesh a
+<a class="reference internal" href="../../generated/dolfinx.function.html#dolfinx.function.FunctionSpace" title="dolfinx.function.FunctionSpace"><code class="xref py py-class docutils literal notranslate"><span class="pre">FunctionSpace</span></code></a>
+<code class="docutils literal notranslate"><span class="pre">ME</span></code> is built using a pair of linear Lagrangian elements.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create mesh and build function space</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">UnitSquareMesh</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">)</span>
+<span class="n">P1</span> <span class="o">=</span> <span class="n">FiniteElement</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">ME</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">P1</span> <span class="o">*</span> <span class="n">P1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Trial and test functions of the space <code class="docutils literal notranslate"><span class="pre">ME</span></code> are now defined:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define trial and test functions</span>
+<span class="n">du</span> <span class="o">=</span> <span class="n">TrialFunction</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span>
+<span class="n">q</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">TestFunctions</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span>
+</pre></div>
+</div>
+<p id="index-1">For the test functions,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">TestFunctions</span></code> (note
+the ‘s’ at the end) is used to define the scalar test functions <code class="docutils literal notranslate"><span class="pre">q</span></code>
+and <code class="docutils literal notranslate"><span class="pre">v</span></code>. The
+<code class="xref py py-class docutils literal notranslate"><span class="pre">TrialFunction</span></code>
+<code class="docutils literal notranslate"><span class="pre">du</span></code> has dimension two. Some mixed objects of the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code> class on <code class="docutils literal notranslate"><span class="pre">ME</span></code>
+are defined to represent <span class="math notranslate nohighlight">\(u = (c_{n+1}, \mu_{n+1})\)</span> and <span class="math notranslate nohighlight">\(u0
+= (c_{n}, \mu_{n})\)</span>, and these are then split into sub-functions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define functions</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span>  <span class="c1"># current solution</span>
+<span class="n">u0</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span>  <span class="c1"># solution from previous converged step</span>
+
+<span class="c1"># Split mixed functions</span>
+<span class="n">dc</span><span class="p">,</span> <span class="n">dmu</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="n">du</span><span class="p">)</span>
+<span class="n">c</span><span class="p">,</span> <span class="n">mu</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<span class="n">c0</span><span class="p">,</span> <span class="n">mu0</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="n">u0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The line <code class="docutils literal notranslate"><span class="pre">c,</span> <span class="pre">mu</span> <span class="pre">=</span> <span class="pre">split(u)</span></code> permits direct access to the components of
+a mixed function. Note that <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">mu</span></code> are references for
+components of <code class="docutils literal notranslate"><span class="pre">u</span></code>, and not copies.</p>
+<p id="index-2">Initial conditions are created by using the evaluate method
+then interpolated into a finite element space:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">u_init</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initialise values for c and mu.&quot;&quot;&quot;</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.63</span> <span class="o">+</span> <span class="mf">0.02</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">values</span>
+
+
+<span class="c1"># Create intial conditions and interpolate</span>
+<span class="n">u</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u_init</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first line creates an object of type <code class="docutils literal notranslate"><span class="pre">InitialConditions</span></code>.  The
+following two lines make <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">u0</span></code> interpolants of <code class="docutils literal notranslate"><span class="pre">u_init</span></code>
+(since <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">u0</span></code> are finite element functions, they may not be
+able to represent a given function exactly, but the function can be
+approximated by interpolating it in a finite element space).</p>
+<p id="index-3">The chemical potential <span class="math notranslate nohighlight">\(df/dc\)</span> is computed using automated
+differentiation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute the chemical potential df/dc</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">variable</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">c</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">dfdc</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first line declares that <code class="docutils literal notranslate"><span class="pre">c</span></code> is a variable that some function can
+be differentiated with respect to. The next line is the function
+<span class="math notranslate nohighlight">\(f\)</span> defined in the problem statement, and the third line performs
+the differentiation of <code class="docutils literal notranslate"><span class="pre">f</span></code> with respect to the variable <code class="docutils literal notranslate"><span class="pre">c</span></code>.</p>
+<p>It is convenient to introduce an expression for <span class="math notranslate nohighlight">\(\mu_{n+\theta}\)</span>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># mu_(n+theta)</span>
+<span class="n">mu_mid</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">mu0</span> <span class="o">+</span> <span class="n">theta</span> <span class="o">*</span> <span class="n">mu</span>
+</pre></div>
+</div>
+<p>which is then used in the definition of the variational forms:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Weak statement of the equations</span>
+<span class="n">L0</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">-</span> <span class="n">inner</span><span class="p">(</span><span class="n">c0</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">mu_mid</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">q</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span>
+<span class="n">L1</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">-</span> <span class="n">inner</span><span class="p">(</span><span class="n">dfdc</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">-</span> <span class="n">lmbda</span> <span class="o">*</span> <span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span>
+<span class="n">L</span> <span class="o">=</span> <span class="n">L0</span> <span class="o">+</span> <span class="n">L1</span>
+</pre></div>
+</div>
+<p>This is a statement of the time-discrete equations presented as part of
+the problem statement, using UFL syntax. The linear forms for the two
+equations can be summed into one form <code class="docutils literal notranslate"><span class="pre">L</span></code>, and then the directional
+derivative of <code class="docutils literal notranslate"><span class="pre">L</span></code> can be computed to form the bilinear form which
+represents the Jacobian matrix:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compute directional derivative about u in the direction of du (Jacobian)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">derivative</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">du</span><span class="p">)</span>
+</pre></div>
+</div>
+<p id="index-4">The DOLFINX Newton solver requires a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NonlinearProblem</span></code> object to
+solve a system of nonlinear equations. Here, we are using the class
+<code class="docutils literal notranslate"><span class="pre">CahnHilliardEquation</span></code>, which was declared at the beginning of the
+file, and which is a sub-class of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NonlinearProblem</span></code>. We need to
+instantiate objects of both <code class="docutils literal notranslate"><span class="pre">CahnHilliardEquation</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">NewtonSolver</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create nonlinear problem and Newton solver</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">CahnHilliardEquation</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">NewtonSolver</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">convergence_criterion</span> <span class="o">=</span> <span class="s2">&quot;incremental&quot;</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">rtol</span> <span class="o">=</span> <span class="mf">1e-6</span>
+</pre></div>
+</div>
+<p>The setting of <code class="docutils literal notranslate"><span class="pre">convergence_criterion</span></code> to <code class="docutils literal notranslate"><span class="pre">&quot;incremental&quot;</span></code> specifies
+that the Newton solver should compute a norm of the solution increment
+to check for convergence (the other possibility is to use
+<code class="docutils literal notranslate"><span class="pre">&quot;residual&quot;</span></code>, or to provide a user-defined check). The tolerance for
+convergence is specified by <code class="docutils literal notranslate"><span class="pre">rtol</span></code>.</p>
+<p>To run the solver and save the output to a VTK file for later
+visualization, the solver is advanced in time from <span class="math notranslate nohighlight">\(t_{n}\)</span> to
+<span class="math notranslate nohighlight">\(t_{n+1}\)</span> until a terminal time <span class="math notranslate nohighlight">\(T\)</span> is reached:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Output file</span>
+<span class="n">file</span> <span class="o">=</span> <span class="n">XDMFFile</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot;output.xdmf&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+<span class="n">file</span><span class="o">.</span><span class="n">write_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+
+<span class="c1"># Step in time</span>
+<span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+<span class="c1"># Check if we are running on CI server and reduce run time</span>
+<span class="k">if</span> <span class="s2">&quot;CI&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;GITHUB_ACTIONS&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">dt</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">dt</span>
+
+<span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+<span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">T</span><span class="p">):</span>
+    <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Step, num iterations:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">dt</span><span class="p">),</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+    <span class="n">file</span><span class="o">.</span><span class="n">write_function</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">t</span><span class="p">)</span>
+
+<span class="n">file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Within the time stepping loop, the nonlinear problem is solved by
+calling <code class="xref py py-func docutils literal notranslate"><span class="pre">solver.solve(problem,u.vector)</span></code>,
+with the new solution vector returned in <code class="xref py py-func docutils literal notranslate"><span class="pre">u.vector</span></code>.
+The solution vector associated with <code class="docutils literal notranslate"><span class="pre">u</span></code> is copied to <code class="docutils literal notranslate"><span class="pre">u0</span></code> at the
+end of each time step, and the <code class="docutils literal notranslate"><span class="pre">c</span></code> component of the solution
+(the first component of <code class="docutils literal notranslate"><span class="pre">u</span></code>) is then written to file.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Cahn-Hilliard equation</a><ul>
+<li><a class="reference internal" href="#equation-and-problem-definition">Equation and problem definition</a><ul>
+<li><a class="reference internal" href="#mixed-form">Mixed form</a></li>
+<li><a class="reference internal" href="#time-discretisation">Time discretisation</a></li>
+<li><a class="reference internal" href="#demo-parameters">Demo parameters</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#implementation">Implementation</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../poisson/demo_poisson.py.html"
+                        title="previous chapter">Poisson equation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html"
+                        title="next chapter">Stokes equations with Taylor-Hood elements</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/demos/cahn-hilliard/demo_cahn-hilliard.py.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" title="Stokes equations with Taylor-Hood elements"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../poisson/demo_poisson.py.html" title="Poisson equation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" >Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Cahn-Hilliard equation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
+    </div>
+  </body>
+</html>
