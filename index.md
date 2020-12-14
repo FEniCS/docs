@@ -2,9 +2,9 @@
 
 ## DOLFINX
 
-`master` C++: https://fenics.github.io/docs/dolfinx/cpp/
+`master` C++: [https://fenics.github.io/docs/dolfinx/cpp/](https://fenics.github.io/docs/dolfinx/cpp)
 
-`master` Python: https://fenics.github.io/docs/dolfinx/python/
+`master` Python: [https://fenics.github.io/docs/dolfinx/python/](https://fenics.github.io/docs/dolfinx/python)
 
 ## FFCX
 
