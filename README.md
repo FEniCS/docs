@@ -6,9 +6,9 @@ the `master` branch of each project.
 
 ## DOLFINX
 
-`master` C++: https://fenics.github.io/docs/dolfinx/cpp/
+`master` C++: https://docs.fenicsproject.org/dolfinx/cpp/
 
-`master` Python: https://fenics.github.io/docs/dolfinx/python/
+`master` Python: https://docs.fenicsproject.org/dolfinx/python/
 
 ## FFCX
 
