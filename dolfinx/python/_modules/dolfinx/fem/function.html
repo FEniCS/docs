@@ -1,0 +1,606 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dolfinx.fem.function &#8212; DOLFINX  documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/nature.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.function</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for dolfinx.fem.function</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2009-2019 Chris N. Richardson, Garth N. Wells and Michal Habera</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINX (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Collection of functions and function spaces&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">singledispatch</span>
+
+<span class="kn">import</span> <span class="nn">cffi</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">import</span> <span class="nn">ufl.algorithms</span>
+<span class="kn">import</span> <span class="nn">ufl.algorithms.analysis</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="n">common</span><span class="p">,</span> <span class="n">cpp</span><span class="p">,</span> <span class="n">jit</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="k">import</span> <span class="n">dofmap</span>
+
+
+<div class="viewcode-block" id="Constant"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Constant">[docs]</a><span class="k">class</span> <span class="nc">Constant</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">,</span> <span class="nb">float</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;A constant with respect to a domain.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        domain : DOLFIN or UFL mesh</span>
+<span class="sd">        c</span>
+<span class="sd">            Value of the constant.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">c_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">c_np</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="n">c_np</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">c_np</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns value of the constant.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+
+    <span class="nd">@value</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">copyto</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Expression"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Expression">[docs]</a><span class="k">class</span> <span class="nc">Expression</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">ufl_expression</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
+                 <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                 <span class="n">form_compiler_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="n">jit_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;Create dolfinx Expression.</span>
+
+<span class="sd">        Represents a mathematical expression evaluated at a pre-defined set of</span>
+<span class="sd">        points on the reference cell. This class closely follows the concept of a</span>
+<span class="sd">        UFC Expression.</span>
+
+<span class="sd">        This functionality can be used to evaluate a gradient of a Function at</span>
+<span class="sd">        the quadrature points in all cells. This evaluated gradient can then be</span>
+<span class="sd">        used as input to a non-FEniCS function that calculates a material</span>
+<span class="sd">        constitutive model.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ufl_expression</span>
+<span class="sd">            Pure UFL expression</span>
+<span class="sd">        x</span>
+<span class="sd">            Array of points of shape (num_points, tdim) on the reference</span>
+<span class="sd">            element.</span>
+<span class="sd">        form_compiler_parameters</span>
+<span class="sd">            Parameters used in FFCX compilation of this Expression. Run `ffcx</span>
+<span class="sd">            --help` in the commandline to see all available options.</span>
+<span class="sd">        jit_parameters</span>
+<span class="sd">            Parameters controlling JIT compilation of C code.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        This wrapper is responsible for the FFCX compilation of the UFL Expr</span>
+<span class="sd">        and attaching the correct data to the underlying C++ Expression.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">3</span>
+        <span class="n">num_points</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="n">num_points</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">ufl_expression</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_cargo</span><span class="p">()</span>
+
+        <span class="c1"># Compile UFL expression with JIT</span>
+        <span class="n">ufc_expression</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">(),</span> <span class="p">(</span><span class="n">ufl_expression</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span>
+                                      <span class="n">form_compiler_parameters</span><span class="o">=</span><span class="n">form_compiler_parameters</span><span class="p">,</span>
+                                      <span class="n">jit_parameters</span><span class="o">=</span><span class="n">jit_parameters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_expression</span> <span class="o">=</span> <span class="n">ufl_expression</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufc_expression</span> <span class="o">=</span> <span class="n">ufc_expression</span>
+
+        <span class="c1"># Setup data (evaluation points, coefficients, constants, mesh, value_size).</span>
+        <span class="c1"># Tabulation function.</span>
+        <span class="n">ffi</span> <span class="o">=</span> <span class="n">cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
+        <span class="n">fn</span> <span class="o">=</span> <span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ufc_expression</span><span class="o">.</span><span class="n">tabulate_expression</span><span class="p">)</span>
+
+        <span class="n">value_size</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_expression</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+
+        <span class="n">ufl_coefficients</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">extract_coefficients</span><span class="p">(</span><span class="n">ufl_expression</span><span class="p">)</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[</span><span class="n">ufl_coefficient</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">ufl_coefficient</span> <span class="ow">in</span> <span class="n">ufl_coefficients</span><span class="p">]</span>
+
+        <span class="n">ufl_constants</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">analysis</span><span class="o">.</span><span class="n">extract_constants</span><span class="p">(</span><span class="n">ufl_expression</span><span class="p">)</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">ufl_constant</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">ufl_constant</span> <span class="ow">in</span> <span class="n">ufl_constants</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Expression</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">value_size</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Expression.eval"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Expression.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate Expression in cells.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        cells</span>
+<span class="sd">            local indices of cells to evaluate expression.</span>
+<span class="sd">        u: optional</span>
+<span class="sd">            array of shape (num_cells, num_points*value_size) to</span>
+<span class="sd">            store result of expression evaluation.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        u: np.ndarray</span>
+<span class="sd">            The i-th row of u contains the expression evaluated on cells[i].</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        This function allocates u of the appropriate size if u is not passed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">cells</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">num_cells</span> <span class="o">=</span> <span class="n">cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Allocate memory for result if u was not provided</span>
+        <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">common</span><span class="o">.</span><span class="n">has_petsc_complex</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_cells</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_cells</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">u</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">3</span>
+            <span class="k">assert</span> <span class="n">u</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span>
+            <span class="k">assert</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">num_cells</span>
+            <span class="k">assert</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">u</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the original UFL Expression&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_expression</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the evaluation points on the reference cell&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_points</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the number of evaluation points on the reference cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_points</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the value size of the expression&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_size</span></div>
+
+
+<div class="viewcode-block" id="Function"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function">[docs]</a><span class="k">class</span> <span class="nc">Function</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">Coefficient</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A finite element function that is represented by a function</span>
+<span class="sd">    space (domain, element and dofmap) and a vector holding the</span>
+<span class="sd">    degrees-of-freedom</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">V</span><span class="p">:</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">,</span>
+                 <span class="n">x</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize finite element Function.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Create cpp Function</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+
+        <span class="c1"># Initialize the ufl.FunctionSpace</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">(),</span> <span class="n">count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="c1"># Set name</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;f_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="c1"># Store DOLFIN FunctionSpace object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_V</span> <span class="o">=</span> <span class="n">V</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the FunctionSpace&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span>
+
+<div class="viewcode-block" id="Function.ufl_evaluate"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.ufl_evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">derivatives</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Function used by ufl to evaluate the Expression&quot;&quot;&quot;</span>
+        <span class="c1"># FIXME: same as dolfinx.expression.Expression version. Find way</span>
+        <span class="c1"># to re-use.</span>
+        <span class="k">assert</span> <span class="n">derivatives</span> <span class="o">==</span> <span class="p">()</span>  <span class="c1"># TODO: Handle derivatives</span>
+
+        <span class="k">if</span> <span class="n">component</span><span class="p">:</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+            <span class="n">value_size</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">indexflattening</span><span class="o">.</span><span class="n">flatten_multiindex</span><span class="p">(</span>
+                <span class="n">component</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">indexflattening</span><span class="o">.</span><span class="n">shape_to_strides</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">value_size</span><span class="p">)</span>
+            <span class="c1"># FIXME: use a function with a return value</span>
+            <span class="bp">self</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">values</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Scalar evaluation</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Function.eval"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate Function at points x, where x has shape (num_points, 3),</span>
+<span class="sd">        and cells has shape (num_points,) and cell[i] is the index of the</span>
+<span class="sd">        cell containing point x[i]. If the cell index is negative the</span>
+<span class="sd">        point is ignored.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Make sure input coordinates are a NumPy array</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">3</span>
+        <span class="n">num_points</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="n">num_points</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coordinate(s) for Function evaluation must have length 3.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Make sure cells are a NumPy array</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">cells</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span>
+        <span class="n">num_points_c</span> <span class="o">=</span> <span class="n">cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">cells</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">num_points_c</span><span class="p">)</span>
+
+        <span class="c1"># Allocate memory for return value if not provided</span>
+        <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value_size</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">value_shape</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">common</span><span class="o">.</span><span class="n">has_petsc_complex</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_points</span><span class="p">,</span> <span class="n">value_size</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_points</span><span class="p">,</span> <span class="n">value_size</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_points</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">))</span>
+        <span class="k">return</span> <span class="n">u</span></div>
+
+<div class="viewcode-block" id="Function.interpolate"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.interpolate">[docs]</a>    <span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Interpolate an expression&quot;&quot;&quot;</span>
+        <span class="nd">@singledispatch</span>
+        <span class="k">def</span> <span class="nf">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+
+        <span class="nd">@_interpolate</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">u_ptr</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate_ptr</span><span class="p">(</span><span class="n">u_ptr</span><span class="p">)</span>
+
+        <span class="n">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Function.compute_point_values"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.compute_point_values">[docs]</a>    <span class="k">def</span> <span class="nf">compute_point_values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Function.copy"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a copy of the Function. The FunctionSpace is shared and the</span>
+<span class="sd">        degree-of-freedom vector is copied.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">function_space</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">vector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the vector holding Function degrees-of-freedom.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">vector</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the vector holding Function degrees-of-freedom.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Name of the Function.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return object id index.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">id</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a pretty print representation of it self.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+<div class="viewcode-block" id="Function.sub"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.sub">[docs]</a>    <span class="k">def</span> <span class="nf">sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a sub function.</span>
+
+<span class="sd">        The sub functions are numbered from i = 0..N-1, where N is the</span>
+<span class="sd">        total number of sub spaces.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">i</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Function.split"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.split">[docs]</a>    <span class="k">def</span> <span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract any sub functions.</span>
+
+<span class="sd">        A sub function can be extracted from a discrete function that</span>
+<span class="sd">        is in a mixed, vector, or tensor FunctionSpace. The sub</span>
+<span class="sd">        function resides in the subspace of the mixed space.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">num_sub_spaces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">num_sub_spaces</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">num_sub_spaces</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;No subfunctions to extract&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_sub_spaces</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Function.collapse"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.collapse">[docs]</a>    <span class="k">def</span> <span class="nf">collapse</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">u_collapsed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">collapse</span><span class="p">()</span>
+        <span class="n">V_collapsed</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span>
+                                    <span class="n">u_collapsed</span><span class="o">.</span><span class="n">function_space</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Function</span><span class="p">(</span><span class="n">V_collapsed</span><span class="p">,</span> <span class="n">u_collapsed</span><span class="o">.</span><span class="n">x</span><span class="p">)</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">ElementMetaData</span><span class="p">(</span><span class="n">typing</span><span class="o">.</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Data for representing a finite element&quot;&quot;&quot;</span>
+    <span class="n">family</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">degree</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">form_degree</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># noqa</span>
+
+
+<div class="viewcode-block" id="FunctionSpace"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace">[docs]</a><span class="k">class</span> <span class="nc">FunctionSpace</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A space on which Functions (fields) can be defined.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">mesh</span><span class="p">:</span> <span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span>
+                 <span class="n">element</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElementBase</span><span class="p">,</span> <span class="n">ElementMetaData</span><span class="p">],</span>
+                 <span class="n">cppV</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                 <span class="n">form_compiler_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
+                 <span class="n">jit_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;Create a finite element function space.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Create function space from a UFL element and existing cpp</span>
+        <span class="c1"># FunctionSpace</span>
+        <span class="k">if</span> <span class="n">cppV</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">mesh</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">cppV</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ufl_domain</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cppV</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Initialise the ufl.FunctionSpace</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">element</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">ElementMetaData</span><span class="p">(</span><span class="o">*</span><span class="n">element</span><span class="p">)</span>
+            <span class="n">ufl_element</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">form_degree</span><span class="p">)</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">ufl_element</span><span class="p">)</span>
+
+        <span class="c1"># Compile dofmap and element and create DOLFIN objects</span>
+        <span class="n">ufc_element</span><span class="p">,</span> <span class="n">ufc_dofmap_ptr</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span> <span class="n">form_compiler_parameters</span><span class="o">=</span><span class="n">form_compiler_parameters</span><span class="p">,</span>
+            <span class="n">jit_parameters</span><span class="o">=</span><span class="n">jit_parameters</span><span class="p">)</span>
+
+        <span class="n">ffi</span> <span class="o">=</span> <span class="n">cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
+        <span class="n">cpp_element</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ufc_element</span><span class="p">))</span>
+        <span class="n">cpp_dofmap</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_dofmap</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">(),</span> <span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ufc_dofmap_ptr</span><span class="p">),</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="p">)</span>
+
+        <span class="c1"># Initialize the cpp.FunctionSpace</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">cpp_dofmap</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FunctionSpace.clone"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.clone">[docs]</a>    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return a new FunctionSpace :math:`W` which shares data with this</span>
+<span class="sd">        FunctionSpace :math:`V`, but with a different unique integer ID.</span>
+
+<span class="sd">        This function is helpful for defining mixed problems and using</span>
+<span class="sd">        blocked linear algebra. For example, a matrix block defined on</span>
+<span class="sd">        the spaces :math:`V \\times W` where, :math:`V` and :math:`W`</span>
+<span class="sd">        are defined on the same finite element and mesh can be</span>
+<span class="sd">        identified as an off-diagonal block whereas the :math:`V \\times</span>
+<span class="sd">        V` and :math:`V \\times V` matrices can be identified as</span>
+<span class="sd">        diagonal blocks. This is relevant for the handling of boundary</span>
+<span class="sd">        conditions.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Vcpp</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span> <span class="n">Vcpp</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.dolfin_element"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.dolfin_element">[docs]</a>    <span class="k">def</span> <span class="nf">dolfin_element</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the DOLFIN element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.num_sub_spaces"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.num_sub_spaces">[docs]</a>    <span class="k">def</span> <span class="nf">num_sub_spaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the number of sub spaces.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dolfin_element</span><span class="p">()</span><span class="o">.</span><span class="n">num_sub_elements</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.sub"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.sub">[docs]</a>    <span class="k">def</span> <span class="nf">sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the i-th sub space.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">num_sub_elements</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">i</span>
+        <span class="n">sub_element</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">()[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">cppV_sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">sub</span><span class="p">([</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">sub_element</span><span class="p">,</span> <span class="n">cppV_sub</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.component"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.component">[docs]</a>    <span class="k">def</span> <span class="nf">component</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the component relative to the parent space.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">component</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.contains"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.contains">[docs]</a>    <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Check whether a FunctionSpace is in this FunctionSpace, or is the</span>
+<span class="sd">        same as this FunctionSpace.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check whether a function is in the FunctionSpace.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">u</span><span class="o">.</span><span class="n">_in</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">u</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">_in</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Unable to check if object is in FunctionSpace (</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Comparison for equality.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Comparison for inequality.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__ne__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+<div class="viewcode-block" id="FunctionSpace.ufl_cell"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.ufl_cell">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.ufl_function_space"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.ufl_function_space">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the UFL function space&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;The unique identifier&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">element</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dofmap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;dofmap.DofMap&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return the degree-of-freedom map associated with the function space.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">DofMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the mesh on which the function space is defined.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span>
+
+<div class="viewcode-block" id="FunctionSpace.collapse"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.collapse">[docs]</a>    <span class="k">def</span> <span class="nf">collapse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collapsed_dofs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Collapse a subspace and return a new function space and a map from</span>
+<span class="sd">        new to old dofs.</span>
+
+<span class="sd">        *Arguments*</span>
+<span class="sd">            collapsed_dofs</span>
+<span class="sd">                Return the map from new to old dofs</span>
+
+<span class="sd">       *Returns*</span>
+<span class="sd">           FunctionSpace</span>
+<span class="sd">                The new function space.</span>
+<span class="sd">           dict</span>
+<span class="sd">                The map from new to old dofs (optional)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cpp_space</span><span class="p">,</span> <span class="n">dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">collapse</span><span class="p">()</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span> <span class="n">cpp_space</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">collapsed_dofs</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">V</span><span class="p">,</span> <span class="n">dofs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">V</span></div>
+
+<div class="viewcode-block" id="FunctionSpace.tabulate_dof_coordinates"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.tabulate_dof_coordinates">[docs]</a>    <span class="k">def</span> <span class="nf">tabulate_dof_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="VectorFunctionSpace"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.VectorFunctionSpace">[docs]</a><span class="k">def</span> <span class="nf">VectorFunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span>
+                        <span class="n">element</span><span class="p">:</span> <span class="n">ElementMetaData</span><span class="p">,</span>
+                        <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">restriction</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create vector finite element (composition of scalar elements) function space.&quot;&quot;&quot;</span>
+
+    <span class="n">e</span> <span class="o">=</span> <span class="n">ElementMetaData</span><span class="p">(</span><span class="o">*</span><span class="n">element</span><span class="p">)</span>
+    <span class="n">ufl_element</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">VectorElement</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span> <span class="n">form_degree</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">form_degree</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ufl_element</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TensorFunctionSpace"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.TensorFunctionSpace">[docs]</a><span class="k">def</span> <span class="nf">TensorFunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span>
+                        <span class="n">element</span><span class="p">:</span> <span class="n">ElementMetaData</span><span class="p">,</span>
+                        <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">symmetry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">restriction</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create tensor finite element (composition of scalar elements) function space.&quot;&quot;&quot;</span>
+
+    <span class="n">e</span> <span class="o">=</span> <span class="n">ElementMetaData</span><span class="p">(</span><span class="o">*</span><span class="n">element</span><span class="p">)</span>
+    <span class="n">ufl_element</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TensorElement</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">symmetry</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ufl_element</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.function</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.3.1.
+    </div>
+  </body>
+</html>

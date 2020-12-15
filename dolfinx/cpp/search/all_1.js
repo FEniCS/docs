@@ -10,5 +10,5 @@ var searchData=
   ['boxmesh_30',['BoxMesh',['../d1/d24/classdolfinx_1_1generation_1_1BoxMesh.html',1,'dolfinx::generation']]],
   ['bs_31',['bs',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#ad3481bf67cd6a9788f8f7872cfaae74c',1,'dolfinx::fem::DofMap::bs()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#ab224614568bab361dcdeac0a3cc977ea',1,'dolfinx::la::Vector::bs()']]],
   ['build_32',['build',['../d1/dc5/namespacedolfinx_1_1fem_1_1DofMapBuilder.html#ab9d852396d1835ddb4c3c7f75ca43d5b',1,'dolfinx::fem::DofMapBuilder']]],
-  ['build_5fgradient_33',['build_gradient',['../d4/d41/classdolfinx_1_1fem_1_1DiscreteOperators.html#aafb28da8785f82a6fcc3784399072b70',1,'dolfinx::fem::DiscreteOperators']]]
+  ['build_5fgradient_33',['build_gradient',['../d4/d41/classdolfinx_1_1fem_1_1DiscreteOperators.html#a56218328c27aa32001ad8ce586286852',1,'dolfinx::fem::DiscreteOperators']]]
 ];
