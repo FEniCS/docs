@@ -6,13 +6,13 @@ the `master` branch of each project.
 
 ## DOLFINX
 
-`master` C++: https://docs.fenicsproject.org/dolfinx/cpp/
+`master` C++: https://docs.fenicsproject.org/dolfinx/master/cpp/
 
-`master` Python: https://docs.fenicsproject.org/dolfinx/python/
+`master` Python: https://docs.fenicsproject.org/dolfinx/master/python/
 
 ## FFCX
 
-`master`: https://docs.fenicsproject.org/ffcx
+`master`: https://docs.fenicsproject.org/ffcx/master
 
 ## libtab
 
