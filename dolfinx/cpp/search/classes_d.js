@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['sparsitypattern_495',['SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html',1,'dolfinx::la']]]
+  ['sparsitypattern_490',['SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html',1,'dolfinx::la']]]
 ];

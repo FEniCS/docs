@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['xdmffile_506',['XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html',1,'dolfinx::io']]]
+  ['xdmffile_501',['XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html',1,'dolfinx::io']]]
 ];
