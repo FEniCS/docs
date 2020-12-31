@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['rectanglemesh_484',['RectangleMesh',['../d8/d7f/classdolfinx_1_1generation_1_1RectangleMesh.html',1,'dolfinx::generation']]]
+  ['sparsitypattern_487',['SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html',1,'dolfinx::la']]]
 ];
