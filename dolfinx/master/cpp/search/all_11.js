@@ -34,7 +34,8 @@ var searchData=
   ['start_379',['start',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a3a8b5272198d029779dc9302a54305a8',1,'dolfinx::common::Timer']]],
   ['stop_380',['stop',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a988f79aa183d9d5473c13106f5babe48',1,'dolfinx::common::Timer']]],
   ['str_381',['str',['../db/d97/classdolfinx_1_1Table.html#a38314fee8bffb861fd0507e9b497ca52',1,'dolfinx::Table::str()'],['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a36a1cecd1fe5e9f61f6fcfc129d4ed62',1,'dolfinx::geometry::BoundingBoxTree::str()'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a2460a658b5bd760c5b4bd1a24346dbb4',1,'dolfinx::graph::AdjacencyList::str()']]],
-  ['sub_382',['sub',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#afbe2936549f562b5f404cbccc4c49039',1,'dolfinx::fem::Function::sub()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a32851e7b2a30f11c70fd367fafdd250c',1,'dolfinx::fem::FunctionSpace::sub()']]],
-  ['sub_5fdofmap_383',['sub_dofmap',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#aadb421c67949b99469f18a49961b88e4',1,'dolfinx::fem::ElementDofLayout']]],
-  ['sub_5fview_384',['sub_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a5204679903281dc4db4dcc29a224b80f',1,'dolfinx::fem::ElementDofLayout']]]
+  ['strategy_382',['strategy',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#aca845b2e514c9180e551688049f6d30b',1,'dolfinx::graph::scotch']]],
+  ['sub_383',['sub',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#afbe2936549f562b5f404cbccc4c49039',1,'dolfinx::fem::Function::sub()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a32851e7b2a30f11c70fd367fafdd250c',1,'dolfinx::fem::FunctionSpace::sub()']]],
+  ['sub_5fdofmap_384',['sub_dofmap',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#aadb421c67949b99469f18a49961b88e4',1,'dolfinx::fem::ElementDofLayout']]],
+  ['sub_5fview_385',['sub_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a5204679903281dc4db4dcc29a224b80f',1,'dolfinx::fem::ElementDofLayout']]]
 ];
