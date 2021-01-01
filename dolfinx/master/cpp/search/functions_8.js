@@ -23,5 +23,6 @@ var searchData=
   ['is_5forthogonal_728',['is_orthogonal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#ae45312ea2f2e6d5ab1546f018ff73cf1',1,'dolfinx::la::VectorSpaceBasis']]],
   ['is_5forthonormal_729',['is_orthonormal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#a7d1f3389eaee8f3d40d77005a12f1347',1,'dolfinx::la::VectorSpaceBasis']]],
   ['is_5fsimplex_730',['is_simplex',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac5f08c93e4f57e68777810cfac7493e9',1,'dolfinx::mesh']]],
-  ['is_5fview_731',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ae7737414a426675bde6fcb52baea7009',1,'dolfinx::fem::ElementDofLayout']]]
+  ['is_5fview_731',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ae7737414a426675bde6fcb52baea7009',1,'dolfinx::fem::ElementDofLayout']]],
+  ['iteration_732',['iteration',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a7adc1209b7d4740b330d5ed2ac07e043',1,'dolfinx::nls::NewtonSolver']]]
 ];
