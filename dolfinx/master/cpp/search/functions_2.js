@@ -63,9 +63,9 @@ var searchData=
   ['create_5ffunctionspace_617',['create_functionspace',['../d8/dbf/namespacedolfinx_1_1fem.html#a6945e14af84d7cfa415a09fb09ce59e8',1,'dolfinx::fem']]],
   ['create_5fgeometry_618',['create_geometry',['../dd/d7d/namespacedolfinx_1_1mesh.html#a60b0382ca4b37839ab2fe9ef8bb82ef2',1,'dolfinx::mesh']]],
   ['create_5fghosted_5fvector_619',['create_ghosted_vector',['../d6/dfa/namespacedolfinx_1_1la.html#a83f387a29bb8b710ff76d6cdf01bd0e9',1,'dolfinx::la']]],
-  ['create_5fmatrix_620',['create_matrix',['../d8/dbf/namespacedolfinx_1_1fem.html#af84a7f13165718f74b1c3640434f8ad3',1,'dolfinx::fem']]],
-  ['create_5fmatrix_5fblock_621',['create_matrix_block',['../d8/dbf/namespacedolfinx_1_1fem.html#a6d1425519f27729ce63733de1b531148',1,'dolfinx::fem']]],
-  ['create_5fmatrix_5fnest_622',['create_matrix_nest',['../d8/dbf/namespacedolfinx_1_1fem.html#a2c38c143a4f7d3af772780d573b61daa',1,'dolfinx::fem']]],
+  ['create_5fmatrix_620',['create_matrix',['../d8/dbf/namespacedolfinx_1_1fem.html#aff58ad3b83346acac128fd187bfe7026',1,'dolfinx::fem']]],
+  ['create_5fmatrix_5fblock_621',['create_matrix_block',['../d8/dbf/namespacedolfinx_1_1fem.html#ad26e890498285d9fed8dc340afe4ae2b',1,'dolfinx::fem']]],
+  ['create_5fmatrix_5fnest_622',['create_matrix_nest',['../d8/dbf/namespacedolfinx_1_1fem.html#a9aae0a2af49fec107c0d51924c8b21ff',1,'dolfinx::fem']]],
   ['create_5fmesh_623',['create_mesh',['../dd/d7d/namespacedolfinx_1_1mesh.html#adc4767be76b548633d0562158c17dbd2',1,'dolfinx::mesh::create_mesh(MPI_Comm comm, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, const fem::CoordinateElement &amp;element, const Eigen::Array&lt; double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor &gt; &amp;x, GhostMode ghost_mode)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#a0fbd8a672e0a6ffb78b57c5fb964ed9a',1,'dolfinx::mesh::create_mesh(MPI_Comm comm, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, const fem::CoordinateElement &amp;element, const Eigen::Array&lt; double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor &gt; &amp;x, GhostMode ghost_mode, const CellPartitionFunction &amp;cell_partitioner)']]],
   ['create_5fmeshtags_624',['create_meshtags',['../dd/d7d/namespacedolfinx_1_1mesh.html#aa3ef9f323f6e6fbd10032306e62b0421',1,'dolfinx::mesh']]],
   ['create_5fmidpoint_5ftree_625',['create_midpoint_tree',['../de/d27/namespacedolfinx_1_1geometry.html#af7620f480fc248a2d95e7e36d01258ad',1,'dolfinx::geometry']]],
@@ -77,6 +77,6 @@ var searchData=
   ['create_5fsparsity_5fpattern_631',['create_sparsity_pattern',['../d8/dbf/namespacedolfinx_1_1fem.html#afefced23767b97f6cc040b07627f9522',1,'dolfinx::fem::create_sparsity_pattern(const Form&lt; T &gt; &amp;a)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a281b9e87e9a4e53e7efe16e7daee9dd7',1,'dolfinx::fem::create_sparsity_pattern(const mesh::Topology &amp;topology, const std::array&lt; const std::reference_wrapper&lt; const fem::DofMap &gt;, 2 &gt; &amp;dofmaps, const std::set&lt; IntegralType &gt; &amp;integrals)']]],
   ['create_5ftopology_632',['create_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac825bcf6fe0ee8cfc1527ba0bf7e8126',1,'dolfinx::mesh']]],
   ['create_5fvector_633',['create_vector',['../df/d28/classdolfinx_1_1la_1_1PETScOperator.html#ad2bc4534c604ba78de4d0606d237b45d',1,'dolfinx::la::PETScOperator']]],
-  ['create_5fvector_5fblock_634',['create_vector_block',['../d8/dbf/namespacedolfinx_1_1fem.html#a2c5b8f143e58a86f49a34e76e52b66d4',1,'dolfinx::fem']]],
-  ['create_5fvector_5fnest_635',['create_vector_nest',['../d8/dbf/namespacedolfinx_1_1fem.html#ace74e5d1c7503e13156f787d7a6c8482',1,'dolfinx::fem']]]
+  ['create_5fvector_5fblock_634',['create_vector_block',['../d8/dbf/namespacedolfinx_1_1fem.html#a5a5caf913e817b349649243db0450ae2',1,'dolfinx::fem']]],
+  ['create_5fvector_5fnest_635',['create_vector_nest',['../d8/dbf/namespacedolfinx_1_1fem.html#adb98ee97de5ced5e4f3a2a0ce07fa074',1,'dolfinx::fem']]]
 ];
