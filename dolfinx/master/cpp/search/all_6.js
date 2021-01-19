@@ -12,7 +12,7 @@ var searchData=
   ['get_5fentity_5fvertices_197',['get_entity_vertices',['../dd/d7d/namespacedolfinx_1_1mesh.html#a60daac61bbc3942c23ea110060955af7',1,'dolfinx::mesh']]],
   ['get_5ffacet_5fpermutations_198',['get_facet_permutations',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aa1e4fc60396eb439815a741f472b42c8',1,'dolfinx::mesh::Topology']]],
   ['get_5ffilename_199',['get_filename',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a2257b5a377ea3964611c84df7ed2336f',1,'dolfinx::io::HDF5Interface::get_filename()'],['../d6/d7a/namespacedolfinx_1_1io.html#ad8cc31466a63466d27c2b423d30a2838',1,'dolfinx::io::get_filename()']]],
-  ['get_5flocal_5fvectors_200',['get_local_vectors',['../d6/dfa/namespacedolfinx_1_1la.html#a8adf57d36fa596da97df3191d12804f7',1,'dolfinx::la']]],
+  ['get_5flocal_5fvectors_200',['get_local_vectors',['../d6/dfa/namespacedolfinx_1_1la.html#a248428c9f79cbb6a67f27cde1d59c378',1,'dolfinx::la']]],
   ['get_5fmpi_5fatomicity_201',['get_mpi_atomicity',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a900cd92d3b91032a2ec03cae020929aa',1,'dolfinx::io::HDF5Interface']]],
   ['get_5foptions_5fprefix_202',['get_options_prefix',['../d4/d8b/classdolfinx_1_1la_1_1PETScKrylovSolver.html#a65e2fad2b61a3232800eaba064a16931',1,'dolfinx::la::PETScKrylovSolver::get_options_prefix()'],['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#af9497ff9c76fa6efb0d2fb6437d6ecfc',1,'dolfinx::la::PETScMatrix::get_options_prefix()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#a57710c759d81aec73012e1b8c3e42e3f',1,'dolfinx::la::PETScVector::get_options_prefix()']]],
   ['get_5fsub_5fentities_203',['get_sub_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a5a58790362d4d65113f0852f828456ed',1,'dolfinx::mesh']]],
