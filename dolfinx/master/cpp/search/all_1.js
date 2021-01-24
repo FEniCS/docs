@@ -9,6 +9,5 @@ var searchData=
   ['build_5fadjacency_5flist_31',['build_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#a26f53a61ca3e28138a6b83715c47153d',1,'dolfinx::graph']]],
   ['build_5fdofmap_5fdata_32',['build_dofmap_data',['../d8/dbf/namespacedolfinx_1_1fem.html#a4686b146b3274c580b056a947ecb1ca4',1,'dolfinx::fem']]],
   ['build_5fdual_5fgraph_33',['build_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a57b995ddf0146c0f0c53783e9be271ac',1,'dolfinx::mesh']]],
-  ['build_5fgradient_34',['build_gradient',['../d4/d41/classdolfinx_1_1fem_1_1DiscreteOperators.html#a56218328c27aa32001ad8ce586286852',1,'dolfinx::fem::DiscreteOperators']]],
-  ['build_5flocal_5fdual_5fgraph_35',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a960a0b4454a5743181ca3daaaf570665',1,'dolfinx::mesh']]]
+  ['build_5flocal_5fdual_5fgraph_34',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a960a0b4454a5743181ca3daaaf570665',1,'dolfinx::mesh']]]
 ];
