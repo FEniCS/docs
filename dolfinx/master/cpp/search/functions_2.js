@@ -29,7 +29,7 @@ var searchData=
   ['compute_5fdistance_5fgjk_573',['compute_distance_gjk',['../de/d27/namespacedolfinx_1_1geometry.html#a4409ded7f39bae74a9156fd73f8aa9d1',1,'dolfinx::geometry']]],
   ['compute_5fedge_5fsharing_574',['compute_edge_sharing',['../d9/dd6/namespacedolfinx_1_1refinement.html#ab46eafc343226c7a1166dd448b2707b7',1,'dolfinx::refinement']]],
   ['compute_5fentities_575',['compute_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a917b38a122ffe9d130cc3eae432496e6',1,'dolfinx::mesh']]],
-  ['compute_5fentity_5fpermutations_576',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#a0c15a30e7d1b9e1d27f464203d9582de',1,'dolfinx::mesh']]],
+  ['compute_5fentity_5fpermutations_576',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#afb0fa8d21df387bf0b081db4edb5ffd4',1,'dolfinx::mesh']]],
   ['compute_5fghost_5findices_577',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a1f08084c7c056a90bbf6b7ec32e7856a',1,'dolfinx::graph::build']]],
   ['compute_5fglobal_5ftree_578',['compute_global_tree',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a999fdba42d0689d90e08d757afa01acc',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['compute_5fgps_579',['compute_gps',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#a285982d14434660b47cde732bd419f5e',1,'dolfinx::graph::scotch']]],
