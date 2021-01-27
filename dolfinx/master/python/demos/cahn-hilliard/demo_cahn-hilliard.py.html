@@ -137,7 +137,7 @@ file.</p>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="p">(</span><span class="n">Form</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">NewtonSolver</span><span class="p">,</span>
-                     <span class="n">UnitSquareMesh</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+                     <span class="n">UnitSquareMesh</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">plot</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">dolfinx.cpp.mesh</span> <span class="k">import</span> <span class="n">CellType</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem.assemble</span> <span class="k">import</span> <span class="n">assemble_matrix</span><span class="p">,</span> <span class="n">assemble_vector</span>
 <span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="k">import</span> <span class="n">XDMFFile</span>
@@ -145,6 +145,14 @@ file.</p>
 <span class="kn">from</span> <span class="nn">petsc4py</span> <span class="k">import</span> <span class="n">PETSc</span>
 <span class="kn">from</span> <span class="nn">ufl</span> <span class="k">import</span> <span class="p">(</span><span class="n">FiniteElement</span><span class="p">,</span> <span class="n">TestFunctions</span><span class="p">,</span> <span class="n">TrialFunction</span><span class="p">,</span> <span class="n">derivative</span><span class="p">,</span> <span class="n">diff</span><span class="p">,</span>
                  <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">variable</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pyvista</span> <span class="k">as</span> <span class="nn">pv</span>
+    <span class="kn">import</span> <span class="nn">pyvistaqt</span> <span class="k">as</span> <span class="nn">pvqt</span>
+    <span class="n">have_pyvista</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="n">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pyvista is required to visualise the solution&quot;</span><span class="p">)</span>
+    <span class="n">have_pyvista</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="c1"># Save all logging to file</span>
 <span class="n">log</span><span class="o">.</span><span class="n">set_output_file</span><span class="p">(</span><span class="s2">&quot;log.txt&quot;</span><span class="p">)</span>
@@ -319,12 +327,30 @@ visualization, the solver is advanced in time from <span class="math notranslate
 <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
 <span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
 
+
+<span class="c1"># Prepare viewer for plotting solution during the computation</span>
+<span class="k">if</span> <span class="n">have_pyvista</span><span class="p">:</span>
+    <span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span><span class="o">.</span><span class="n">real</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">pvqt</span><span class="o">.</span><span class="n">BackgroundPlotter</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;concentration&quot;</span><span class="p">,</span> <span class="n">auto_update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">clim</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">view_xy</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;time: </span><span class="si">{t}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;timelabel&quot;</span><span class="p">)</span>
+
 <span class="k">while</span> <span class="p">(</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">T</span><span class="p">):</span>
     <span class="n">t</span> <span class="o">+=</span> <span class="n">dt</span>
     <span class="n">r</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Step, num iterations:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span> <span class="o">/</span> <span class="n">dt</span><span class="p">),</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
     <span class="n">file</span><span class="o">.</span><span class="n">write_function</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">t</span><span class="p">)</span>
+
+    <span class="c1"># Update the plot window</span>
+    <span class="k">if</span> <span class="n">have_pyvista</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;time: </span><span class="si">{t:.2e}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;timelabel&quot;</span><span class="p">)</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span><span class="o">.</span><span class="n">real</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">processEvents</span><span class="p">()</span>
 
 <span class="n">file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
@@ -335,6 +361,13 @@ with the new solution vector returned in <code class="xref py py-func docutils l
 The solution vector associated with <code class="docutils literal notranslate"><span class="pre">u</span></code> is copied to <code class="docutils literal notranslate"><span class="pre">u0</span></code> at the
 end of each time step, and the <code class="docutils literal notranslate"><span class="pre">c</span></code> component of the solution
 (the first component of <code class="docutils literal notranslate"><span class="pre">u</span></code>) is then written to file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Update ghost entries and plot</span>
+<span class="k">if</span> <span class="n">have_pyvista</span><span class="p">:</span>
+    <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span><span class="o">.</span><span class="n">real</span>
+    <span class="n">pv</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
 </div>
 </div>
 

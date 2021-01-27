@@ -1,0 +1,525 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Using pyvista for visualization &#8212; DOLFINX  documentation</title>
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Developer resources" href="../../developer.html" />
+    <link rel="prev" title="Static condensation of linear elasticity" href="../mixed-elasticity-sc/static-condensation-elasticity.py.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../../developer.html" title="Developer resources"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../mixed-elasticity-sc/static-condensation-elasticity.py.html" title="Static condensation of linear elasticity"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" accesskey="U">Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Using pyvista for visualization</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <p>Copyright (C) 2021 Jørgen S. Dokken</p>
+<p>This file is part of DOLFINX (<a class="reference external" href="https://www.fenicsproject.org">https://www.fenicsproject.org</a>)</p>
+<p>SPDX-License-Identifier:    LGPL-3.0-or-later</p>
+<div class="section" id="using-pyvista-for-visualization">
+<h1>Using pyvista for visualization<a class="headerlink" href="#using-pyvista-for-visualization" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">dolfinx</span>
+<span class="kn">import</span> <span class="nn">dolfinx.io</span>
+<span class="kn">import</span> <span class="nn">dolfinx.plot</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="k">import</span> <span class="n">MPI</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pyvista</span>
+<span class="k">except</span> <span class="n">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pyvista is required for this demo&quot;</span><span class="p">)</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># If you are running dolfin-x in a docker container or on a server which does not</span>
+<span class="c1"># have X forwarding, we need to make a virtual (headless) framebuffer that can capture</span>
+<span class="c1"># the plotting.</span>
+<span class="c1"># It requires the following packages:</span>
+<span class="c1"># libgl1-mesa-dev xvfb  (Can be install with &quot;apt-get install&quot;)</span>
+<span class="c1"># The following should be uncommented:</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">import os</span>
+<span class="sd">import subprocess</span>
+<span class="sd">os.environ[&#39;DISPLAY&#39;] = &#39;:99.0&#39;</span>
+
+<span class="sd">commands = [&#39;Xvfb :99 -screen 0 1024x768x24 &gt; /dev/null 2&gt;&amp;1 &amp;&#39;,</span>
+<span class="sd">            &#39;sleep 3&#39;,</span>
+<span class="sd">            &#39;exec &quot;$@&quot;&#39;]</span>
+
+<span class="sd">for command in commands:</span>
+<span class="sd">    subprocess.call(command, shell=True)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Should be set to True if there is no x-forwarding. If X-forwarding</span>
+<span class="c1"># this can be set to False, and the command above should be commented</span>
+<span class="c1"># out.</span>
+<span class="n">off_screen</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="c1"># Set some global options for all plots</span>
+<span class="n">transparent</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">figsize</span> <span class="o">=</span> <span class="mi">800</span>
+<span class="n">pyvista</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;background&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="section" id="plotting-a-3d-dolfinx-function-with-pyvista">
+<h2>Plotting a 3D dolfinx.Function with pyvista<a class="headerlink" href="#plotting-a-3d-dolfinx-function-with-pyvista" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Interpolate a simple scalar function in 3D</span>
+<span class="k">def</span> <span class="nf">int_u</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">UnitCubeMesh</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">cell_type</span><span class="o">=</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;CG&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">u</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">int_u</span><span class="p">)</span>
+
+<span class="c1"># Extract mesh data from dolfin-X (only plot cells owned by the</span>
+<span class="c1"># processor) and create a pyvista UnstructuredGrid</span>
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">cell_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">cell_entities</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># Compute the function values at the vertices, this is equivalent to a</span>
+<span class="c1"># P1 Lagrange interpolation, and can be directly attached to the Pyvista</span>
+<span class="c1"># mesh. Discard complex value if running dolfin-X with complex PETSc as</span>
+<span class="c1"># backend</span>
+<span class="n">vertex_values</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">vertex_values</span><span class="p">):</span>
+    <span class="n">vertex_values</span> <span class="o">=</span> <span class="n">vertex_values</span><span class="o">.</span><span class="n">real</span>
+
+<span class="c1"># Create point cloud of vertices, and add the vertex values to the cloud</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vertex_values</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create a pyvista plotter which is used to visualize the output</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Mesh and corresponding dof values&quot;</span><span class="p">,</span>
+                 <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+<span class="c1"># Some styling arguments for the colorbar</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.825</span><span class="p">,</span> <span class="n">position_y</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%1.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+             <span class="n">title_font_size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label_font_size</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+
+<span class="c1"># Plot the mesh (as a wireframe) with the finite element function</span>
+<span class="c1"># visualized as the point cloud</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;wireframe&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+<span class="c1"># To be able to visualize the mesh and nodes at the same time, we have</span>
+<span class="c1"># to copy the grid</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;points&quot;</span><span class="p">,</span> <span class="n">render_points_as_spheres</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">scalars</span><span class="o">=</span><span class="n">vertex_values</span><span class="p">,</span> <span class="n">point_size</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_position</span><span class="p">([</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span>
+
+<span class="c1"># Save as png if we are using a container with no rendering</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="s2">&quot;3D_wireframe_with_nodes.png&quot;</span><span class="p">,</span> <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span>
+                       <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="c1"># Create a new plotter, and plot the values as a surface over the mesh</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Function values over the surface of a mesh&quot;</span><span class="p">,</span>
+                 <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+<span class="c1"># Define some styling arguments for a colorbar</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+             <span class="n">position_y</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%1.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+             <span class="n">title_font_size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label_font_size</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+
+<span class="c1"># Adjust camera to show the entire mesh</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_position</span><span class="p">([</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">])</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_focus</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.01</span><span class="p">])</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_viewup</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># Add mesh with edges</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">scalar_bar_args</span><span class="o">=</span><span class="n">sargs</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="s2">&quot;3D_function.png&quot;</span><span class="p">,</span> <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="plotting-a-2d-dolfinx-function-with-pyvista-using-warp-by-scalar">
+<h2>Plotting a 2D dolfinx.Function with pyvista using warp by scalar<a class="headerlink" href="#plotting-a-2d-dolfinx-function-with-pyvista-using-warp-by-scalar" title="Permalink to this headline">¶</a></h2>
+<p>As in the previous section, we interpolate a function into a CG
+function space</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">int_2D</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">UnitSquareMesh</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">cell_type</span><span class="o">=</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">u</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">int_2D</span><span class="p">)</span>
+
+<span class="c1"># As in the previous section, we extract the geometry and topology of</span>
+<span class="c1"># the mesh, and attach values to the vertices</span>
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+<span class="n">point_values</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">point_values</span><span class="p">):</span>
+    <span class="n">point_values</span> <span class="o">=</span> <span class="n">point_values</span><span class="o">.</span><span class="n">real</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">point_values</span>
+
+<span class="c1"># We set the function &quot;u&quot; as the active scalar for the mesh, and warp</span>
+<span class="c1"># the mesh in z-direction by its values</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">)</span>
+<span class="n">warped</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">warp_by_scalar</span><span class="p">()</span>
+
+<span class="c1"># Plot mesh with scalar bar</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Warped function&quot;</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+             <span class="n">position_y</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%1.2e</span><span class="s2">&quot;</span><span class="p">,</span>
+             <span class="n">title_font_size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label_font_size</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_position</span><span class="p">([</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mf">2.6</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">])</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_focus</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.15</span><span class="p">])</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">set_viewup</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">warped</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scalar_bar_args</span><span class="o">=</span><span class="n">sargs</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="s2">&quot;2D_function_warp.png&quot;</span><span class="p">,</span> <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="plotting-a-2d-meshtags-and-using-subplots">
+<h2>Plotting a 2D MeshTags and using subplots<a class="headerlink" href="#plotting-a-2d-meshtags-and-using-subplots" title="Permalink to this headline">¶</a></h2>
+<p>We continue using the mesh from the previous section, and find all
+cells satisfying the condition below</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">in_circle</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="c1"># Mark sphere with radius &lt; sqrt(2)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">T</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+
+<span class="c1"># Create a dolfinx.MeshTag for all cells. If midpoint is inside the</span>
+<span class="c1"># circle, it gets value 1, otherwise 0.</span>
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">midpoints</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">midpoints</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)))</span>
+<span class="n">cell_tags</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">MeshTags</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">in_circle</span><span class="p">(</span><span class="n">midpoints</span><span class="p">))</span>
+
+<span class="c1"># As the dolfinx.MeshTag contains a value for every cell in the</span>
+<span class="c1"># geometry, we can attach it directly to the grid</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">cell_arrays</span><span class="p">[</span><span class="s2">&quot;Marker&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="o">.</span><span class="n">values</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;Marker&quot;</span><span class="p">)</span>
+
+<span class="c1"># We create a plotter consisting of two windows, and add a plot of the</span>
+<span class="c1"># Meshtags to the first window.</span>
+<span class="n">subplotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Mesh with markers&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">show_scalar_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+
+<span class="c1"># We can also visualize subsets of data, by creating a smaller topology,</span>
+<span class="c1"># only consisting of thos entities that has value one in the</span>
+<span class="c1"># dolfinx.MeshTag</span>
+<span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span>
+    <span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">cell_tags</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">cell_tags</span><span class="o">.</span><span class="n">values</span> <span class="o">==</span> <span class="mi">1</span><span class="p">])</span>
+
+<span class="c1"># We add this grid to the second plotter</span>
+<span class="n">sub_grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Subset of mesh&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">)</span>
+<span class="n">subplotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">sub_grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">edge_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">subplotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="s2">&quot;2D_markers.png&quot;</span><span class="p">,</span> <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span>
+                          <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">subplotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="plotting-a-dolfinx-function">
+<h2>Plotting a dolfinx.Function<a class="headerlink" href="#plotting-a-dolfinx-function" title="Permalink to this headline">¶</a></h2>
+<p>In the previous sections we have considered CG-1 spaces, which have a
+1-1 correspondence with the vertices of the geometry. To be able to
+plot higher order function spaces, both CG and DG spaces, we have to
+adjust our plotting technique.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># We start by projecting a discontinuous function into a second order DG</span>
+<span class="c1"># space Note that we use the `cell_tags` from the previous section to</span>
+<span class="c1"># restrict the integration domain on the RHS.</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dx&quot;</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="n">cell_tags</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">uh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+<span class="n">L</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">ufl</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">problem</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">LinearProblem</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="n">uh</span><span class="p">,</span> <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span> <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">})</span>
+<span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+
+<span class="c1"># To get a topology that has a 1-1 correspondence with the degrees of</span>
+<span class="c1"># freedom in the function space, we call</span>
+<span class="c1"># `dolfinx.plot.create_vtk_topology`. We obtain the geometry for</span>
+<span class="c1"># the dofs owned on this process by tabulation of the dof coordinates.</span>
+<span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">num_dofs_local</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">geometry</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()[:</span><span class="n">num_dofs_local</span><span class="p">]</span>
+
+<span class="c1"># We discard the complex values if using PETSc in complex mode</span>
+<span class="n">values</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">real</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">array</span><span class="p">)</span> <span class="k">else</span> <span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">array</span>
+
+<span class="c1"># We create a pyvista mesh from the topology and geometry, and attach</span>
+<span class="c1"># the coefficients of the degrees of freedom</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span><span class="p">)</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;DG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">)</span>
+
+<span class="c1"># We would also like to visualize the underlying mesh and obtain that as</span>
+<span class="c1"># we have done previously</span>
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">cell_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">cell_entities</span><span class="p">)</span>
+<span class="n">org_grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="c1"># We visualize the data</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Second order discontinuous elements&quot;</span><span class="p">,</span>
+                 <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">position_y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">scalar_bar_args</span><span class="o">=</span><span class="n">sargs</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">org_grid</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;wireframe&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;points&quot;</span><span class="p">,</span> <span class="n">point_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">render_points_as_spheres</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;DG_</span><span class="si">{MPI.COMM_WORLD.rank}</span><span class="s2">.png&quot;</span><span class="p">,</span>
+                       <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="plotting-a-dolfinx-function-with-vector-values">
+<h2>Plotting a dolfinx.Function with vector values<a class="headerlink" href="#plotting-a-dolfinx-function-with-vector-values" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># In the previous sections, we have considered how to plot scalar valued</span>
+<span class="c1"># functions. This section will show you how to plot vector valued</span>
+<span class="c1"># functions. We start by interpolating an expression into a second order</span>
+<span class="c1"># CG space.</span>
+<span class="k">def</span> <span class="nf">vel</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">vals</span>
+
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">UnitSquareMesh</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">VectorFunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;CG&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">uh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">uh</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">vel</span><span class="p">)</span>
+
+<span class="c1"># We use the `dolfinx.plot.create_vtk_topology`</span>
+<span class="c1"># function, as in the previous section. However, we input a set of cell</span>
+<span class="c1"># entities, which can restrict the plotting to subsets of our mesh</span>
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">cell_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+<span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">cell_entities</span><span class="p">)</span>
+
+<span class="c1"># As we deal with a vector function space, we need to adjust the values</span>
+<span class="c1"># in the underlying one dimensional array in dolfinx.Function, by</span>
+<span class="c1"># reshaping the data, and add an extra column to make it a 3D vector</span>
+<span class="n">num_dofs_local</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">geometry</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()[:</span><span class="n">num_dofs_local</span><span class="p">]</span>
+<span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="n">values</span><span class="p">[:,</span> <span class="p">:</span><span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+
+<span class="c1"># Create a point cloud of glyphs</span>
+<span class="n">function_grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span><span class="p">)</span>
+<span class="n">function_grid</span><span class="p">[</span><span class="s2">&quot;vectors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+<span class="n">function_grid</span><span class="o">.</span><span class="n">set_active_vectors</span><span class="p">(</span><span class="s2">&quot;vectors&quot;</span><span class="p">)</span>
+<span class="n">glyphs</span> <span class="o">=</span> <span class="n">function_grid</span><span class="o">.</span><span class="n">glyph</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;vectors&quot;</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+
+<span class="c1"># To add streamlines in 2D, you need to supply the two points creating a</span>
+<span class="c1"># sampling line</span>
+<span class="c1"># NOTE: This crashes if ran in parallel, seems to be a pyvista issue</span>
+<span class="c1"># with pointa, pointb</span>
+<span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">streamlines</span> <span class="o">=</span> <span class="n">function_grid</span><span class="o">.</span><span class="n">streamlines</span><span class="p">(</span><span class="n">vectors</span><span class="o">=</span><span class="s2">&quot;vectors&quot;</span><span class="p">,</span> <span class="n">return_source</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                            <span class="n">pointa</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">pointb</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+<span class="c1"># Create pyvista mesh from the mesh</span>
+<span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">cell_entities</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">pyvista_cells</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+
+<span class="c1"># Add mesh, glyphs and streamlines to plotter</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Second order vector function.&quot;</span><span class="p">,</span>
+                 <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">position_y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;wireframe&quot;</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">glyphs</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">streamlines</span><span class="o">.</span><span class="n">tube</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="mf">0.001</span><span class="p">),</span> <span class="n">show_scalar_bar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;vectors_</span><span class="si">{MPI.COMM_WORLD.rank}</span><span class="s2">.png&quot;</span><span class="p">,</span>
+                       <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id1">
+<h2>Plotting a dolfinx.Function with vector values<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>In this section we illustrate how to visualize streamlines in 3D</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">vel</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span>
+    <span class="n">vals</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">vals</span>
+
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">UnitCubeMesh</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">hexahedron</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">VectorFunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">uh</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">uh</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">vel</span><span class="p">)</span>
+
+<span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">cell_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+<span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">cell_entities</span><span class="p">)</span>
+<span class="n">num_dofs_local</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span>
+<span class="n">geometry</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">function_space</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()[:</span><span class="n">num_dofs_local</span><span class="p">]</span>
+<span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="n">values</span><span class="p">[:,</span> <span class="p">:</span><span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">real</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">size_local</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+
+<span class="c1"># Create a point cloud of glyphs</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span><span class="p">)</span>
+<span class="n">grid</span><span class="p">[</span><span class="s2">&quot;vectors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">set_active_vectors</span><span class="p">(</span><span class="s2">&quot;vectors&quot;</span><span class="p">)</span>
+<span class="n">glyphs</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">glyph</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;vectors&quot;</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">streamlines</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">streamlines</span><span class="p">(</span><span class="n">vectors</span><span class="o">=</span><span class="s2">&quot;vectors&quot;</span><span class="p">,</span> <span class="n">return_source</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">source_radius</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+
+<span class="c1"># Create Create plotter</span>
+<span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">off_screen</span><span class="o">=</span><span class="n">off_screen</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;Vector function as streamlines.&quot;</span><span class="p">,</span>
+                 <span class="n">position</span><span class="o">=</span><span class="s2">&quot;upper_edge&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">sargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">height</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">vertical</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">position_x</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">position_y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="s2">&quot;wireframe&quot;</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">glyphs</span><span class="p">)</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">streamlines</span><span class="o">.</span><span class="n">tube</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="mf">0.001</span><span class="p">))</span>
+<span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">off_screen</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;streamlines_</span><span class="si">{MPI.COMM_WORLD.rank}</span><span class="s2">.png&quot;</span><span class="p">,</span>
+                       <span class="n">transparent_background</span><span class="o">=</span><span class="n">transparent</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="n">figsize</span><span class="p">,</span> <span class="n">figsize</span><span class="p">])</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Using pyvista for visualization</a><ul>
+<li><a class="reference internal" href="#plotting-a-3d-dolfinx-function-with-pyvista">Plotting a 3D dolfinx.Function with pyvista</a></li>
+<li><a class="reference internal" href="#plotting-a-2d-dolfinx-function-with-pyvista-using-warp-by-scalar">Plotting a 2D dolfinx.Function with pyvista using warp by scalar</a></li>
+<li><a class="reference internal" href="#plotting-a-2d-meshtags-and-using-subplots">Plotting a 2D MeshTags and using subplots</a></li>
+<li><a class="reference internal" href="#plotting-a-dolfinx-function">Plotting a dolfinx.Function</a></li>
+<li><a class="reference internal" href="#plotting-a-dolfinx-function-with-vector-values">Plotting a dolfinx.Function with vector values</a></li>
+<li><a class="reference internal" href="#id1">Plotting a dolfinx.Function with vector values</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../mixed-elasticity-sc/static-condensation-elasticity.py.html"
+                        title="previous chapter">Static condensation of linear elasticity</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../../developer.html"
+                        title="next chapter">Developer resources</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/demos/pyvista/demo_pyvista.py.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../../developer.html" title="Developer resources"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../mixed-elasticity-sc/static-condensation-elasticity.py.html" title="Static condensation of linear elasticity"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINX  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" >Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Using pyvista for visualization</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.4.3.
+    </div>
+  </body>
+</html>

@@ -17,10 +17,11 @@ var searchData=
   ['get_5foptions_5fprefix_199',['get_options_prefix',['../d4/d8b/classdolfinx_1_1la_1_1PETScKrylovSolver.html#a65e2fad2b61a3232800eaba064a16931',1,'dolfinx::la::PETScKrylovSolver::get_options_prefix()'],['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#af9497ff9c76fa6efb0d2fb6437d6ecfc',1,'dolfinx::la::PETScMatrix::get_options_prefix()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#a57710c759d81aec73012e1b8c3e42e3f',1,'dolfinx::la::PETScVector::get_options_prefix()']]],
   ['get_5fsub_5fentities_200',['get_sub_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a5a58790362d4d65113f0852f828456ed',1,'dolfinx::mesh']]],
   ['get_5ftabulate_5fexpression_201',['get_tabulate_expression',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#aeb51ea34388a8e592668a2200ce4582e',1,'dolfinx::fem::Expression']]],
-  ['ghost_5fowner_5frank_202',['ghost_owner_rank',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a31a1cec37a01986df96cb9400a04dd63',1,'dolfinx::common::IndexMap']]],
-  ['ghostmode_203',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#adafbc0ec5001e833100ae1bfdcd300b3',1,'dolfinx::mesh']]],
-  ['ghosts_204',['ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ad781ca8d8769372724307e8a0dea8ecf',1,'dolfinx::common::IndexMap']]],
-  ['global_5findices_205',['global_indices',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a866f40d014bebea5122941892306be27',1,'dolfinx::common::IndexMap']]],
-  ['global_5foffset_206',['global_offset',['../de/dbf/classdolfinx_1_1MPI.html#ab219883a5901bda3e871dc6c8f2d62f4',1,'dolfinx::MPI']]],
-  ['global_5fto_5flocal_207',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a4b17aa1201c455df28c3c43a01cfaac4',1,'dolfinx::common::IndexMap']]]
+  ['get_5fvtk_5fcell_5ftype_202',['get_vtk_cell_type',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a9cb03a078bb1b77ea88d679016444ada',1,'dolfinx::io::cells']]],
+  ['ghost_5fowner_5frank_203',['ghost_owner_rank',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a31a1cec37a01986df96cb9400a04dd63',1,'dolfinx::common::IndexMap']]],
+  ['ghostmode_204',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#adafbc0ec5001e833100ae1bfdcd300b3',1,'dolfinx::mesh']]],
+  ['ghosts_205',['ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ad781ca8d8769372724307e8a0dea8ecf',1,'dolfinx::common::IndexMap']]],
+  ['global_5findices_206',['global_indices',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a866f40d014bebea5122941892306be27',1,'dolfinx::common::IndexMap']]],
+  ['global_5foffset_207',['global_offset',['../de/dbf/classdolfinx_1_1MPI.html#ab219883a5901bda3e871dc6c8f2d62f4',1,'dolfinx::MPI']]],
+  ['global_5fto_5flocal_208',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a4b17aa1201c455df28c3c43a01cfaac4',1,'dolfinx::common::IndexMap']]]
 ];

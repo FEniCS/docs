@@ -102,11 +102,10 @@ term)</p></li>
 Poisson equation step-by-step.</p>
 <p>First, the <code class="xref py py-mod docutils literal notranslate"><span class="pre">dolfinx</span></code> module is imported:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">dolfinx</span>
-<span class="kn">import</span> <span class="nn">dolfinx.plotting</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">ufl</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="n">DirichletBC</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">RectangleMesh</span><span class="p">,</span> <span class="n">fem</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="p">(</span><span class="n">DirichletBC</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">RectangleMesh</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span>
+                     <span class="n">plot</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">dolfinx.cpp.mesh</span> <span class="k">import</span> <span class="n">CellType</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="k">import</span> <span class="n">locate_dofs_topological</span>
 <span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="k">import</span> <span class="n">XDMFFile</span>
@@ -219,10 +218,24 @@ later visualization and also plot it using the <code class="xref py py-func docu
     <span class="n">file</span><span class="o">.</span><span class="n">write_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
     <span class="n">file</span><span class="o">.</span><span class="n">write_function</span><span class="p">(</span><span class="n">uh</span><span class="p">)</span>
 
+
 <span class="c1"># Update ghost entries and plot</span>
 <span class="n">uh</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
-<span class="n">dolfinx</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">uh</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pyvista</span>
+
+    <span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_topology</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">point_arrays</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">uh</span><span class="o">.</span><span class="n">compute_point_values</span><span class="p">()</span><span class="o">.</span><span class="n">real</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">)</span>
+
+    <span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">()</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">warped</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">warp_by_scalar</span><span class="p">()</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">warped</span><span class="p">)</span>
+    <span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="k">except</span> <span class="n">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pyvista is required to visualise the solution&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
