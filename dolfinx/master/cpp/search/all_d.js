@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['off_5fdiagonal_5fpattern_292',['off_diagonal_pattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a6a6b79ceeb2df0e053f8e4dab67e7570',1,'dolfinx::la::SparsityPattern']]],
+  ['off_5fdiagonal_5fpattern_292',['off_diagonal_pattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a534df9eec75b30cd131f5df4a815cf07',1,'dolfinx::la::SparsityPattern']]],
   ['offsets_293',['offsets',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a60f7f19945bf0f022fdef48a4c3559bc',1,'dolfinx::graph::AdjacencyList']]],
   ['open_5ffile_294',['open_file',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a0c61f3bcb10afdaa1ae9a946e7b06d26',1,'dolfinx::io::HDF5Interface']]],
   ['operator_21_3d_295',['operator!=',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#ad9cf8478d2e3a3584e8ea21894617f83',1,'dolfinx::fem::FunctionSpace']]],
