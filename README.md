@@ -21,7 +21,3 @@ the `master` or `main` branch of each project.
 ## UFL
 
 TODO
-
-## FIAT (deprecated)
-
-TODO
