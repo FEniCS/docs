@@ -2,7 +2,7 @@
 
 This repository contains documentation for the FEniCS Project.
 It is updated automatically by GitHub Actions jobs running on
-the `master` branch of each project.
+the `master` or `main` branch of each project.
 
 ## DOLFINX
 
@@ -14,9 +14,9 @@ the `master` branch of each project.
 
 `master`: https://docs.fenicsproject.org/ffcx/master
 
-## libtab
+## basix
 
-TODO
+`main` C++: https://docs.fenicsproject.org/basix/main/cpp/
 
 ## UFL
 
