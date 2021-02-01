@@ -1,0 +1,19 @@
+var searchData=
+[
+  ['cell_5ftype_8',['cell_type',['../classbasix_1_1FiniteElement.html#a07e3921459dce5bff1cb731d1713ccc2',1,'basix::FiniteElement::cell_type()'],['../namespacebasix.html#a5defab459cba0ca319b69ad46f9fdca8',1,'basix::cell_type()']]],
+  ['compute_5fexpansion_5fcoefficients_9',['compute_expansion_coefficients',['../namespacebasix.html#a09ee9496dc009e23cf9bda9f57ae6593',1,'basix']]],
+  ['compute_5fgauss_5fjacobi_5fpoints_10',['compute_gauss_jacobi_points',['../namespacebasix_1_1quadrature.html#a3c68b1d2a23d4353476db11ce1892ea3',1,'basix::quadrature']]],
+  ['compute_5fgauss_5fjacobi_5frule_11',['compute_gauss_jacobi_rule',['../namespacebasix_1_1quadrature.html#ae11c6105e04963385882a2b83e16df26',1,'basix::quadrature']]],
+  ['compute_5fjacobi_5fderiv_12',['compute_jacobi_deriv',['../namespacebasix_1_1quadrature.html#a5e0658bb423500a7d7a0c6ba64335ab3',1,'basix::quadrature']]],
+  ['create_13',['create',['../namespacebasix_1_1cr.html#ad6a52eb597f487e680b997b8f70e838c',1,'basix::cr']]],
+  ['create_5fbdm_14',['create_bdm',['../namespacebasix.html#a4ecf911d42e89b38e5a186e69cdc7dc4',1,'basix']]],
+  ['create_5fdlagrange_15',['create_dlagrange',['../namespacebasix.html#af15228e0dd7a47ae539490e7ebfae03e',1,'basix']]],
+  ['create_5felement_16',['create_element',['../namespacebasix.html#ab9a83f258244b03a0a237c6e7f96a6fb',1,'basix']]],
+  ['create_5flagrange_17',['create_lagrange',['../namespacebasix.html#afea97039809be80b364dd2acf6c03379',1,'basix']]],
+  ['create_5fnce_18',['create_nce',['../namespacebasix.html#ad86bdb42c03b07178cf1f99157671ef7',1,'basix']]],
+  ['create_5fnedelec_19',['create_nedelec',['../namespacebasix.html#af1396dc6709a85d32f7068fe417f3adb',1,'basix']]],
+  ['create_5fnedelec2_20',['create_nedelec2',['../namespacebasix.html#a718dce95310fbd574a1dec377088e48e',1,'basix']]],
+  ['create_5fregge_21',['create_regge',['../namespacebasix.html#ae1ee40fda3f5a141c6d8ee7c409a15d7',1,'basix']]],
+  ['create_5frt_22',['create_rt',['../namespacebasix.html#ae2aafd9715bc498182be780557f986d7',1,'basix']]],
+  ['create_5frtc_23',['create_rtc',['../namespacebasix.html#a02cb274a18cae1771d5c4858e717ce56',1,'basix']]]
+];
