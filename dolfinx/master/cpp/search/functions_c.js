@@ -1,7 +1,7 @@
 var searchData=
 [
   ['needs_5fpermutation_5fdata_743',['needs_permutation_data',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a73d000d39bf159216e2036346e83c471',1,'dolfinx::fem::CoordinateElement::needs_permutation_data()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ade0b796de66d19e5c5c777b9bab75e81',1,'dolfinx::fem::FiniteElement::needs_permutation_data()'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#adf56a62ec9339fbc0a325b2cf8b16d5c',1,'dolfinx::fem::Form::needs_permutation_data()']]],
-  ['neighbor_5fall_5fto_5fall_744',['neighbor_all_to_all',['../de/dbf/classdolfinx_1_1MPI.html#ac8473ce0775b32a17bcb5e4856a31545',1,'dolfinx::MPI']]],
+  ['neighbor_5fall_5fto_5fall_744',['neighbor_all_to_all',['../de/dbf/classdolfinx_1_1MPI.html#a044ab8abd5a98c2c463f779f0f1ad61a',1,'dolfinx::MPI']]],
   ['neighbors_745',['neighbors',['../de/dbf/classdolfinx_1_1MPI.html#aedc9642cf1bc95ffb82d1e4d86c031a5',1,'dolfinx::MPI']]],
   ['newtonsolver_746',['NewtonSolver',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a62f69a4d8b12d4e760c235d34a4c046c',1,'dolfinx::nls::NewtonSolver']]],
   ['norm_747',['norm',['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#a54b22befd713931d76a11a1bb2ed6094',1,'dolfinx::la::PETScMatrix::norm()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#ae84af166ec39f6ce4f03c355e5dfb7ab',1,'dolfinx::la::PETScVector::norm()']]],
