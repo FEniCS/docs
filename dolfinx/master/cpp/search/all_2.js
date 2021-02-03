@@ -39,7 +39,7 @@ var searchData=
   ['compute_5flocal_5fto_5flocal_70',['compute_local_to_local',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#aab7e6411f88ebd749002fb25a7a37a22',1,'dolfinx::graph::build']]],
   ['compute_5fpermutation_71',['compute_permutation',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a0644688e8eae3a63c34524be126e6082',1,'dolfinx::io::cells']]],
   ['compute_5fpoint_5fvalues_72',['compute_point_values',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#ab95994a2ca6ee7518b804dd2745ea9f3',1,'dolfinx::fem::Function']]],
-  ['compute_5freference_5fgeometry_73',['compute_reference_geometry',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a8693f40e4ffeab39df888efaa54a7728',1,'dolfinx::fem::CoordinateElement']]],
+  ['compute_5freference_5fgeometry_73',['compute_reference_geometry',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a8a7d84e88112a593d5a2556e68e294a4',1,'dolfinx::fem::CoordinateElement']]],
   ['compute_5frefinement_5fdata_74',['compute_refinement_data',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a3c01115d8378f40d4b27cf7b211d7496',1,'dolfinx::refinement::plaza::compute_refinement_data(const mesh::Mesh &amp;mesh, const mesh::MeshTags&lt; std::int8_t &gt; &amp;refinement_marker)'],['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#aa1e83ab84889b91c07b7a95768e4f715',1,'dolfinx::refinement::plaza::compute_refinement_data(const mesh::Mesh &amp;mesh)']]],
   ['compute_5freordering_75',['compute_reordering',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#a2ca664e1d3ebfc49779aefed9a05e0a7',1,'dolfinx::graph::scotch']]],
   ['compute_5fshared_5findices_76',['compute_shared_indices',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a09d771fa2d7c71b6f0746241dfedc6a3',1,'dolfinx::common::IndexMap']]],
