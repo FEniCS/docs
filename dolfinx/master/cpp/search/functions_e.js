@@ -5,7 +5,7 @@ var searchData=
   ['partition_772',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a04bc46546d1edacc3c2c34dddaf1f2de',1,'dolfinx::refinement']]],
   ['partition_5fcells_5fgraph_773',['partition_cells_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a23ab325ef209209ab32aca52377e19a2',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, const mesh::CellType cell_type, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#a86abc8ceff0d82c13b90cc03b637f395',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, const mesh::CellType cell_type, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode, const graph::partition_fn &amp;partfn)']]],
   ['partition_5fgraph_774',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#aa80334102ff8c593017cc62c89dfe9a3',1,'dolfinx::graph']]],
-  ['partitioner_775',['partitioner',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#a7da91cb28120e52a7865ebfb6cdd1256',1,'dolfinx::graph::scotch']]],
+  ['partitioner_775',['partitioner',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#abdcf824ecae493a919938be4e66a1df0',1,'dolfinx::graph::scotch']]],
   ['perm_5fgmsh_776',['perm_gmsh',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a1b518cf7f96de79be2dc3f37fd2516ba',1,'dolfinx::io::cells']]],
   ['perm_5fvtk_777',['perm_vtk',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#ac818c5f175ac5d6d2ceae48337929b3b',1,'dolfinx::io::cells']]],
   ['permute_5fdofs_778',['permute_dofs',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a9440d0b84ca16bc2e8c9338bcd0f16c1',1,'dolfinx::fem::CoordinateElement']]],
