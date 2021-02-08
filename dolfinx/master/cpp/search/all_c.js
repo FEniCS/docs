@@ -8,7 +8,7 @@ var searchData=
   ['non_5faffine_5fatol_276',['non_affine_atol',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a37a6536fa7a89738fd63840fda09aff0',1,'dolfinx::fem::CoordinateElement']]],
   ['non_5faffine_5fmax_5fits_277',['non_affine_max_its',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a636cedec521e9856633d3e81931ed04b',1,'dolfinx::fem::CoordinateElement']]],
   ['norm_278',['norm',['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#a54b22befd713931d76a11a1bb2ed6094',1,'dolfinx::la::PETScMatrix::norm()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#ae84af166ec39f6ce4f03c355e5dfb7ab',1,'dolfinx::la::PETScVector::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#a4df44dd2086f4351180f0a41c1143828',1,'dolfinx::la::Norm()']]],
-  ['num_5fbboxes_279',['num_bboxes',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a6202132d57a48dfe5b0252d1408d93e3',1,'dolfinx::geometry::BoundingBoxTree']]],
+  ['num_5fbboxes_279',['num_bboxes',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae71971b1581456ae451d48ed92a762f8',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['num_5fcell_5fvertices_280',['num_cell_vertices',['../dd/d7d/namespacedolfinx_1_1mesh.html#a44c342f24a0c39498c4874dec3ee6a3e',1,'dolfinx::mesh']]],
   ['num_5fdofs_281',['num_dofs',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a159e1302415e0a3b745bf628934ed20e',1,'dolfinx::fem::ElementDofLayout']]],
   ['num_5fentity_5fclosure_5fdofs_282',['num_entity_closure_dofs',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a6f516c9a93a249b7779cc3459cd05976',1,'dolfinx::fem::ElementDofLayout']]],
