@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['points_136',['points',['../classbasix_1_1FiniteElement.html#a100a9e7b1c3eb7dab992696877c7889f',1,'basix::FiniteElement::points()'],['../namespacebasix.html#af64af658ace03ffae0dfc867bd2c732a',1,'basix::points()']]]
+  ['operator_3d_149',['operator=',['../classbasix_1_1FiniteElement.html#a012641ff0a6abe1bda2e9493615c22fc',1,'basix::FiniteElement::operator=(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a0cd2bef969b9481371fa06f701009794',1,'basix::FiniteElement::operator=(FiniteElement &amp;&amp;element)=default']]]
 ];
