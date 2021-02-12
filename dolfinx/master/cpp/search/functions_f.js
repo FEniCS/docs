@@ -15,5 +15,5 @@ var searchData=
   ['residual_816',['residual',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#ace3bf06f2286c53d54cb5882915f1b35',1,'dolfinx::nls::NewtonSolver']]],
   ['residual0_817',['residual0',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a9cc60f23eca54c4d77155b10af4c3741',1,'dolfinx::nls::NewtonSolver']]],
   ['resume_818',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a4ac55a73bb3431db9d4d2fd70ae9a2e8',1,'dolfinx::common::Timer']]],
-  ['row_819',['row',['../de/d20/classdolfinx_1_1common_1_1array2d.html#ae1d6a8b04691e2737ee042c59ba8fdfc',1,'dolfinx::common::array2d']]]
+  ['row_819',['row',['../de/d20/classdolfinx_1_1common_1_1array2d.html#a4b52291e581a1c89dc1f81819b3d140c',1,'dolfinx::common::array2d::row(int i)'],['../de/d20/classdolfinx_1_1common_1_1array2d.html#ae1d6a8b04691e2737ee042c59ba8fdfc',1,'dolfinx::common::array2d::row(int i) const']]]
 ];
