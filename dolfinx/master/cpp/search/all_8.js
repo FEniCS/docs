@@ -23,11 +23,9 @@ var searchData=
   ['interpolation_5fcoords_239',['interpolation_coords',['../d8/dbf/namespacedolfinx_1_1fem.html#a9bc16bfdd66a588ccbc10a59bf02edd7',1,'dolfinx::fem']]],
   ['interpolation_5fident_240',['interpolation_ident',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a82977a7fe30f8fc348281ec0c57f388d',1,'dolfinx::fem::FiniteElement']]],
   ['interpolation_5fpoints_241',['interpolation_points',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#adc8495638afc32420fa6fdf31465709a',1,'dolfinx::fem::FiniteElement']]],
-  ['is_5f2d_5fcontainer_242',['is_2d_container',['../db/db2/structis__2d__container.html',1,'']]],
-  ['is_5f2d_5fcontainer_3c_20t_2c_20std_3a_3avoid_5ft_3c_20decltype_28std_3a_3adeclval_3c_20t_20_3e_28_29_2edata_28_29_29_2c_20decltype_28std_3a_3adeclval_3c_20t_20_3e_28_29_2erows_28_29_29_2c_20decltype_28std_3a_3adeclval_3c_20t_20_3e_28_29_2ecols_28_29_29_3e_20_3e_243',['is_2d_container&lt; T, std::void_t&lt; decltype(std::declval&lt; T &gt;().data()), decltype(std::declval&lt; T &gt;().rows()), decltype(std::declval&lt; T &gt;().cols())&gt; &gt;',['../de/d1b/structis__2d__container_3_01T_00_01std_1_1void__t_3_01decltype_07std_1_1declval_3_01T_01_4_07_08124e92a5573a90cc4d4d748798a19323.html',1,'']]],
-  ['is_5forthogonal_244',['is_orthogonal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#ae45312ea2f2e6d5ab1546f018ff73cf1',1,'dolfinx::la::VectorSpaceBasis']]],
-  ['is_5forthonormal_245',['is_orthonormal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#a7d1f3389eaee8f3d40d77005a12f1347',1,'dolfinx::la::VectorSpaceBasis']]],
-  ['is_5fsimplex_246',['is_simplex',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac5f08c93e4f57e68777810cfac7493e9',1,'dolfinx::mesh']]],
-  ['is_5fview_247',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ae7737414a426675bde6fcb52baea7009',1,'dolfinx::fem::ElementDofLayout']]],
-  ['iteration_248',['iteration',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a7adc1209b7d4740b330d5ed2ac07e043',1,'dolfinx::nls::NewtonSolver']]]
+  ['is_5forthogonal_242',['is_orthogonal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#ae45312ea2f2e6d5ab1546f018ff73cf1',1,'dolfinx::la::VectorSpaceBasis']]],
+  ['is_5forthonormal_243',['is_orthonormal',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#a7d1f3389eaee8f3d40d77005a12f1347',1,'dolfinx::la::VectorSpaceBasis']]],
+  ['is_5fsimplex_244',['is_simplex',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac5f08c93e4f57e68777810cfac7493e9',1,'dolfinx::mesh']]],
+  ['is_5fview_245',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ae7737414a426675bde6fcb52baea7009',1,'dolfinx::fem::ElementDofLayout']]],
+  ['iteration_246',['iteration',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a7adc1209b7d4740b330d5ed2ac07e043',1,'dolfinx::nls::NewtonSolver']]]
 ];
