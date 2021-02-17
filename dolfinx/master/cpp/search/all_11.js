@@ -1,7 +1,7 @@
 var searchData=
 [
   ['table_388',['Table',['../db/d97/classdolfinx_1_1Table.html',1,'dolfinx::Table'],['../db/d97/classdolfinx_1_1Table.html#adf87f1b47786ac8141a6a371f473619a',1,'dolfinx::Table::Table(std::string title=&quot;&quot;, bool right_justify=true)'],['../db/d97/classdolfinx_1_1Table.html#a6d3860dec6e139300ed7d2e49e27e79b',1,'dolfinx::Table::Table(const Table &amp;table)=default'],['../db/d97/classdolfinx_1_1Table.html#a5bde0ed7c6ce16736a6552e27ad9c602',1,'dolfinx::Table::Table(Table &amp;&amp;table)=default']]],
-  ['tabulate_5fdof_5fcoordinates_389',['tabulate_dof_coordinates',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#aeb2c4e701c981dd5ab5ec230d5b86e12',1,'dolfinx::fem::FunctionSpace']]],
+  ['tabulate_5fdof_5fcoordinates_389',['tabulate_dof_coordinates',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a74b437a34a9f4747d57259656060c617',1,'dolfinx::fem::FunctionSpace']]],
   ['tdim_390',['tdim',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a82f4e1ed8c8721aa15ed31dcfccd5dde',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['timelogger_391',['TimeLogger',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html',1,'dolfinx::common::TimeLogger'],['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#ab0537414e35982ec138a0a6bd4c57617',1,'dolfinx::common::TimeLogger::TimeLogger()']]],
   ['timelogmanager_392',['TimeLogManager',['../de/ddd/classdolfinx_1_1common_1_1TimeLogManager.html',1,'dolfinx::common']]],
@@ -14,8 +14,8 @@ var searchData=
   ['topological_5fdimension_399',['topological_dimension',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a2fc372be8b606208dff63c7172d3e9ca',1,'dolfinx::fem::CoordinateElement']]],
   ['topology_400',['Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html',1,'dolfinx::mesh::Topology'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aa38e541a9ac601aaa874c3500c5dddca',1,'dolfinx::mesh::Topology::Topology(MPI_Comm comm, mesh::CellType type)'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a6b60680f3c2179ec5e576a5d142d1b41',1,'dolfinx::mesh::Topology::Topology(const Topology &amp;topology)=default'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a67a58b8d0d03298facab74f4ea0b67bc',1,'dolfinx::mesh::Topology::Topology(Topology &amp;&amp;topology)=default'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ac9c9105ffec915804c5de58f8dbe00bf',1,'dolfinx::mesh::Mesh::topology()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a626b92a78f882ac2deb0ca8e2a7c8a48',1,'dolfinx::mesh::Mesh::topology() const']]],
   ['topology_5fmutable_401',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0bdf6451948dd4e66391bd557c7156d0',1,'dolfinx::mesh::Mesh']]],
-  ['transform_5freference_5fbasis_402',['transform_reference_basis',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a05cd168872226af61c4b4e72a4f28712',1,'dolfinx::fem::FiniteElement']]],
-  ['transform_5freference_5fbasis_5fderivatives_403',['transform_reference_basis_derivatives',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae01a5c54b827a37eccc62c01878f70aa',1,'dolfinx::fem::FiniteElement']]],
+  ['transform_5freference_5fbasis_402',['transform_reference_basis',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aa3a333b94a66de1a082bda92676efca6',1,'dolfinx::fem::FiniteElement']]],
+  ['transform_5freference_5fbasis_5fderivatives_403',['transform_reference_basis_derivatives',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae89a5b3a1e6e295b949810aeb243632d',1,'dolfinx::fem::FiniteElement']]],
   ['transpose_404',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#ad1b14fffba3a83a79a02cbdb94bebf28',1,'dolfinx::io::cells']]],
   ['transpose_5fdofmap_405',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a9517bafb7a6c87aa8e8906d483564934',1,'dolfinx::fem']]]
 ];

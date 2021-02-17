@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['pack_5fcoefficients_306',['pack_coefficients',['../d8/dbf/namespacedolfinx_1_1fem.html#af410e15e30a8f202b2d7d4d25e46f4ea',1,'dolfinx::fem']]],
+  ['pack_5fcoefficients_306',['pack_coefficients',['../d8/dbf/namespacedolfinx_1_1fem.html#ad1f533dbd85ac25e3b8dc6f5412ec05c',1,'dolfinx::fem']]],
   ['pack_5fconstants_307',['pack_constants',['../d8/dbf/namespacedolfinx_1_1fem.html#a2592f3e164abea8ac0a3999ef2055176',1,'dolfinx::fem']]],
-  ['partition_308',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#afc9258afe41e4ff623730c8a7e309168',1,'dolfinx::refinement']]],
+  ['partition_308',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a10020cc9412d133378191f6e1c1b348f',1,'dolfinx::refinement']]],
   ['partition_5fcells_5fgraph_309',['partition_cells_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a23ab325ef209209ab32aca52377e19a2',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, const mesh::CellType cell_type, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#a86abc8ceff0d82c13b90cc03b637f395',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, const mesh::CellType cell_type, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode, const graph::partition_fn &amp;partfn)']]],
   ['partition_5ffn_310',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#aaa0e61e85afe197c34ff1862f8964447',1,'dolfinx::graph']]],
   ['partition_5fgraph_311',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#aa80334102ff8c593017cc62c89dfe9a3',1,'dolfinx::graph']]],
@@ -16,5 +16,5 @@ var searchData=
   ['petscoperator_319',['PETScOperator',['../df/d28/classdolfinx_1_1la_1_1PETScOperator.html',1,'dolfinx::la::PETScOperator'],['../df/d28/classdolfinx_1_1la_1_1PETScOperator.html#afc2e9de8498e0617689c3e299a818e3a',1,'dolfinx::la::PETScOperator::PETScOperator(Mat A, bool inc_ref_count)'],['../df/d28/classdolfinx_1_1la_1_1PETScOperator.html#a36ee30b11a6fbe976997429b095233e6',1,'dolfinx::la::PETScOperator::PETScOperator(PETScOperator &amp;&amp;A)']]],
   ['petscoptions_320',['PETScOptions',['../d9/dc7/classdolfinx_1_1la_1_1PETScOptions.html',1,'dolfinx::la']]],
   ['petscvector_321',['PETScVector',['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html',1,'dolfinx::la::PETScVector'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#a3aceea848f3c5fe39b825c9349be545c',1,'dolfinx::la::PETScVector::PETScVector(const common::IndexMap &amp;map, int bs)'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#ab468aae94b3413b9f1102a8a5ee88504',1,'dolfinx::la::PETScVector::PETScVector(PETScVector &amp;&amp;x)'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#add43701a4b679f11e164518fbac6ad9c',1,'dolfinx::la::PETScVector::PETScVector(Vec x, bool inc_ref_count)']]],
-  ['push_5fforward_322',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a6efe51b4b8cf0168299d635b2be18887',1,'dolfinx::fem::CoordinateElement']]]
+  ['push_5fforward_322',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1ea03ae5765123e8594e8479abb402b6',1,'dolfinx::fem::CoordinateElement']]]
 ];

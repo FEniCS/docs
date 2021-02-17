@@ -1,7 +1,7 @@
 var searchData=
 [
   ['_7eadjacencylist_429',['~AdjacencyList',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a3f00e6fe02a9bb5bc90f1fe81f69feb1',1,'dolfinx::graph::AdjacencyList']]],
-  ['_7earray2d_430',['~array2d',['../de/d20/classdolfinx_1_1common_1_1array2d.html#a7a16f5bd9d54530c12d7c18962f152fa',1,'dolfinx::common::array2d']]],
+  ['_7earray2d_430',['~array2d',['../d4/d7c/classdolfinx_1_1array2d.html#a66ff0e9bf6dc76e925d73e93bbfe97b4',1,'dolfinx::array2d']]],
   ['_7eboundingboxtree_431',['~BoundingBoxTree',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a522fbda7d05658c4d2bf17797f9e4125',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['_7ecomm_432',['~Comm',['../dd/d1d/classdolfinx_1_1MPI_1_1Comm.html#a997911cd037a972a9b13dd13b897b6af',1,'dolfinx::MPI::Comm']]],
   ['_7ecoordinateelement_433',['~CoordinateElement',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a129e3d87a38cd3d98cec2e83c4237969',1,'dolfinx::fem::CoordinateElement']]],
