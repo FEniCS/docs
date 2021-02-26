@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['get_5fforward_5fmap_186',['get_forward_map',['../namespacebasix_1_1mapping.html#a1f5170ce91dc8299c0124448a9f8b765',1,'basix::mapping']]]
+  ['shape_205',['shape',['../classbasix_1_1array2d.html#a2ff1a2c20c2cf86a37f5e757e75195e4',1,'basix::array2d']]]
 ];

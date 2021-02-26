@@ -1,21 +1,9 @@
 var searchData=
 [
-  ['make_5fdot_5fintegral_5fmoments_138',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#adade3d25f78467f41c52339ff80527a7',1,'basix::moments']]],
-  ['make_5fintegral_5fmoments_139',['make_integral_moments',['../namespacebasix_1_1moments.html#aea45f6664bce9339801558e2fff06f5e',1,'basix::moments']]],
-  ['make_5fnormal_5fintegral_5fmoments_140',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#a19abc22f75940b4fe1ed2d61f0ffe828',1,'basix::moments']]],
-  ['make_5fquadrature_141',['make_quadrature',['../namespacebasix_1_1quadrature.html#a179c95d43c0737da38dfd9c94c605b53',1,'basix::quadrature']]],
-  ['make_5fquadrature_5fline_142',['make_quadrature_line',['../namespacebasix_1_1quadrature.html#a1f81c296589fa55f719c6fc86ad5da1b',1,'basix::quadrature']]],
-  ['make_5fquadrature_5ftetrahedron_5fcollapsed_143',['make_quadrature_tetrahedron_collapsed',['../namespacebasix_1_1quadrature.html#a6abed671d945fe61c001a383d1c99fb8',1,'basix::quadrature']]],
-  ['make_5fquadrature_5ftriangle_5fcollapsed_144',['make_quadrature_triangle_collapsed',['../namespacebasix_1_1quadrature.html#aa5080e8f548b6104c7411534dd7f2ffd',1,'basix::quadrature']]],
-  ['make_5ftangent_5fintegral_5fmoments_145',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a362e80814e19ffb48ae40b187b41984e',1,'basix::moments']]],
-  ['map_5fpull_5fback_146',['map_pull_back',['../classbasix_1_1FiniteElement.html#ad679a63ad8abb3d99e98e665dd77053b',1,'basix::FiniteElement']]],
-  ['map_5fpull_5fback_5fcomplex_147',['map_pull_back_complex',['../namespacebasix.html#a098d63124132a45c0e9b8e276f436193',1,'basix']]],
-  ['map_5fpull_5fback_5fm_148',['map_pull_back_m',['../classbasix_1_1FiniteElement.html#a95dcbcda4009985264f1d1626fda49d8',1,'basix::FiniteElement']]],
-  ['map_5fpull_5fback_5freal_149',['map_pull_back_real',['../namespacebasix.html#aa0689caf974903475a85910b7c806415',1,'basix']]],
-  ['map_5fpush_5fforward_150',['map_push_forward',['../classbasix_1_1FiniteElement.html#a215a6a18895a1e370e3eb2046dae0166',1,'basix::FiniteElement']]],
-  ['map_5fpush_5fforward_5fcomplex_151',['map_push_forward_complex',['../namespacebasix.html#ae040e706aa2781e2fca62d534780f45c',1,'basix']]],
-  ['map_5fpush_5fforward_5fm_152',['map_push_forward_m',['../classbasix_1_1FiniteElement.html#a058012cd91a1a34ca3e1e20260d959af',1,'basix::FiniteElement']]],
-  ['map_5fpush_5fforward_5freal_153',['map_push_forward_real',['../namespacebasix.html#a6e21e9cfcffcdf732993056aba78185c',1,'basix']]],
-  ['mapping_5fname_154',['mapping_name',['../namespacebasix.html#aed635193db65b2a7e4920473bea33f1f',1,'basix']]],
-  ['mapping_5ftype_155',['mapping_type',['../classbasix_1_1FiniteElement.html#a25c73e9e3bbcbd310035ae2acb8c25e7',1,'basix::FiniteElement']]]
+  ['idx_146',['idx',['../namespacebasix.html#a7c1ffad0977ef56fe76213782c7e5e8b',1,'basix::idx(int p)'],['../namespacebasix.html#ac96f812a277cfa91a1ce69009b9adf91',1,'basix::idx(int p, int q)'],['../namespacebasix.html#a5181fbefdde5b36362350af7e6a7627d',1,'basix::idx(int p, int q, int r)']]],
+  ['interpolation_5fmatrix_147',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#ab9c13633143b8d607459e42e9d69d43a',1,'basix::FiniteElement::interpolation_matrix()'],['../namespacebasix.html#a307ea7370de214920172ca1a2050c2f3',1,'basix::interpolation_matrix()']]],
+  ['interpolation_5fnum_5fpoints_148',['interpolation_num_points',['../namespacebasix.html#a8359fd95c4bee498ab076b591747f593',1,'basix']]],
+  ['interpolation_5fpoints_149',['interpolation_points',['../namespacebasix.html#ac7642798ef5eec0b8638357b0e969af8',1,'basix']]],
+  ['interval_5freflection_150',['interval_reflection',['../namespacebasix_1_1dofperms.html#a284619f2c1f46d7a17e5abd863f21fb8',1,'basix::dofperms']]],
+  ['interval_5freflection_5ftangent_5fdirections_151',['interval_reflection_tangent_directions',['../namespacebasix_1_1dofperms.html#a92568fdb0ece510aa381bb5f6f16869c',1,'basix::dofperms']]]
 ];

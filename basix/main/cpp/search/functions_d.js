@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['str_5fto_5ftype_167',['str_to_type',['../namespacebasix_1_1cell.html#a6beab81380f003122f91a8d2cf5c0afc',1,'basix::cell']]],
-  ['sub_5fentity_5fcount_168',['sub_entity_count',['../namespacebasix_1_1cell.html#a55f14f16e6c503217e34da925232bbe2',1,'basix::cell']]],
-  ['sub_5fentity_5fgeometry_169',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a513ecf089c19ebe5e0589caddd141178',1,'basix::cell']]],
-  ['sub_5fentity_5ftype_170',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]]
+  ['register_5felement_180',['register_element',['../namespacebasix.html#a6acdf59748bb0b3d10c57fff2a9c0a05',1,'basix']]],
+  ['release_5felement_181',['release_element',['../namespacebasix.html#a84c8429a8cee19b3938d061a09e2668e',1,'basix']]],
+  ['row_182',['row',['../classbasix_1_1array2d.html#a14347962c614729fa05c0aee1c69969d',1,'basix::array2d::row(size_type i)'],['../classbasix_1_1array2d.html#a961a8c558b8e34b4a02d7e8f3711fe54',1,'basix::array2d::row(size_type i) const']]]
 ];
