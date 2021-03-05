@@ -1,9 +1,5 @@
 var searchData=
 [
-  ['quadrilateral_5fnce_5freflection_75',['quadrilateral_nce_reflection',['../namespacebasix_1_1dofperms.html#a6dec0022b42876c4f4bced4704daa5f0',1,'basix::dofperms']]],
-  ['quadrilateral_5fnce_5frotation_76',['quadrilateral_nce_rotation',['../namespacebasix_1_1dofperms.html#a2a031721b67fcc1ee2003254cd95de34',1,'basix::dofperms']]],
-  ['quadrilateral_5freflection_77',['quadrilateral_reflection',['../namespacebasix_1_1dofperms.html#aea65483acf031045217dbd766b3a2ac9',1,'basix::dofperms']]],
-  ['quadrilateral_5frotation_78',['quadrilateral_rotation',['../namespacebasix_1_1dofperms.html#a1d2dee0d4e59e19d01a0f92afc9e559b',1,'basix::dofperms']]],
-  ['quadrilateral_5frtc_5freflection_79',['quadrilateral_rtc_reflection',['../namespacebasix_1_1dofperms.html#aa9e272d08c5c0bc7b4d14a38d724d635',1,'basix::dofperms']]],
-  ['quadrilateral_5frtc_5frotation_80',['quadrilateral_rtc_rotation',['../namespacebasix_1_1dofperms.html#afe853fc5de4e90d384871a61e66f699d',1,'basix::dofperms']]]
+  ['quadrilateral_5freflection_82',['quadrilateral_reflection',['../namespacebasix_1_1dofperms.html#aed504076891bedd27c7a954853123e82',1,'basix::dofperms::quadrilateral_reflection()'],['../namespacebasix_1_1doftransforms.html#a52df267d553e24bff506b44ab2024add',1,'basix::doftransforms::quadrilateral_reflection()']]],
+  ['quadrilateral_5frotation_83',['quadrilateral_rotation',['../namespacebasix_1_1dofperms.html#a07212d60f4374ce73a82c01974a2d8d9',1,'basix::dofperms::quadrilateral_rotation()'],['../namespacebasix_1_1doftransforms.html#af8f0136e44a78cc36f52bd0948d4f594',1,'basix::doftransforms::quadrilateral_rotation()']]]
 ];

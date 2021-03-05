@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['finiteelement_110',['FiniteElement',['../classbasix_1_1FiniteElement.html',1,'basix']]]
+  ['finiteelement_111',['FiniteElement',['../classbasix_1_1FiniteElement.html',1,'basix']]]
 ];
