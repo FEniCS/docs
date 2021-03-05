@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['data_137',['data',['../classbasix_1_1array2d.html#a7dbdf4f54ea29e3237fac49bba28f1f6',1,'basix::array2d::data() noexcept'],['../classbasix_1_1array2d.html#a8ae565e32de56ce1e2fd2fe37d1ea616',1,'basix::array2d::data() const noexcept']]],
-  ['degree_138',['degree',['../classbasix_1_1FiniteElement.html#a6c9361216564eb22d899f1e961803392',1,'basix::FiniteElement::degree()'],['../namespacebasix.html#af2f3ef9880ceb4fdc48c91681d80c817',1,'basix::degree()']]],
-  ['dim_139',['dim',['../classbasix_1_1FiniteElement.html#a99d38980ecdf3be924a093b4d2319479',1,'basix::FiniteElement::dim()'],['../namespacebasix.html#a7d54080a37cc72bc584e5c90d3d72fe3',1,'basix::dim()'],['../namespacebasix_1_1polyset.html#a7c80e7a30e5792671ae60c89844888b4',1,'basix::polyset::dim()']]]
+  ['empty_148',['empty',['../classbasix_1_1ndarray.html#ae1256e5d7024edde0340d27167260d19',1,'basix::ndarray']]],
+  ['entity_5fdofs_149',['entity_dofs',['../classbasix_1_1FiniteElement.html#a9501349952715cda61dd48c0e2395ffb',1,'basix::FiniteElement::entity_dofs()'],['../namespacebasix.html#acdbf1085bf323d3fd7c15e729f379020',1,'basix::entity_dofs()']]]
 ];

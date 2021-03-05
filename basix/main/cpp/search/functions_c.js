@@ -1,9 +1,6 @@
 var searchData=
 [
-  ['quadrilateral_5fnce_5freflection_176',['quadrilateral_nce_reflection',['../namespacebasix_1_1dofperms.html#a6dec0022b42876c4f4bced4704daa5f0',1,'basix::dofperms']]],
-  ['quadrilateral_5fnce_5frotation_177',['quadrilateral_nce_rotation',['../namespacebasix_1_1dofperms.html#a2a031721b67fcc1ee2003254cd95de34',1,'basix::dofperms']]],
-  ['quadrilateral_5freflection_178',['quadrilateral_reflection',['../namespacebasix_1_1dofperms.html#a45fba6fedce871ca8d6a6052749e2b64',1,'basix::dofperms']]],
-  ['quadrilateral_5frotation_179',['quadrilateral_rotation',['../namespacebasix_1_1dofperms.html#a77445de2f4db102d0ae603385c90fff3',1,'basix::dofperms']]],
-  ['quadrilateral_5frtc_5freflection_180',['quadrilateral_rtc_reflection',['../namespacebasix_1_1dofperms.html#aa9e272d08c5c0bc7b4d14a38d724d635',1,'basix::dofperms']]],
-  ['quadrilateral_5frtc_5frotation_181',['quadrilateral_rtc_rotation',['../namespacebasix_1_1dofperms.html#afe853fc5de4e90d384871a61e66f699d',1,'basix::dofperms']]]
+  ['register_5felement_194',['register_element',['../namespacebasix.html#a6acdf59748bb0b3d10c57fff2a9c0a05',1,'basix']]],
+  ['release_5felement_195',['release_element',['../namespacebasix.html#a84c8429a8cee19b3938d061a09e2668e',1,'basix']]],
+  ['row_196',['row',['../classbasix_1_1ndarray.html#a0d47a44eef1dc10db6248adb0e718adb',1,'basix::ndarray::row(size_type i)'],['../classbasix_1_1ndarray.html#ac3bcb1996bfed7010b7ac87a70e556e1',1,'basix::ndarray::row(size_type i) const'],['../classbasix_1_1ndarray.html#a14b2327651266d5041e3501b2d7395a8',1,'basix::ndarray::row(size_type i)'],['../classbasix_1_1ndarray.html#a513a9a7c33d2ebbd20f8ec2d37527b8b',1,'basix::ndarray::row(size_type i) const'],['../classbasix_1_1ndspan.html#a29e057d93291386ca8daffc46359c331',1,'basix::ndspan::row(size_type i)'],['../classbasix_1_1ndspan.html#a83acc144c487bc5bca70db9175743d65',1,'basix::ndspan::row(size_type i) const'],['../classbasix_1_1ndspan.html#a0ba9bd14c48f5f4d7b9febf18a51c87d',1,'basix::ndspan::row(size_type i)'],['../classbasix_1_1ndspan.html#aa61d4f3ebd39a031b93c2a3dc2751f60',1,'basix::ndspan::row(size_type i) const']]]
 ];

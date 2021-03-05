@@ -1,10 +1,10 @@
 var searchData=
 [
-  ['shape_79',['shape',['../classbasix_1_1array2d.html#a2ff1a2c20c2cf86a37f5e757e75195e4',1,'basix::array2d']]],
-  ['size_80',['size',['../classbasix_1_1array2d.html#ae045cc09112101c7731a8413f21332a9',1,'basix::array2d']]],
-  ['str_5fto_5ftype_81',['str_to_type',['../namespacebasix_1_1cell.html#a6beab81380f003122f91a8d2cf5c0afc',1,'basix::cell']]],
-  ['strides_82',['strides',['../classbasix_1_1array2d.html#a8ca7a61d6505faa833030b627a8ce3db',1,'basix::array2d']]],
-  ['sub_5fentity_5fcount_83',['sub_entity_count',['../namespacebasix_1_1cell.html#a55f14f16e6c503217e34da925232bbe2',1,'basix::cell']]],
-  ['sub_5fentity_5fgeometry_84',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a513ecf089c19ebe5e0589caddd141178',1,'basix::cell']]],
-  ['sub_5fentity_5ftype_85',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]]
+  ['shape_85',['shape',['../classbasix_1_1ndarray.html#affbdcdfb3bc875d1eba53481b489e96d',1,'basix::ndarray::shape()'],['../classbasix_1_1ndspan.html#a4214271b8b88f9617d19d28752214fc8',1,'basix::ndspan::shape()']]],
+  ['size_86',['size',['../classbasix_1_1ndarray.html#a83990ae2fe4cf8e0f272de2946a528e8',1,'basix::ndarray::size()'],['../classbasix_1_1ndspan.html#af9329e92a3d613047a2a4025113025e2',1,'basix::ndspan::size()']]],
+  ['str_5fto_5ftype_87',['str_to_type',['../namespacebasix_1_1cell.html#a6beab81380f003122f91a8d2cf5c0afc',1,'basix::cell']]],
+  ['strides_88',['strides',['../classbasix_1_1ndarray.html#a88eddcfbe3fd7aff5e3983ab45596f33',1,'basix::ndarray::strides()'],['../classbasix_1_1ndspan.html#a8a5269886820259fde8125f5a21574a8',1,'basix::ndspan::strides()']]],
+  ['sub_5fentity_5fcount_89',['sub_entity_count',['../namespacebasix_1_1cell.html#a55f14f16e6c503217e34da925232bbe2',1,'basix::cell']]],
+  ['sub_5fentity_5fgeometry_90',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a99981481778b76298df7bdd0d622176e',1,'basix::cell']]],
+  ['sub_5fentity_5ftype_91',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]]
 ];

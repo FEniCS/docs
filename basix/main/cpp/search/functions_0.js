@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['array2d_113',['array2d',['../classbasix_1_1array2d.html#a75ba83e62b4171574da122767f9523d2',1,'basix::array2d::array2d(std::array&lt; size_type, 2 &gt; shape, value_type value=T(), const Allocator &amp;alloc=Allocator())'],['../classbasix_1_1array2d.html#a6eb62386d1612c14c75baef5089b83e8',1,'basix::array2d::array2d(size_type rows, size_type cols, value_type value=T(), const Allocator &amp;alloc=Allocator())'],['../classbasix_1_1array2d.html#ab0bf695e6b9cd9e94b41ad1b03a46638',1,'basix::array2d::array2d(std::array&lt; size_type, 2 &gt; shape, Vector &amp;&amp;x)'],['../classbasix_1_1array2d.html#a9a7285b0e5587bcf790dd5f12fa9e1b5',1,'basix::array2d::array2d(std::initializer_list&lt; std::initializer_list&lt; T &gt;&gt; list)'],['../classbasix_1_1array2d.html#a41ffbae7a187055102195e4d63fc1403',1,'basix::array2d::array2d(const array2d &amp;x)=default'],['../classbasix_1_1array2d.html#ae86850f454e27ea7fc7680ea7935428b',1,'basix::array2d::array2d(array2d &amp;&amp;x)=default']]]
+  ['base_5fpermutations_122',['base_permutations',['../classbasix_1_1FiniteElement.html#af76e81b3893b14939790c6aacb6ec7d4',1,'basix::FiniteElement']]]
 ];
