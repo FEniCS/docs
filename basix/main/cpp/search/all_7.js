@@ -1,9 +1,22 @@
 var searchData=
 [
-  ['idx_49',['idx',['../namespacebasix.html#a7c1ffad0977ef56fe76213782c7e5e8b',1,'basix::idx(int p)'],['../namespacebasix.html#ac96f812a277cfa91a1ce69009b9adf91',1,'basix::idx(int p, int q)'],['../namespacebasix.html#a5181fbefdde5b36362350af7e6a7627d',1,'basix::idx(int p, int q, int r)']]],
-  ['interpolation_5fmatrix_50',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#ab9c13633143b8d607459e42e9d69d43a',1,'basix::FiniteElement::interpolation_matrix()'],['../namespacebasix.html#a307ea7370de214920172ca1a2050c2f3',1,'basix::interpolation_matrix()']]],
-  ['interpolation_5fnum_5fpoints_51',['interpolation_num_points',['../namespacebasix.html#a8359fd95c4bee498ab076b591747f593',1,'basix']]],
-  ['interpolation_5fpoints_52',['interpolation_points',['../namespacebasix.html#ac7642798ef5eec0b8638357b0e969af8',1,'basix']]],
-  ['interval_5freflection_53',['interval_reflection',['../namespacebasix_1_1dofperms.html#a23fc697ceaf363ef44f86cb47a3b047d',1,'basix::dofperms::interval_reflection()'],['../namespacebasix_1_1doftransforms.html#ac015b07ae249360a506e2938c6f8eac4',1,'basix::doftransforms::interval_reflection()']]],
-  ['interval_5freflection_5ftangent_5fdirections_54',['interval_reflection_tangent_directions',['../namespacebasix_1_1dofperms.html#ad8d8006d3d478ae34dfda1d179c5a323',1,'basix::dofperms']]]
+  ['make_5fdot_5fintegral_5fmoments_49',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#ae3fb1177ffa53dff6abb050b9e504f5a',1,'basix::moments']]],
+  ['make_5fgll_5fline_50',['make_gll_line',['../namespacebasix_1_1quadrature.html#a16a555d503f8145ad9f514ee4730ecff',1,'basix::quadrature']]],
+  ['make_5fintegral_5fmoments_51',['make_integral_moments',['../namespacebasix_1_1moments.html#acf20d6cfd866513a90030795bea9f0ef',1,'basix::moments']]],
+  ['make_5fnormal_5fintegral_5fmoments_52',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#abc70db579c3ed28b4573eef2c7a5a1ce',1,'basix::moments']]],
+  ['make_5fquadrature_53',['make_quadrature',['../namespacebasix_1_1quadrature.html#a179c95d43c0737da38dfd9c94c605b53',1,'basix::quadrature']]],
+  ['make_5fquadrature_5fline_54',['make_quadrature_line',['../namespacebasix_1_1quadrature.html#a1f81c296589fa55f719c6fc86ad5da1b',1,'basix::quadrature']]],
+  ['make_5fquadrature_5ftetrahedron_5fcollapsed_55',['make_quadrature_tetrahedron_collapsed',['../namespacebasix_1_1quadrature.html#a6abed671d945fe61c001a383d1c99fb8',1,'basix::quadrature']]],
+  ['make_5fquadrature_5ftriangle_5fcollapsed_56',['make_quadrature_triangle_collapsed',['../namespacebasix_1_1quadrature.html#aa5080e8f548b6104c7411534dd7f2ffd',1,'basix::quadrature']]],
+  ['make_5ftangent_5fintegral_5fmoments_57',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a6fd97d4a44a49b647de6d5193de3e279',1,'basix::moments']]],
+  ['map_5fpull_5fback_58',['map_pull_back',['../classbasix_1_1FiniteElement.html#a5638c198b02aa57731bf96b00416f254',1,'basix::FiniteElement']]],
+  ['map_5fpull_5fback_5fcomplex_59',['map_pull_back_complex',['../namespacebasix.html#a098d63124132a45c0e9b8e276f436193',1,'basix']]],
+  ['map_5fpull_5fback_5fm_60',['map_pull_back_m',['../classbasix_1_1FiniteElement.html#a3ce65a6bff05ec1894acd185e8e3cd2c',1,'basix::FiniteElement']]],
+  ['map_5fpull_5fback_5freal_61',['map_pull_back_real',['../namespacebasix.html#aa0689caf974903475a85910b7c806415',1,'basix']]],
+  ['map_5fpush_5fforward_62',['map_push_forward',['../classbasix_1_1FiniteElement.html#a159ddee95bb691d76519c17a1aa0fa8a',1,'basix::FiniteElement']]],
+  ['map_5fpush_5fforward_5fcomplex_63',['map_push_forward_complex',['../namespacebasix.html#ae040e706aa2781e2fca62d534780f45c',1,'basix']]],
+  ['map_5fpush_5fforward_5fm_64',['map_push_forward_m',['../classbasix_1_1FiniteElement.html#a18c5c5d96d43d22dab8b11e1947906d0',1,'basix::FiniteElement']]],
+  ['map_5fpush_5fforward_5freal_65',['map_push_forward_real',['../namespacebasix.html#a6e21e9cfcffcdf732993056aba78185c',1,'basix']]],
+  ['mapping_5fname_66',['mapping_name',['../namespacebasix.html#aed635193db65b2a7e4920473bea33f1f',1,'basix']]],
+  ['mapping_5ftype_67',['mapping_type',['../classbasix_1_1FiniteElement.html#a00403839cf8d93d2522b9837c9af9336',1,'basix::FiniteElement']]]
 ];

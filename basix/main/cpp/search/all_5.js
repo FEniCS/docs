@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['geometry_45',['geometry',['../namespacebasix_1_1cell.html#adcbeec9442e0da8117a5b347247c0f21',1,'basix::cell']]],
-  ['get_5fforward_5fmap_46',['get_forward_map',['../namespacebasix_1_1mapping.html#a5b9e7133dfc0bc286132bdc0f0d195e5',1,'basix::mapping']]]
+  ['geometry_42',['geometry',['../namespacebasix_1_1cell.html#a818267adb03a11a20310cbcfbcf8cef3',1,'basix::cell']]],
+  ['get_5fforward_5fmap_43',['get_forward_map',['../namespacebasix_1_1mapping.html#ab7ccdf46ef94459a2b0e970d16cf8293',1,'basix::mapping']]]
 ];

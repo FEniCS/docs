@@ -1,10 +1,11 @@
 var searchData=
 [
-  ['shape_88',['shape',['../classbasix_1_1ndarray.html#affbdcdfb3bc875d1eba53481b489e96d',1,'basix::ndarray::shape()'],['../classbasix_1_1ndspan.html#a4214271b8b88f9617d19d28752214fc8',1,'basix::ndspan::shape()']]],
-  ['size_89',['size',['../classbasix_1_1ndarray.html#a83990ae2fe4cf8e0f272de2946a528e8',1,'basix::ndarray::size()'],['../classbasix_1_1ndspan.html#af9329e92a3d613047a2a4025113025e2',1,'basix::ndspan::size()']]],
-  ['str_5fto_5ftype_90',['str_to_type',['../namespacebasix_1_1cell.html#a6beab81380f003122f91a8d2cf5c0afc',1,'basix::cell']]],
-  ['strides_91',['strides',['../classbasix_1_1ndarray.html#a88eddcfbe3fd7aff5e3983ab45596f33',1,'basix::ndarray::strides()'],['../classbasix_1_1ndspan.html#a8a5269886820259fde8125f5a21574a8',1,'basix::ndspan::strides()']]],
-  ['sub_5fentity_5fcount_92',['sub_entity_count',['../namespacebasix_1_1cell.html#a55f14f16e6c503217e34da925232bbe2',1,'basix::cell']]],
-  ['sub_5fentity_5fgeometry_93',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a99981481778b76298df7bdd0d622176e',1,'basix::cell']]],
-  ['sub_5fentity_5ftype_94',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]]
+  ['tabulate_79',['tabulate',['../classbasix_1_1FiniteElement.html#ae9142c0e8f4dc91456387344313e1354',1,'basix::FiniteElement::tabulate(int nd, const Eigen::ArrayXXd &amp;x) const'],['../classbasix_1_1FiniteElement.html#ac5021b961246b717094762568de91917',1,'basix::FiniteElement::tabulate(int nd, const Eigen::ArrayXXd &amp;x, double *basis_data) const'],['../namespacebasix_1_1polyset.html#a51962db3ce8fece0c958421ce1224cf3',1,'basix::polyset::tabulate(cell::type celltype, int d, int n, const xt::xarray&lt; double &gt; &amp;x)'],['../namespacebasix_1_1polyset.html#a4638c74595eed65bd8add831c66b8e82',1,'basix::polyset::tabulate(cell::type celltype, int d, int n, const Eigen::ArrayXXd &amp;x)'],['../namespacebasix.html#a5b604665512cbf5366a8ade890e00669',1,'basix::tabulate()']]],
+  ['todo_20list_80',['Todo List',['../todo.html',1,'']]],
+  ['topological_5fdimension_81',['topological_dimension',['../namespacebasix_1_1cell.html#a801bcee695d91d02f45dcbd9470d2f18',1,'basix::cell']]],
+  ['topology_82',['topology',['../namespacebasix_1_1cell.html#a5cae2b1e6148e0c376d6ad8ea32a2f44',1,'basix::cell::topology()'],['../namespacebasix.html#a17184d52d716016a60a961d71f5e093e',1,'basix::topology()']]],
+  ['triangle_5freflection_83',['triangle_reflection',['../namespacebasix_1_1doftransforms.html#a6c9ded7d9268b88859a3aba7925a23c2',1,'basix::doftransforms']]],
+  ['triangle_5frotation_84',['triangle_rotation',['../namespacebasix_1_1doftransforms.html#ae44bcc81e35d7d1ed886f78c8c2ba3de',1,'basix::doftransforms']]],
+  ['type_85',['type',['../namespacebasix_1_1cell.html#a6b9fb94bbe86f3e58ccd241e0e4f2069',1,'basix::cell::type()'],['../namespacebasix_1_1mapping.html#a2426bf33626776d9ca2efe0b60438f9b',1,'basix::mapping::type()']]],
+  ['type_5fto_5fstr_86',['type_to_str',['../namespacebasix_1_1cell.html#a95a226ff522b924cbc711e8a499bb7e4',1,'basix::cell::type_to_str()'],['../namespacebasix_1_1mapping.html#a71d01e702f9447b41a552886d017e1a6',1,'basix::mapping::type_to_str()']]]
 ];
