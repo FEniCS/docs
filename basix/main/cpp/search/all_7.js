@@ -1,14 +1,14 @@
 var searchData=
 [
-  ['make_5fdot_5fintegral_5fmoments_49',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#ae3fb1177ffa53dff6abb050b9e504f5a',1,'basix::moments']]],
+  ['make_5fdot_5fintegral_5fmoments_49',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#a927258850f3a9b16913334aca1b6d9e7',1,'basix::moments']]],
   ['make_5fgll_5fline_50',['make_gll_line',['../namespacebasix_1_1quadrature.html#a16a555d503f8145ad9f514ee4730ecff',1,'basix::quadrature']]],
-  ['make_5fintegral_5fmoments_51',['make_integral_moments',['../namespacebasix_1_1moments.html#acf20d6cfd866513a90030795bea9f0ef',1,'basix::moments']]],
-  ['make_5fnormal_5fintegral_5fmoments_52',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#abc70db579c3ed28b4573eef2c7a5a1ce',1,'basix::moments']]],
+  ['make_5fintegral_5fmoments_51',['make_integral_moments',['../namespacebasix_1_1moments.html#a7355ca5b631e1077b8e038c82689b40a',1,'basix::moments']]],
+  ['make_5fnormal_5fintegral_5fmoments_52',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#a5e151dd24d3c7140d76afef652b5eea9',1,'basix::moments']]],
   ['make_5fquadrature_53',['make_quadrature',['../namespacebasix_1_1quadrature.html#a179c95d43c0737da38dfd9c94c605b53',1,'basix::quadrature']]],
   ['make_5fquadrature_5fline_54',['make_quadrature_line',['../namespacebasix_1_1quadrature.html#a1f81c296589fa55f719c6fc86ad5da1b',1,'basix::quadrature']]],
   ['make_5fquadrature_5ftetrahedron_5fcollapsed_55',['make_quadrature_tetrahedron_collapsed',['../namespacebasix_1_1quadrature.html#a6abed671d945fe61c001a383d1c99fb8',1,'basix::quadrature']]],
   ['make_5fquadrature_5ftriangle_5fcollapsed_56',['make_quadrature_triangle_collapsed',['../namespacebasix_1_1quadrature.html#aa5080e8f548b6104c7411534dd7f2ffd',1,'basix::quadrature']]],
-  ['make_5ftangent_5fintegral_5fmoments_57',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a6fd97d4a44a49b647de6d5193de3e279',1,'basix::moments']]],
+  ['make_5ftangent_5fintegral_5fmoments_57',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a7ebca8d770311c216c65198f1d53fb6a',1,'basix::moments']]],
   ['map_5fpull_5fback_58',['map_pull_back',['../classbasix_1_1FiniteElement.html#a5638c198b02aa57731bf96b00416f254',1,'basix::FiniteElement']]],
   ['map_5fpull_5fback_5fcomplex_59',['map_pull_back_complex',['../namespacebasix.html#a098d63124132a45c0e9b8e276f436193',1,'basix']]],
   ['map_5fpull_5fback_5fm_60',['map_pull_back_m',['../classbasix_1_1FiniteElement.html#a3ce65a6bff05ec1894acd185e8e3cd2c',1,'basix::FiniteElement']]],
