@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['base_5fpermutations_100',['base_permutations',['../classbasix_1_1FiniteElement.html#af76e81b3893b14939790c6aacb6ec7d4',1,'basix::FiniteElement']]]
+  ['base_5ftransformations_100',['base_transformations',['../classbasix_1_1FiniteElement.html#a10f121ffc6074305fde00571b1ed98bb',1,'basix::FiniteElement']]]
 ];

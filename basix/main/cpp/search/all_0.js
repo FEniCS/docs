@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['base_5fpermutations_0',['base_permutations',['../classbasix_1_1FiniteElement.html#af76e81b3893b14939790c6aacb6ec7d4',1,'basix::FiniteElement']]],
+  ['base_5ftransformations_0',['base_transformations',['../classbasix_1_1FiniteElement.html#a10f121ffc6074305fde00571b1ed98bb',1,'basix::FiniteElement']]],
   ['basix_1',['basix',['../namespacebasix.html',1,'']]],
   ['cell_2',['cell',['../namespacebasix_1_1cell.html',1,'basix']]],
   ['doftransforms_3',['doftransforms',['../namespacebasix_1_1doftransforms.html',1,'basix']]],
