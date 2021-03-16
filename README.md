@@ -6,13 +6,13 @@ the `master` or `main` branch of each project.
 
 ## DOLFINX
 
-`master` C++: https://docs.fenicsproject.org/dolfinx/master/cpp/
+`main` C++: https://docs.fenicsproject.org/dolfinx/main/cpp/
 
-`master` Python: https://docs.fenicsproject.org/dolfinx/master/python/
+`main` Python: https://docs.fenicsproject.org/dolfinx/main/python/
 
 ## FFCX
 
-`master`: https://docs.fenicsproject.org/ffcx/master
+`master`: https://docs.fenicsproject.org/ffcx/main
 
 ## basix
 
