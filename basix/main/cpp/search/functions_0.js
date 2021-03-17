@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['base_5ftransformations_100',['base_transformations',['../classbasix_1_1FiniteElement.html#a10f121ffc6074305fde00571b1ed98bb',1,'basix::FiniteElement']]]
+  ['apply_5fmap_103',['apply_map',['../namespacebasix_1_1mapping.html#ab72b15c5f11409321f42ffc758e60dad',1,'basix::mapping']]]
 ];
