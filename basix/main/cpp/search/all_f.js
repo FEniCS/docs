@@ -8,6 +8,6 @@ var searchData=
   ['topology_85',['topology',['../namespacebasix_1_1cell.html#a5cae2b1e6148e0c376d6ad8ea32a2f44',1,'basix::cell::topology()'],['../namespacebasix.html#a17184d52d716016a60a961d71f5e093e',1,'basix::topology()']]],
   ['triangle_5freflection_86',['triangle_reflection',['../namespacebasix_1_1doftransforms.html#a6c9ded7d9268b88859a3aba7925a23c2',1,'basix::doftransforms']]],
   ['triangle_5frotation_87',['triangle_rotation',['../namespacebasix_1_1doftransforms.html#ae44bcc81e35d7d1ed886f78c8c2ba3de',1,'basix::doftransforms']]],
-  ['type_88',['type',['../namespacebasix_1_1cell.html#a6b9fb94bbe86f3e58ccd241e0e4f2069',1,'basix::cell::type()'],['../namespacebasix_1_1mapping.html#a2426bf33626776d9ca2efe0b60438f9b',1,'basix::mapping::type()']]],
-  ['type_5fto_5fstr_89',['type_to_str',['../namespacebasix_1_1cell.html#a95a226ff522b924cbc711e8a499bb7e4',1,'basix::cell::type_to_str()'],['../namespacebasix_1_1mapping.html#a71d01e702f9447b41a552886d017e1a6',1,'basix::mapping::type_to_str()']]]
+  ['type_88',['type',['../namespacebasix_1_1cell.html#a6b9fb94bbe86f3e58ccd241e0e4f2069',1,'basix::cell::type()'],['../namespacebasix_1_1maps.html#acc2c2d4600630fca6e0967d25d0859e9',1,'basix::maps::type()']]],
+  ['type_5fto_5fstr_89',['type_to_str',['../namespacebasix_1_1cell.html#a95a226ff522b924cbc711e8a499bb7e4',1,'basix::cell::type_to_str()'],['../namespacebasix_1_1maps.html#ad82417e9ee5594fe27d17fc180de4bf3',1,'basix::maps::type_to_str()']]]
 ];
