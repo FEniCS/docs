@@ -12,11 +12,13 @@ the `master` or `main` branch of each project.
 
 ## FFCX
 
-`master`: https://docs.fenicsproject.org/ffcx/main
+`main`: https://docs.fenicsproject.org/ffcx/main
 
 ## basix
 
 `main` C++: https://docs.fenicsproject.org/basix/main/cpp/
+
+`main` Python: https://docs.fenicsproject.org/basix/main/python/
 
 ## UFL
 
