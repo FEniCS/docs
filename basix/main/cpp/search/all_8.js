@@ -1,14 +1,14 @@
 var searchData=
 [
-  ['make_5fdot_5fintegral_5fmoments_49',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#ae16ebd94b5fdbab873fbf6f770632669',1,'basix::moments']]],
+  ['make_5fdot_5fintegral_5fmoments_49',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#aa5499ba70f13d82785a40c7fb9ac79c2',1,'basix::moments']]],
   ['make_5fgll_5fline_50',['make_gll_line',['../namespacebasix_1_1quadrature.html#aab4f72c22255785a1b92e7434b71a640',1,'basix::quadrature']]],
   ['make_5fintegral_5fmoments_51',['make_integral_moments',['../namespacebasix_1_1moments.html#a5b4caa58dd1d49c6d403873a1d5e7850',1,'basix::moments']]],
-  ['make_5fnormal_5fintegral_5fmoments_52',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#a35b1c8664b0067025589faa92fa27a7c',1,'basix::moments']]],
+  ['make_5fnormal_5fintegral_5fmoments_52',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#a7999437ea517cb0e4c79f46c3ed7111d',1,'basix::moments']]],
   ['make_5fquadrature_53',['make_quadrature',['../namespacebasix_1_1quadrature.html#aa2f793f14c12a561a6ecab30eb61b951',1,'basix::quadrature']]],
   ['make_5fquadrature_5fline_54',['make_quadrature_line',['../namespacebasix_1_1quadrature.html#ab39b75a768906f220608d2b8972af174',1,'basix::quadrature']]],
   ['make_5fquadrature_5ftetrahedron_5fcollapsed_55',['make_quadrature_tetrahedron_collapsed',['../namespacebasix_1_1quadrature.html#a60f2229f12d40c9e56348b5a104cb2ce',1,'basix::quadrature']]],
   ['make_5fquadrature_5ftriangle_5fcollapsed_56',['make_quadrature_triangle_collapsed',['../namespacebasix_1_1quadrature.html#a73958bee6fee7e8cefe103c005b32b4a',1,'basix::quadrature']]],
-  ['make_5ftangent_5fintegral_5fmoments_57',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#aa285db5356ba10703b28b4acd980606e',1,'basix::moments']]],
+  ['make_5ftangent_5fintegral_5fmoments_57',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a8122ffaa14319c40b0e3f335d86206f3',1,'basix::moments']]],
   ['map_5fpull_5fback_58',['map_pull_back',['../classbasix_1_1FiniteElement.html#a1fb779fd021d8fa9f71abd1f8806770d',1,'basix::FiniteElement']]],
   ['map_5fpull_5fback_5fcomplex_59',['map_pull_back_complex',['../namespacebasix.html#a868d4c74c69a215fe516a3f5c392f720',1,'basix']]],
   ['map_5fpull_5fback_5fm_60',['map_pull_back_m',['../classbasix_1_1FiniteElement.html#a4bb84b359dcf0f0ce4ee19a79fe58aec',1,'basix::FiniteElement']]],
