@@ -12,21 +12,17 @@ It is updated automatically by GitHub Actions jobs running on
 the `master` or `main` branch of each project.
 
 ### DOLFINX
-
 `main` C++: [https://docs.fenicsproject.org/dolfinx/main/cpp/](https://docs.fenicsproject.org/dolfinx/main/cpp/)
 
 `main` Python: [https://docs.fenicsproject.org/dolfinx/main/python/](https://docs.fenicsproject.org/dolfinx/main/python/)
 
 ### FFCX
-
 `main`: [https://docs.fenicsproject.org/ffcx/main](https://docs.fenicsproject.org/ffcx/main)
 
 ### basix
-
 `main` C++: [https://docs.fenicsproject.org/basix/main/cpp/](https://docs.fenicsproject.org/basix/main/cpp/)
 
 `main` Python: [https://docs.fenicsproject.org/basix/main/python/](https://docs.fenicsproject.org/basix/main/python/)
 
 ### UFL
-
 TODO
