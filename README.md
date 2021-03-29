@@ -1,7 +1,7 @@
 ---
 pagetitle: FEniCS Project Documentation
 header-includes:
-    <link rel="shortcut icon" type="image/x-icon" href="https://fenicsproject.org/pub/graphics/fenics_favicon.ico"/>
+    <link rel="shortcut icon" type="image/x-icon" href="https://fenicsproject.org/favicon.ico"/>
 ---
 # FEniCS Project Documentation
 
