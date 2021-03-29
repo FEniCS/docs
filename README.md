@@ -5,7 +5,7 @@ header-includes:
 ---
 # FEniCS Project Documentation
 
-<img style="display: block; margin: 0 auto; width: 70px;" src="https://fenicsproject.org/pub/graphics/fenics_logo.png" alt="FEniCS project logo">
+<img style="display: block; margin: 0 auto; width: 70px;" src="https://fenicsproject.org/pub/graphics/fenics_logo.svg" alt="FEniCS project logo">
 
 This repository contains documentation for the FEniCS Project.
 It is updated automatically by GitHub Actions jobs running on
@@ -25,4 +25,4 @@ the `master` or `main` branch of each project.
 `main` Python: [https://docs.fenicsproject.org/basix/main/python/](https://docs.fenicsproject.org/basix/main/python/)
 
 ### UFL
-TODO
+`master`: [https://fenics.readthedocs.io/projects/ufl/en/latest/](https://fenics.readthedocs.io/projects/ufl/en/latest/)
