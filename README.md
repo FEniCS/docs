@@ -5,7 +5,7 @@ header-includes:
 ---
 # FEniCS Project Documentation
 
-<img style="display: block; margin: 0 auto; width: 80px;" src="https://fenicsproject.org/pub/graphics/fenics_logo.png" alt="FEniCS logo">
+<img style="display: block; margin: 0 auto; width: 80px;" src="https://fenicsproject.org/pub/graphics/fenics_logo.png" alt="FEniCS project logo">
 
 This repository contains documentation for the FEniCS Project.
 It is updated automatically by GitHub Actions jobs running on
