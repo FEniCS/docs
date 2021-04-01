@@ -5,7 +5,7 @@ var searchData=
   ['cell_5fgeometry_5fnum_5fpoints_11',['cell_geometry_num_points',['../namespacebasix.html#a148ca1352b4c2dd90ca2162402a02b91',1,'basix']]],
   ['cell_5ftype_12',['cell_type',['../classbasix_1_1FiniteElement.html#a07e3921459dce5bff1cb731d1713ccc2',1,'basix::FiniteElement::cell_type()'],['../namespacebasix.html#a5defab459cba0ca319b69ad46f9fdca8',1,'basix::cell_type()']]],
   ['combine_5finterpolation_5fdata_13',['combine_interpolation_data',['../namespacebasix.html#a022ea3c316452468ac0b13426d72047d',1,'basix']]],
-  ['compute_5fexpansion_5fcoefficients_14',['compute_expansion_coefficients',['../namespacebasix.html#aaae58d4f3a47d564e83a8cbb3cebabbf',1,'basix']]],
+  ['compute_5fexpansion_5fcoefficients_14',['compute_expansion_coefficients',['../namespacebasix.html#af1b43b239b9d4b21b607447fc45ec2a8',1,'basix']]],
   ['compute_5fgauss_5fjacobi_5fpoints_15',['compute_gauss_jacobi_points',['../namespacebasix_1_1quadrature.html#a30d38c05a513682767573889a7530503',1,'basix::quadrature']]],
   ['compute_5fgauss_5fjacobi_5frule_16',['compute_gauss_jacobi_rule',['../namespacebasix_1_1quadrature.html#a577d2ee1c460315e6750d838f86b3e1c',1,'basix::quadrature']]],
   ['compute_5fgll_5frule_17',['compute_gll_rule',['../namespacebasix_1_1quadrature.html#a24a8233b4eb68b5547707b254988cc06',1,'basix::quadrature']]],
