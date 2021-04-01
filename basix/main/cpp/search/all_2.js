@@ -27,5 +27,7 @@ var searchData=
   ['create_5frt_33',['create_rt',['../namespacebasix.html#ae618951823ab27aa9032a16a1c9dd6bc',1,'basix']]],
   ['create_5frtc_34',['create_rtc',['../namespacebasix.html#abb6b10dc6d837b9abe8a2ff090fd380f',1,'basix']]],
   ['create_5fserendipity_35',['create_serendipity',['../namespacebasix.html#a62350af9644dbbd34e625fe9563ffaba',1,'basix']]],
-  ['create_5ftangent_5fmoment_5fdof_5ftransformations_36',['create_tangent_moment_dof_transformations',['../namespacebasix_1_1moments.html#a54a635fd814b00d260b6c77c5c1326ef',1,'basix::moments']]]
+  ['create_5fserendipity_5fcurl_36',['create_serendipity_curl',['../namespacebasix.html#afb0c7a7b8fdccdd8e75e17e40ac3bfda',1,'basix']]],
+  ['create_5fserendipity_5fdiv_37',['create_serendipity_div',['../namespacebasix.html#a4d81b2a834e835e2059995a7fa8b9098',1,'basix']]],
+  ['create_5ftangent_5fmoment_5fdof_5ftransformations_38',['create_tangent_moment_dof_transformations',['../namespacebasix_1_1moments.html#a54a635fd814b00d260b6c77c5c1326ef',1,'basix::moments']]]
 ];
