@@ -15,5 +15,5 @@ var searchData=
   ['residual_820',['residual',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#ace3bf06f2286c53d54cb5882915f1b35',1,'dolfinx::nls::NewtonSolver']]],
   ['residual0_821',['residual0',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a9cc60f23eca54c4d77155b10af4c3741',1,'dolfinx::nls::NewtonSolver']]],
   ['resume_822',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a4ac55a73bb3431db9d4d2fd70ae9a2e8',1,'dolfinx::common::Timer']]],
-  ['row_823',['row',['../d4/d7c/classdolfinx_1_1array2d.html#a70c587108a458c0693fdda8ccccaeecd',1,'dolfinx::array2d::row(size_type i)'],['../d4/d7c/classdolfinx_1_1array2d.html#a2562a815cea4c8df061ec631cd8785b6',1,'dolfinx::array2d::row(size_type i) const']]]
+  ['row_823',['row',['../d4/d7c/classdolfinx_1_1array2d.html#a1ed3259306038b1a0b04505679e57596',1,'dolfinx::array2d::row(size_type i)'],['../d4/d7c/classdolfinx_1_1array2d.html#a32bc128914b1c3977f27c1e8c64a9ebc',1,'dolfinx::array2d::row(size_type i) const']]]
 ];
