@@ -8,7 +8,7 @@ var searchData=
   ['compute_5fgauss_5fjacobi_5fpoints_113',['compute_gauss_jacobi_points',['../namespacebasix_1_1quadrature.html#a30d38c05a513682767573889a7530503',1,'basix::quadrature']]],
   ['compute_5fgauss_5fjacobi_5frule_114',['compute_gauss_jacobi_rule',['../namespacebasix_1_1quadrature.html#a577d2ee1c460315e6750d838f86b3e1c',1,'basix::quadrature']]],
   ['compute_5fgll_5frule_115',['compute_gll_rule',['../namespacebasix_1_1quadrature.html#a24a8233b4eb68b5547707b254988cc06',1,'basix::quadrature']]],
-  ['compute_5fjacobi_5fderiv_116',['compute_jacobi_deriv',['../namespacebasix_1_1quadrature.html#a8ab17b2759671c7f48ccaf6a24a5de8a',1,'basix::quadrature']]],
+  ['compute_5fjacobi_5fderiv_116',['compute_jacobi_deriv',['../namespacebasix_1_1quadrature.html#a847a7e1aa1df3f39ee1266a3c3a4fb1f',1,'basix::quadrature']]],
   ['create_5fbdm_117',['create_bdm',['../namespacebasix.html#aab69691a8a537ea153b0d23b373959b8',1,'basix']]],
   ['create_5fbubble_118',['create_bubble',['../namespacebasix.html#a27b4a89ae6d63e6772c2400727ed6b22',1,'basix']]],
   ['create_5fcr_119',['create_cr',['../namespacebasix.html#acf8003e76d0bc431b7cbde734d0e23fd',1,'basix']]],
