@@ -2,7 +2,7 @@ var searchData=
 [
   ['pack_5fcoefficients_306',['pack_coefficients',['../d8/dbf/namespacedolfinx_1_1fem.html#ad1f533dbd85ac25e3b8dc6f5412ec05c',1,'dolfinx::fem']]],
   ['pack_5fconstants_307',['pack_constants',['../d8/dbf/namespacedolfinx_1_1fem.html#a2592f3e164abea8ac0a3999ef2055176',1,'dolfinx::fem']]],
-  ['partition_308',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a10020cc9412d133378191f6e1c1b348f',1,'dolfinx::refinement']]],
+  ['partition_308',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a042b2081bd2897a7d706cacb4ea23cff',1,'dolfinx::refinement']]],
   ['partition_5fcells_5fgraph_309',['partition_cells_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a3c3e3051aeeb41c7ce270f59f8f4f6b3',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, int tdim, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#a34e1c83955e294aba6d3f6b3538198a7',1,'dolfinx::mesh::partition_cells_graph(MPI_Comm comm, int n, int tdim, const graph::AdjacencyList&lt; std::int64_t &gt; &amp;cells, mesh::GhostMode ghost_mode, const graph::partition_fn &amp;partfn)']]],
   ['partition_5ffn_310',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#aaa0e61e85afe197c34ff1862f8964447',1,'dolfinx::graph']]],
   ['partition_5fgraph_311',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#aa80334102ff8c593017cc62c89dfe9a3',1,'dolfinx::graph']]],

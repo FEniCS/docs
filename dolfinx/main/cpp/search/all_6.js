@@ -14,7 +14,7 @@ var searchData=
   ['get_5flocal_5fvectors_200',['get_local_vectors',['../d6/dfa/namespacedolfinx_1_1la.html#a248428c9f79cbb6a67f27cde1d59c378',1,'dolfinx::la']]],
   ['get_5fmpi_5fatomicity_201',['get_mpi_atomicity',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a900cd92d3b91032a2ec03cae020929aa',1,'dolfinx::io::HDF5Interface']]],
   ['get_5foptions_5fprefix_202',['get_options_prefix',['../d4/d8b/classdolfinx_1_1la_1_1PETScKrylovSolver.html#a65e2fad2b61a3232800eaba064a16931',1,'dolfinx::la::PETScKrylovSolver::get_options_prefix()'],['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#af9497ff9c76fa6efb0d2fb6437d6ecfc',1,'dolfinx::la::PETScMatrix::get_options_prefix()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#a57710c759d81aec73012e1b8c3e42e3f',1,'dolfinx::la::PETScVector::get_options_prefix()']]],
-  ['get_5fsub_5fentities_203',['get_sub_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a9df333f18a11a1b20faf1f408c3d7921',1,'dolfinx::mesh']]],
+  ['get_5fsub_5fentities_203',['get_sub_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a1dfb3356d8a630ee52fe2213554068ae',1,'dolfinx::mesh']]],
   ['get_5ftabulate_5fexpression_204',['get_tabulate_expression',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#aeb51ea34388a8e592668a2200ce4582e',1,'dolfinx::fem::Expression']]],
   ['get_5fvtk_5fcell_5ftype_205',['get_vtk_cell_type',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a9cb03a078bb1b77ea88d679016444ada',1,'dolfinx::io::cells']]],
   ['ghost_5fowner_5frank_206',['ghost_owner_rank',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a31a1cec37a01986df96cb9400a04dd63',1,'dolfinx::common::IndexMap']]],
