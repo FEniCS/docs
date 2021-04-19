@@ -9,5 +9,5 @@ var searchData=
   ['build_5fadjacency_5flist_554',['build_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#a26f53a61ca3e28138a6b83715c47153d',1,'dolfinx::graph']]],
   ['build_5fdofmap_5fdata_555',['build_dofmap_data',['../d8/dbf/namespacedolfinx_1_1fem.html#a4686b146b3274c580b056a947ecb1ca4',1,'dolfinx::fem']]],
   ['build_5fdual_5fgraph_556',['build_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a333901ed97f22228db79a6a71a08e10b',1,'dolfinx::mesh']]],
-  ['build_5flocal_5fdual_5fgraph_557',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a59dea58ea94c46093f9b3b2cc4d108e9',1,'dolfinx::mesh']]]
+  ['build_5flocal_5fdual_5fgraph_557',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a1bd1d3dd7f6fc0ec404395776ac1fef5',1,'dolfinx::mesh']]]
 ];
