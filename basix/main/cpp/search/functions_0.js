@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['apply_5fdof_5ftransformation_101',['apply_dof_transformation',['../classbasix_1_1FiniteElement.html#a95d772ee51613e739e47beee69c97cbc',1,'basix::FiniteElement']]],
-  ['apply_5finverse_5ftranspose_5fdof_5ftransformation_102',['apply_inverse_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#a7a2f7fcca0aef2f152db4c2dd2f2b366',1,'basix::FiniteElement']]],
+  ['apply_5fdof_5ftransformation_101',['apply_dof_transformation',['../classbasix_1_1FiniteElement.html#ae5004d8af1a79884ac72e31597f6f07f',1,'basix::FiniteElement']]],
+  ['apply_5finverse_5ftranspose_5fdof_5ftransformation_102',['apply_inverse_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#a9d7b7e7b94a8f7494d5f50963770265f',1,'basix::FiniteElement']]],
   ['apply_5fmap_103',['apply_map',['../namespacebasix_1_1maps.html#a51d8c738aacec2e1ddd2e33647418086',1,'basix::maps']]],
-  ['apply_5fmatrix_104',['apply_matrix',['../namespacebasix_1_1precompute.html#aabf5eb6cd6e8e794b02d982b8467f6b5',1,'basix::precompute']]],
-  ['apply_5fpermutation_105',['apply_permutation',['../namespacebasix_1_1precompute.html#abf1e0e29161b6c7707e623ff4792ed09',1,'basix::precompute']]]
+  ['apply_5fmatrix_104',['apply_matrix',['../namespacebasix_1_1precompute.html#a8aa6680cac532cbb62b6fc037555c093',1,'basix::precompute']]],
+  ['apply_5fpermutation_105',['apply_permutation',['../namespacebasix_1_1precompute.html#a7539befcd08dfe18fd219f09e7e2d6ca',1,'basix::precompute']]]
 ];
