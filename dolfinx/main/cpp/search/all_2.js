@@ -13,7 +13,7 @@ var searchData=
   ['cells_43',['cells',['../db/dcc/namespacedolfinx_1_1fem_1_1sparsitybuild.html#a9b7d1f5df47f58d82cddfb14548f57e9',1,'dolfinx::fem::sparsitybuild']]],
   ['celltype_44',['CellType',['../dd/d7d/namespacedolfinx_1_1mesh.html#a9e741697bed34b75e9564e99feac4367',1,'dolfinx::mesh']]],
   ['clear_45',['clear',['../d9/dc7/classdolfinx_1_1la_1_1PETScOptions.html#a65e8b8b23346cc7dce7d308d49cb0490',1,'dolfinx::la::PETScOptions::clear(std::string option)'],['../d9/dc7/classdolfinx_1_1la_1_1PETScOptions.html#a022fa88170d4b1c9f54f5e877dd8f065',1,'dolfinx::la::PETScOptions::clear()']]],
-  ['close_46',['close',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#aa618a388c3c66cfd3d81a197c5ba88a6',1,'dolfinx::io::XDMFFile']]],
+  ['close_46',['close',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#aaee681f101073d2cb9877d8bf535bb5e',1,'dolfinx::io::VTKFile::close()'],['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#aa618a388c3c66cfd3d81a197c5ba88a6',1,'dolfinx::io::XDMFFile::close()']]],
   ['close_5ffile_47',['close_file',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a3f99641d381739aa872c3a7d1ccadd44',1,'dolfinx::io::HDF5Interface']]],
   ['cmap_48',['cmap',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a7879b8bea698d1a74c391e49d42ba723',1,'dolfinx::mesh::Geometry']]],
   ['coefficient_5foffsets_49',['coefficient_offsets',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#ab2e961f20b74bc8749dd2ea3e2f342db',1,'dolfinx::fem::Expression::coefficient_offsets()'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#aabddae480e2a92d1e69ec562d93b1c24',1,'dolfinx::fem::Form::coefficient_offsets()']]],
