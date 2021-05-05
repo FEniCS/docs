@@ -22,7 +22,7 @@ var searchData=
   ['generation_136',['generation',['../dc/d4b/namespacedolfinx_1_1generation.html',1,'dolfinx']]],
   ['geometry_137',['geometry',['../de/d27/namespacedolfinx_1_1geometry.html',1,'dolfinx']]],
   ['graph_138',['graph',['../d9/d69/namespacedolfinx_1_1graph.html',1,'dolfinx']]],
-  ['dolfin_2dx_20programmer_27s_20reference_139',['DOLFIN-X Programmer&apos;s Reference',['../index.html',1,'']]],
+  ['dolfinx_20programmer_27s_20reference_139',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
   ['intervalmesh_140',['IntervalMesh',['../d0/d0f/namespacedolfinx_1_1generation_1_1IntervalMesh.html',1,'dolfinx::generation']]],
   ['io_141',['io',['../d6/d7a/namespacedolfinx_1_1io.html',1,'dolfinx']]],
   ['kahip_142',['kahip',['../d9/d24/namespacedolfinx_1_1graph_1_1kahip.html',1,'dolfinx::graph']]],
