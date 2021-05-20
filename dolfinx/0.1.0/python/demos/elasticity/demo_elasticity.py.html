@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elasticity equation &#8212; DOLFINx 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Mesh generation using GMSH python API" href="../gmsh/demo_gmsh.py.html" />
+    <link rel="prev" title="Stokes equations with Taylor-Hood elements" href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../gmsh/demo_gmsh.py.html" title="Mesh generation using GMSH python API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" title="Stokes equations with Taylor-Hood elements"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINx 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" accesskey="U">Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Elasticity equation</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="elasticity-equation">
+<span id="demo-elasticity"></span><h1>Elasticity equation<a class="headerlink" href="#elasticity-equation" title="Permalink to this headline">¶</a></h1>
+<p>Copyright (C) 2020 Garth N. Wells and Michal Habera</p>
+<p>This demo solves the equations of static linear elasticity. The solver uses
+smoothed aggregation algebraic multigrid.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">ExitStack</span>
+
+<span class="kn">import</span> <span class="nn">dolfinx</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="n">BoxMesh</span><span class="p">,</span> <span class="n">DirichletBC</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">VectorFunctionSpace</span><span class="p">,</span> <span class="n">cpp</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.mesh</span> <span class="k">import</span> <span class="n">CellType</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="k">import</span> <span class="p">(</span><span class="n">apply_lifting</span><span class="p">,</span> <span class="n">assemble_matrix</span><span class="p">,</span> <span class="n">assemble_vector</span><span class="p">,</span>
+                         <span class="n">locate_dofs_geometrical</span><span class="p">,</span> <span class="n">set_bc</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="k">import</span> <span class="n">XDMFFile</span>
+<span class="kn">from</span> <span class="nn">dolfinx.la</span> <span class="k">import</span> <span class="n">VectorSpaceBasis</span>
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="k">import</span> <span class="n">MPI</span>
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="k">import</span> <span class="n">PETSc</span>
+<span class="kn">from</span> <span class="nn">ufl</span> <span class="k">import</span> <span class="p">(</span><span class="n">Identity</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">,</span> <span class="n">TestFunction</span><span class="p">,</span> <span class="n">TrialFunction</span><span class="p">,</span>
+                 <span class="n">as_vector</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">tr</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="nullspace-and-problem-setup">
+<h2>Nullspace and problem setup<a class="headerlink" href="#nullspace-and-problem-setup" title="Permalink to this headline">¶</a></h2>
+<p>Prepare a helper which builds PETSc’ NullSpace.
+Nullspace (or near nullspace) is needed to improve the
+performance of algebraic multigrid.</p>
+<p>In the case of small deformation linear elasticity the nullspace
+contains rigid body modes.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">build_nullspace</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Function to build null space for 3D elasticity&quot;&quot;&quot;</span>
+
+    <span class="c1"># Create list of vectors for null space</span>
+    <span class="n">index_map</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span>
+    <span class="n">nullspace_basis</span> <span class="o">=</span> <span class="p">[</span><span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+
+    <span class="k">with</span> <span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
+        <span class="n">vec_local</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">nullspace_basis</span><span class="p">]</span>
+        <span class="n">basis</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">vec_local</span><span class="p">]</span>
+
+        <span class="c1"># Dof indices for each subspace (x, y and z dofs)</span>
+        <span class="n">dofs</span> <span class="o">=</span> <span class="p">[</span><span class="n">V</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">array</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>
+
+        <span class="c1"># Build translational null space basis</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">basis</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># Build rotational null space basis</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()</span>
+        <span class="n">dofs_block</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">array</span>
+        <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">dofs_block</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="n">dofs_block</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="n">dofs_block</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">x1</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x0</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">4</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x2</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">4</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">x0</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="n">x1</span>
+        <span class="n">basis</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">x2</span>
+
+    <span class="c1"># Create vector space basis and orthogonalize</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">VectorSpaceBasis</span><span class="p">(</span><span class="n">nullspace_basis</span><span class="p">)</span>
+    <span class="n">basis</span><span class="o">.</span><span class="n">orthonormalize</span><span class="p">()</span>
+
+    <span class="n">_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">basis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+    <span class="n">nsp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">NullSpace</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">vectors</span><span class="o">=</span><span class="n">_x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">nsp</span>
+
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">BoxMesh</span><span class="p">(</span>
+    <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
+                     <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])],</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span>
+    <span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">boundary</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">),</span>
+                         <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">))</span>
+
+
+<span class="c1"># Rotation rate and mass density</span>
+<span class="n">omega</span> <span class="o">=</span> <span class="mf">300.0</span>
+<span class="n">rho</span> <span class="o">=</span> <span class="mf">10.0</span>
+
+<span class="c1"># Loading due to centripetal acceleration (rho*omega^2*x_i)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">((</span><span class="n">rho</span> <span class="o">*</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">))</span>
+
+<span class="c1"># Elasticity parameters</span>
+<span class="n">E</span> <span class="o">=</span> <span class="mf">1.0e9</span>
+<span class="n">nu</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">E</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">nu</span><span class="p">))</span>
+<span class="n">lmbda</span> <span class="o">=</span> <span class="n">E</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">/</span> <span class="p">((</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">nu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">nu</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">sigma</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">mu</span> <span class="o">*</span> <span class="n">sym</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">+</span> <span class="n">lmbda</span> <span class="o">*</span> <span class="n">tr</span><span class="p">(</span><span class="n">sym</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span> <span class="o">*</span> <span class="n">Identity</span><span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+
+
+<span class="c1"># Create function space</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">VectorFunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="c1"># Define variational problem</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">sigma</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span>
+<span class="n">L</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+
+<span class="n">u0</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">u0</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">bc_local</span><span class="p">:</span>
+    <span class="n">bc_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+
+<span class="c1"># Set up boundary condition on inner surface</span>
+<span class="n">bc</span> <span class="o">=</span> <span class="n">DirichletBC</span><span class="p">(</span><span class="n">u0</span><span class="p">,</span> <span class="n">locate_dofs_geometrical</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">boundary</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="assembly-and-solve">
+<h2>Assembly and solve<a class="headerlink" href="#assembly-and-solve" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assemble system, applying boundary conditions</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">[</span><span class="n">bc</span><span class="p">])</span>
+<span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+
+<span class="n">b</span> <span class="o">=</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+<span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="p">[[</span><span class="n">bc</span><span class="p">]])</span>
+<span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+<span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">bc</span><span class="p">])</span>
+
+<span class="c1"># Create solution function</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+
+<span class="c1"># Create near null space basis (required for smoothed aggregation AMG).</span>
+<span class="n">null_space</span> <span class="o">=</span> <span class="n">build_nullspace</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+
+<span class="c1"># Attach near nullspace to matrix</span>
+<span class="n">A</span><span class="o">.</span><span class="n">setNearNullSpace</span><span class="p">(</span><span class="n">null_space</span><span class="p">)</span>
+
+<span class="c1"># Set solver options</span>
+<span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;ksp_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;cg&quot;</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;ksp_rtol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0e-12</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;pc_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gamg&quot;</span>
+
+<span class="c1"># Use Chebyshev smoothing for multigrid</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;mg_levels_ksp_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;chebyshev&quot;</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;mg_levels_pc_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;jacobi&quot;</span>
+
+<span class="c1"># Improve estimate of eigenvalues for Chebyshev smoothing</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;mg_levels_esteig_ksp_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;cg&quot;</span>
+<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;mg_levels_ksp_chebyshev_esteig_steps&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span>
+
+<span class="c1"># Create CG Krylov solver and turn convergence monitoring on</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">setFromOptions</span><span class="p">()</span>
+
+<span class="c1"># Set matrix operator</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+
+<span class="c1"># Compute solution</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">setMonitor</span><span class="p">(</span><span class="k">lambda</span> <span class="n">ksp</span><span class="p">,</span> <span class="n">its</span><span class="p">,</span> <span class="n">rnorm</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Iteration: </span><span class="si">{}</span><span class="s2">, rel. residual: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">its</span><span class="p">,</span> <span class="n">rnorm</span><span class="p">)))</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">view</span><span class="p">()</span>
+
+<span class="c1"># Save solution to XDMF format</span>
+<span class="k">with</span> <span class="n">XDMFFile</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="s2">&quot;elasticity.xdmf&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+    <span class="n">file</span><span class="o">.</span><span class="n">write_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+    <span class="n">file</span><span class="o">.</span><span class="n">write_function</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+
+<span class="n">unorm</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">vector</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">()</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Solution vector norm:&quot;</span><span class="p">,</span> <span class="n">unorm</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Elasticity equation</a><ul>
+<li><a class="reference internal" href="#nullspace-and-problem-setup">Nullspace and problem setup</a></li>
+<li><a class="reference internal" href="#assembly-and-solve">Assembly and solve</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html"
+                        title="previous chapter">Stokes equations with Taylor-Hood elements</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../gmsh/demo_gmsh.py.html"
+                        title="next chapter">Mesh generation using GMSH python API</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/demos/elasticity/demo_elasticity.py.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../gmsh/demo_gmsh.py.html" title="Mesh generation using GMSH python API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../stokes-taylor-hood/demo_stokes-taylor-hood.py.html" title="Stokes equations with Taylor-Hood elements"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DOLFINx 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../demos.html" >Demos</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Elasticity equation</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.5.4.
+    </div>
+  </body>
+</html>
