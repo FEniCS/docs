@@ -16,13 +16,23 @@ the `master` or `main` branch of each project.
 
 `main` Python: [https://docs.fenicsproject.org/dolfinx/main/python/](https://docs.fenicsproject.org/dolfinx/main/python/)
 
+`0.1.0` C++: [https://docs.fenicsproject.org/dolfinx/0.1.0/cpp/](https://docs.fenicsproject.org/dolfinx/0.1.0/cpp/)
+
+`0.1.0` Python: [https://docs.fenicsproject.org/dolfinx/0.1.0/python/](https://docs.fenicsproject.org/dolfinx/0.1.0/python/)
+
 ### FFCX
 `main`: [https://docs.fenicsproject.org/ffcx/main](https://docs.fenicsproject.org/ffcx/main)
+
+`0.1.0`: [https://docs.fenicsproject.org/ffcx/0.1.0](https://docs.fenicsproject.org/ffcx/0.1.0)
 
 ### basix
 `main` C++: [https://docs.fenicsproject.org/basix/main/cpp/](https://docs.fenicsproject.org/basix/main/cpp/)
 
 `main` Python: [https://docs.fenicsproject.org/basix/main/python/](https://docs.fenicsproject.org/basix/main/python/)
+
+`0.1.0` C++: [https://docs.fenicsproject.org/basix/0.1.0/cpp/](https://docs.fenicsproject.org/basix/0.1.0/cpp/)
+
+`0.1.0` Python: [https://docs.fenicsproject.org/basix/0.1.0/python/](https://docs.fenicsproject.org/basix/0.1.0/python/)
 
 ### UFL
 `master`: [https://fenics.readthedocs.io/projects/ufl/en/latest/](https://fenics.readthedocs.io/projects/ufl/en/latest/)
