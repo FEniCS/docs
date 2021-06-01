@@ -28,7 +28,9 @@ the `master` or `main` branch of each project.
 ### Basix
 `main`: [https://docs.fenicsproject.org/basix/main/](https://docs.fenicsproject.org/basix/main/)
 
-`0.1.0`: [https://docs.fenicsproject.org/basix/0.1.0/](https://docs.fenicsproject.org/basix/0.1.0/)
+`0.1.0` C++: [https://docs.fenicsproject.org/basix/0.1.0/](https://docs.fenicsproject.org/basix/0.1.0/cpp/)
+
+`0.1.0` Python: [https://docs.fenicsproject.org/basix/0.1.0/](https://docs.fenicsproject.org/basix/0.1.0/python/)
 
 ### UFL
 `master`: [https://fenics.readthedocs.io/projects/ufl/en/latest/](https://fenics.readthedocs.io/projects/ufl/en/latest/)
