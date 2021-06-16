@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['num_5fpoints_178',['num_points',['../classbasix_1_1FiniteElement.html#a90b604f114c15fddb979f4fffee90236',1,'basix::FiniteElement']]],
-  ['num_5fsub_5fentities_179',['num_sub_entities',['../namespacebasix_1_1cell.html#a2006170ad82ba92eb4554d23c6954f36',1,'basix::cell']]]
+  ['num_5fpoints_188',['num_points',['../classbasix_1_1FiniteElement.html#a90b604f114c15fddb979f4fffee90236',1,'basix::FiniteElement']]],
+  ['num_5fsub_5fentities_189',['num_sub_entities',['../namespacebasix_1_1cell.html#a2006170ad82ba92eb4554d23c6954f36',1,'basix::cell']]]
 ];
