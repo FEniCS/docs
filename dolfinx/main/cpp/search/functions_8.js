@@ -11,7 +11,7 @@ var searchData=
   ['init_5flogging_734',['init_logging',['../d2/dcc/namespacedolfinx_1_1common_1_1subsystem.html#a746c5edb85d3556476ebc97b1d9d770b',1,'dolfinx::common::subsystem']]],
   ['init_5fmpi_735',['init_mpi',['../d2/dcc/namespacedolfinx_1_1common_1_1subsystem.html#af9ba58b70a0c565f5d68d6e13c5393c6',1,'dolfinx::common::subsystem::init_mpi()'],['../d2/dcc/namespacedolfinx_1_1common_1_1subsystem.html#a5e454d5eeb359fc28e8f45b557f28aa5',1,'dolfinx::common::subsystem::init_mpi(int argc, char *argv[])']]],
   ['init_5fpetsc_736',['init_petsc',['../d2/dcc/namespacedolfinx_1_1common_1_1subsystem.html#a97fe863b8867e220c2e8dd4ae0986c23',1,'dolfinx::common::subsystem::init_petsc()'],['../d2/dcc/namespacedolfinx_1_1common_1_1subsystem.html#a8760ec1864fbb9cc20105fb393edb36c',1,'dolfinx::common::subsystem::init_petsc(int argc, char *argv[])']]],
-  ['inner_5fproduct_737',['inner_product',['../d6/dfa/namespacedolfinx_1_1la.html#a2b7e0ca1cbdc3fa40557fcd8d11ae182',1,'dolfinx::la']]],
+  ['inner_5fproduct_737',['inner_product',['../d6/dfa/namespacedolfinx_1_1la.html#a8a1c1243f58f5839ae5d19f7d11fcf7d',1,'dolfinx::la']]],
   ['input_5fglobal_5findices_738',['input_global_indices',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a9d822339ef84f3efdcae6a8e36ea3b5a',1,'dolfinx::mesh::Geometry']]],
   ['insert_739',['insert',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a6ac006de6839c0dedfe455c0ffae6575',1,'dolfinx::la::SparsityPattern']]],
   ['insert_5fdiagonal_740',['insert_diagonal',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a8caae10644ccb476fc472c7545022a71',1,'dolfinx::la::SparsityPattern']]],

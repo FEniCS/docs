@@ -6,7 +6,7 @@ var searchData=
   ['neighbor_5fall_5fto_5fall_783',['neighbor_all_to_all',['../de/dbf/classdolfinx_1_1MPI.html#a044ab8abd5a98c2c463f779f0f1ad61a',1,'dolfinx::MPI']]],
   ['neighbors_784',['neighbors',['../de/dbf/classdolfinx_1_1MPI.html#aedc9642cf1bc95ffb82d1e4d86c031a5',1,'dolfinx::MPI']]],
   ['newtonsolver_785',['NewtonSolver',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a62f69a4d8b12d4e760c235d34a4c046c',1,'dolfinx::nls::NewtonSolver']]],
-  ['norm_786',['norm',['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#a54b22befd713931d76a11a1bb2ed6094',1,'dolfinx::la::PETScMatrix::norm()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#ae84af166ec39f6ce4f03c355e5dfb7ab',1,'dolfinx::la::PETScVector::norm()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#ada492ee7381c221b31cddf6873c5a8bb',1,'dolfinx::la::Vector::norm()']]],
+  ['norm_786',['norm',['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#a54b22befd713931d76a11a1bb2ed6094',1,'dolfinx::la::PETScMatrix::norm()'],['../d0/da6/classdolfinx_1_1la_1_1PETScVector.html#ae84af166ec39f6ce4f03c355e5dfb7ab',1,'dolfinx::la::PETScVector::norm()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a32e7e34cc43e94c4c0331d4fc819d1d4',1,'dolfinx::la::Vector::norm()']]],
   ['num_5fbboxes_787',['num_bboxes',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae71971b1581456ae451d48ed92a762f8',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['num_5fcell_5fvertices_788',['num_cell_vertices',['../dd/d7d/namespacedolfinx_1_1mesh.html#a44c342f24a0c39498c4874dec3ee6a3e',1,'dolfinx::mesh']]],
   ['num_5fdofs_789',['num_dofs',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a159e1302415e0a3b745bf628934ed20e',1,'dolfinx::fem::ElementDofLayout']]],

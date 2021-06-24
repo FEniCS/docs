@@ -27,7 +27,7 @@ var searchData=
   ['_7etimelogger_950',['~TimeLogger',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a47d6d8297fc9f2cee40cdea96b6a00c9',1,'dolfinx::common::TimeLogger']]],
   ['_7etimer_951',['~Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a14fa469c4c295c5fa6e66a4ad1092146',1,'dolfinx::common::Timer']]],
   ['_7etopology_952',['~Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aea7118fb4702c0435791cc37678a2399',1,'dolfinx::mesh::Topology']]],
-  ['_7evector_953',['~Vector',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a934cd5ec095ff430591f607dcdb45efd',1,'dolfinx::la::Vector']]],
+  ['_7evector_953',['~Vector',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#afc5e226f5ee2ac9ad817b68920f24fc8',1,'dolfinx::la::Vector']]],
   ['_7evectorspacebasis_954',['~VectorSpaceBasis',['../de/d5d/classdolfinx_1_1la_1_1VectorSpaceBasis.html#a7b6b2282ccbd35c92ebe8d307123fb3c',1,'dolfinx::la::VectorSpaceBasis']]],
   ['_7evtkfile_955',['~VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#a2f5a4b164e223d9ce17bbcca96f572f2',1,'dolfinx::io::VTKFile']]],
   ['_7exdmffile_956',['~XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ac5c6dc8008dca8e87502fac4a1e4a44b',1,'dolfinx::io::XDMFFile']]]
