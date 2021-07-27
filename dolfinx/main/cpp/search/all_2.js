@@ -34,7 +34,7 @@ var searchData=
   ['compute_5fentity_5fpermutations_69',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#afb0fa8d21df387bf0b081db4edb5ffd4',1,'dolfinx::mesh']]],
   ['compute_5fghost_5findices_70',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#ac57351574bcbbf57e830c7647dda6b5f',1,'dolfinx::graph::build']]],
   ['compute_5fgps_71',['compute_gps',['../df/d62/namespacedolfinx_1_1graph_1_1scotch.html#a285982d14434660b47cde732bd419f5e',1,'dolfinx::graph::scotch']]],
-  ['compute_5fgraph_5fedges_72',['compute_graph_edges',['../de/dbf/classdolfinx_1_1MPI.html#a1be783b2f23e65306ced8c6eb3f8c58b',1,'dolfinx::MPI']]],
+  ['compute_5fgraph_5fedges_72',['compute_graph_edges',['../da/dfe/namespacedolfinx_1_1MPI.html#a1be783b2f23e65306ced8c6eb3f8c58b',1,'dolfinx::MPI']]],
   ['compute_5fjacobian_73',['compute_jacobian',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a5edd6381beacc6e2fb119c5b6f9ca2a5',1,'dolfinx::fem::CoordinateElement']]],
   ['compute_5fjacobian_5fdeterminant_74',['compute_jacobian_determinant',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a9bad331652641cd95255ca3b3edd8dd8',1,'dolfinx::fem::CoordinateElement']]],
   ['compute_5fjacobian_5finverse_75',['compute_jacobian_inverse',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a83472867ec000b8d211c804c7e10e17d',1,'dolfinx::fem::CoordinateElement']]],
