@@ -1,0 +1,486 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dolfinx.fem.assemble &#8212; DOLFINx 0.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nature.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINx 0.2.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.assemble</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for dolfinx.fem.assemble</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2018-2019 Garth N. Wells</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Assembly functions for variational forms.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="k">import</span> <span class="n">PETSc</span>
+
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="k">import</span> <span class="n">cpp</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.dirichletbc</span> <span class="k">import</span> <span class="n">DirichletBC</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.form</span> <span class="k">import</span> <span class="n">Form</span>
+
+
+<span class="k">def</span> <span class="nf">_create_cpp_form</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Recursively look for ufl.Forms and convert to dolfinx.fem.Form, otherwise</span>
+<span class="sd">    return form argument</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span><span class="o">.</span><span class="n">_cpp_object</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sub_form</span><span class="p">:</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">sub_form</span><span class="p">),</span> <span class="n">form</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">form</span>
+
+
+<span class="c1"># -- Vector instantiation ----------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="create_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector">[docs]</a><span class="k">def</span> <span class="nf">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="n">dofmap</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_vector_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector_block">[docs]</a><span class="k">def</span> <span class="nf">create_vector_block</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_vector_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector_nest">[docs]</a><span class="k">def</span> <span class="nf">create_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
+
+
+<span class="c1"># -- Matrix instantiation ----------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="create_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix">[docs]</a><span class="k">def</span> <span class="nf">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span> <span class="n">mat_type</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">mat_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">mat_type</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="create_matrix_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix_block">[docs]</a><span class="k">def</span> <span class="nf">create_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="create_matrix_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix_nest">[docs]</a><span class="k">def</span> <span class="nf">create_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">))</span></div>
+
+
+<span class="c1"># -- Scalar assembly ---------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="assemble_scalar"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_scalar">[docs]</a><span class="k">def</span> <span class="nf">assemble_scalar</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble functional. The returned value is local and not accumulated</span>
+<span class="sd">    across processes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">M</span><span class="p">))</span></div>
+
+<span class="c1"># -- Vector assembly ---------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="assemble_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear form into a new PETSc vector. The returned vector is</span>
+<span class="sd">    not finalised, i.e. ghost values are not accumulated on the owning</span>
+<span class="sd">    processes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_L</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">_L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
+                             <span class="n">_L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+        <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">_L</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span></div>
+
+
+<span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear form into an existing PETSc vector. The vector is not</span>
+<span class="sd">    zeroed before assembly and it is not finalised, qi.e. ghost values are</span>
+<span class="sd">    not accumulated on the owning processes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">b</span>
+
+
+<div class="viewcode-block" id="assemble_vector_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector_nest">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a new nested PETSc (VecNest) vector. The</span>
+<span class="sd">    returned vector is not finalised, i.e. ghost values are not accumulated</span>
+<span class="sd">    on the owning processes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">b_sub</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+            <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">assemble_vector_nest</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span></div>
+
+
+<span class="nd">@assemble_vector_nest</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a nested PETSc (VecNest) vector. The vector is not</span>
+<span class="sd">    zeroed before assembly and it is not finalised, i.e. ghost values</span>
+<span class="sd">    are not accumulated on the owning processes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)):</span>
+        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+            <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span>
+
+
+<span class="c1"># FIXME: Revise this interface</span>
+<div class="viewcode-block" id="assemble_vector_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector_block">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_vector_block</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+                          <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+                          <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+                          <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector. The vector is not</span>
+<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+        <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">assemble_vector_block</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
+
+
+<span class="nd">@assemble_vector_block</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+      <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+      <span class="n">a</span><span class="p">,</span>
+      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+      <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+      <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector. The vector is not</span>
+<span class="sd">    zeroed and it is not finalised, i.e. ghost values are not</span>
+<span class="sd">    accumulated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x0_local</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
+        <span class="n">x0_sub</span> <span class="o">=</span> <span class="n">x0_local</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">x0_local</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">x0_sub</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+
+    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">bcs_cols</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+    <span class="n">b_local</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bc</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b_local</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">):</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L_sub</span><span class="p">))</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a_sub</span><span class="p">),</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x0_local</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+
+    <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">scatter_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">b_local</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+
+    <span class="n">bcs0</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">bcs_rows</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">b_array</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getArray</span><span class="p">(</span><span class="n">readonly</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">submap</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">_x0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">,</span> <span class="n">x0_sub</span><span class="p">):</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">submap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">submap</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b_array</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">],</span> <span class="n">bc</span><span class="p">,</span> <span class="n">_x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">size</span>
+
+    <span class="k">return</span> <span class="n">b</span>
+
+
+<span class="c1"># -- Matrix assembly ---------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="assemble_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
+                    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+                    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix. The returned matrix is not</span>
+<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span></div>
+
+
+<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+      <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
+      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix. The returned matrix is not</span>
+<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_a</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_matrix_petsc</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">_a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">_a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">assemblyBegin</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">assemblyEnd</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">_a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span>
+
+
+<span class="c1"># FIXME: Revise this interface</span>
+<div class="viewcode-block" id="assemble_matrix_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix_nest">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+                         <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">mat_types</span><span class="o">=</span><span class="p">[],</span>
+                         <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">mat_types</span><span class="p">)</span>
+    <span class="n">assemble_matrix_nest</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span></div>
+
+
+<span class="nd">@assemble_matrix_nest</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+      <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
+    <span class="n">_a</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_a</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">a_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getNestSubMatrix</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+                <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span>
+
+
+<span class="c1"># FIXME: Revise this interface</span>
+<div class="viewcode-block" id="assemble_matrix_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix_block">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+                          <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+                          <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">assemble_matrix_block</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]):</span>
+    <span class="sd">&quot;&quot;&quot;From a rectangular array of bilinear forms, extraction the function spaces</span>
+<span class="sd">    for each block row and block column</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">({</span><span class="nb">len</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span> <span class="k">for</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">a</span><span class="p">})</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Array of function spaces is not rectangular&quot;</span>
+
+    <span class="c1"># Extract (V0, V1) pair for each block in &#39;a&#39;</span>
+    <span class="k">def</span> <span class="nf">fn</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">partial</span>
+    <span class="n">Vblock</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">fn</span><span class="p">),</span> <span class="n">a</span><span class="p">)</span>
+
+    <span class="c1"># Compute spaces for each row/column block</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">))]</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]))]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">Vrow</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vblock</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">V</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vrow</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">rows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">cols</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">col</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span>
+
+
+<span class="nd">@assemble_matrix_block</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+      <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
+    <span class="n">_a</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">_a</span><span class="p">)</span>
+    <span class="n">is_rows</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_petsc_index_sets</span><span class="p">([(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+    <span class="n">is_cols</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_petsc_index_sets</span><span class="p">([(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+
+    <span class="c1"># Assemble form</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_a</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_matrix_petsc_unrolled</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+
+    <span class="c1"># Flush to enable switch from add to set in the matrix</span>
+    <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
+
+    <span class="c1"># Set diagonal</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">_a</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+                    <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">A</span>
+
+
+<span class="c1"># -- Modifiers for Dirichlet conditions ---------------------------------------</span>
+
+<div class="viewcode-block" id="apply_lifting"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.apply_lifting">[docs]</a><span class="k">def</span> <span class="nf">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+                  <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+                  <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+                  <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span>
+                  <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Modify RHS vector b for lifting of Dirichlet boundary conditions.</span>
+<span class="sd">    It modifies b such that:</span>
+
+<span class="sd">        b &lt;- b - scale * A_j (g_j - x0_j)</span>
+
+<span class="sd">    where j is a block (nest) index. For a non-blocked problem j = 0.</span>
+<span class="sd">    The boundary conditions bcs are on the trial spaces V_j. The forms</span>
+<span class="sd">    in [a] must have the same test space as L (from which b was built),</span>
+<span class="sd">    but the trial space may differ. If x0 is not supplied, then it is</span>
+<span class="sd">    treated as zero.</span>
+
+<span class="sd">    Ghost contributions are not accumulated (not sent to owner). Caller</span>
+<span class="sd">    is responsible for calling VecGhostUpdateBegin/End.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
+        <span class="n">x0_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">array_r</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
+        <span class="n">b_local</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
+        <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0_r</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="apply_lifting_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.apply_lifting_nest">[docs]</a><span class="k">def</span> <span class="nf">apply_lifting_nest</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+                       <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
+                       <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+                       <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Modify nested vector for lifting of Dirichlet boundary conditions.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+    <span class="n">_a</span> <span class="o">=</span> <span class="n">_create_cpp_form</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">bcs_cols</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bc1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">_a</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">):</span>
+        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bc1</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span></div>
+
+
+<div class="viewcode-block" id="set_bc"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.set_bc">[docs]</a><span class="k">def</span> <span class="nf">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+           <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+           <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+           <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Insert boundary condition values into vector. Only local (owned)</span>
+<span class="sd">    entries are set, hence communication after calling this function is</span>
+<span class="sd">    not required unless ghost entries need to be updated to the boundary</span>
+<span class="sd">    condition value.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">array_r</span>
+    <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="set_bc_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.set_bc_nest">[docs]</a><span class="k">def</span> <span class="nf">set_bc_nest</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+                <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+                <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Insert boundary condition values into nested vector. Only local (owned)</span>
+<span class="sd">    entries are set, hence communication after calling this function is</span>
+<span class="sd">    not required unless the ghost entries need to be updated to the</span>
+<span class="sd">    boundary condition value.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_b</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">_b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
+        <span class="n">set_bc</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINx 0.2.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">dolfinx.fem.assemble</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, FEniCS Project.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.1.2.
+    </div>
+  </body>
+</html>
