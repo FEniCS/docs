@@ -5,7 +5,7 @@ var searchData=
   ['needs_5fdof_5ftransformations_290',['needs_dof_transformations',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a05482aa76e91ef925f4c7ed3563fb5b9',1,'dolfinx::fem::FiniteElement']]],
   ['needs_5ffacet_5fpermutations_291',['needs_facet_permutations',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a9d4c8bfb53e8051bd98c640b062a3bf7',1,'dolfinx::fem::Form']]],
   ['neighbor_5fall_5fto_5fall_292',['neighbor_all_to_all',['../da/dfe/namespacedolfinx_1_1MPI.html#a044ab8abd5a98c2c463f779f0f1ad61a',1,'dolfinx::MPI']]],
-  ['neighbors_293',['neighbors',['../da/dfe/namespacedolfinx_1_1MPI.html#aedc9642cf1bc95ffb82d1e4d86c031a5',1,'dolfinx::MPI']]],
+  ['neighbors_293',['neighbors',['../da/dfe/namespacedolfinx_1_1MPI.html#a0cfc31915ab375dce7f0e993ede44919',1,'dolfinx::MPI']]],
   ['newtonsolver_294',['NewtonSolver',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html',1,'dolfinx::nls::NewtonSolver'],['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a62f69a4d8b12d4e760c235d34a4c046c',1,'dolfinx::nls::NewtonSolver::NewtonSolver()']]],
   ['non_5faffine_5fatol_295',['non_affine_atol',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a37a6536fa7a89738fd63840fda09aff0',1,'dolfinx::fem::CoordinateElement']]],
   ['non_5faffine_5fmax_5fits_296',['non_affine_max_its',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a636cedec521e9856633d3e81931ed04b',1,'dolfinx::fem::CoordinateElement']]],
