@@ -1,7 +1,7 @@
 var searchData=
 [
   ['cell_5ftype_23',['cell_type',['../classbasix_1_1FiniteElement.html#a07e3921459dce5bff1cb731d1713ccc2',1,'basix::FiniteElement']]],
-  ['compute_5fexpansion_5fcoefficients_24',['compute_expansion_coefficients',['../namespacebasix.html#accccabc2892f3c549c100f22a465de53',1,'basix']]],
+  ['compute_5fexpansion_5fcoefficients_24',['compute_expansion_coefficients',['../namespacebasix.html#a5848257f9223560f090c1fa4f646d7f6',1,'basix']]],
   ['compute_5fgauss_5fjacobi_5fpoints_25',['compute_gauss_jacobi_points',['../namespacebasix_1_1quadrature.html#a30d38c05a513682767573889a7530503',1,'basix::quadrature']]],
   ['compute_5fgauss_5fjacobi_5frule_26',['compute_gauss_jacobi_rule',['../namespacebasix_1_1quadrature.html#a577d2ee1c460315e6750d838f86b3e1c',1,'basix::quadrature']]],
   ['compute_5fgll_5frule_27',['compute_gll_rule',['../namespacebasix_1_1quadrature.html#a24a8233b4eb68b5547707b254988cc06',1,'basix::quadrature']]],
