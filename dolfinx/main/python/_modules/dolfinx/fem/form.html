@@ -37,7 +37,7 @@
             
   <h1>Source code for dolfinx.fem.form</h1><div class="highlight"><pre>
 <span></span><span class="c1"># -*- coding: utf-8 -*-</span>
-<span class="c1"># Copyright (C) 2017-2018 Chris N. Richardson, Garth N. Wells and Michal Habera</span>
+<span class="c1"># Copyright (C) 2017-2021 Chris N. Richardson, Garth N. Wells and Michal Habera</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -50,16 +50,20 @@
 <span class="kn">import</span> <span class="nn">ufl</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span><span class="p">,</span> <span class="n">jit</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="n">function</span>
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
 
 
 <div class="viewcode-block" id="Form"><a class="viewcode-back" href="../../../generated/dolfinx.fem.form.html#dolfinx.fem.Form">[docs]</a><span class="k">class</span> <span class="nc">Form</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">form_compiler_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="n">jit_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">form</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span>
+                 <span class="n">form_compiler_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span> <span class="n">jit_parameters</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
         <span class="sd">&quot;&quot;&quot;Create DOLFINx Form</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        form</span>
 <span class="sd">            Pure UFL form</span>
+<span class="sd">        dtype</span>
+<span class="sd">            The scalar type to use for the compiled form</span>
 <span class="sd">        form_compiler_parameters</span>
 <span class="sd">            See :py:func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`</span>
 <span class="sd">        jit_parameters</span>
@@ -81,6 +85,12 @@
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expecting to find a Mesh in the form.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Compile UFL form with JIT</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+            <span class="n">form_compiler_parameters</span><span class="p">[</span><span class="s2">&quot;scalar_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;double&quot;</span>
+        <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span>
+            <span class="n">form_compiler_parameters</span><span class="p">[</span><span class="s2">&quot;scalar_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;double _Complex&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported scalar type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> for Form.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ufc_form</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span>
             <span class="n">mesh</span><span class="o">.</span><span class="n">mpi_comm</span><span class="p">(),</span>
             <span class="n">form</span><span class="p">,</span>
@@ -88,9 +98,7 @@
             <span class="n">jit_parameters</span><span class="o">=</span><span class="n">jit_parameters</span><span class="p">)</span>
 
         <span class="c1"># For every argument in form extract its function space</span>
-        <span class="n">function_spaces</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">func</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
-        <span class="p">]</span>
+        <span class="n">function_spaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">func</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()]</span>
 
         <span class="c1"># Prepare coefficients data. For every coefficient in form take</span>
         <span class="c1"># its C++ object.</span>
@@ -106,10 +114,18 @@
                       <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">IntegralType</span><span class="o">.</span><span class="n">vertex</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomains</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">)}</span>
 
         <span class="c1"># Prepare dolfinx.cpp.fem.Form and hold it as a member</span>
+        <span class="k">def</span> <span class="nf">create_form</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_float64</span>
+            <span class="k">elif</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_complex128</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
         <span class="n">ffi</span> <span class="o">=</span> <span class="n">cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufc_form</span><span class="p">)),</span>
-                                               <span class="n">function_spaces</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span>
-                                               <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">constants</span><span class="p">()],</span> <span class="n">subdomains</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">create_form</span><span class="p">(</span><span class="n">dtype</span><span class="p">)(</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufc_form</span><span class="p">)),</span>
+                                              <span class="n">function_spaces</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span>
+                                              <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">constants</span><span class="p">()],</span> <span class="n">subdomains</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
