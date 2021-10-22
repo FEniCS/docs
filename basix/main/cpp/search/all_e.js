@@ -1,10 +1,8 @@
 var searchData=
 [
-  ['tabulate_100',['tabulate',['../classbasix_1_1FiniteElement.html#a0cf3833eba5388b26727768a311c5965',1,'basix::FiniteElement::tabulate(int nd, const xt::xarray&lt; double &gt; &amp;x) const'],['../classbasix_1_1FiniteElement.html#a136cc9018791cc33cc58a5acfbc87544',1,'basix::FiniteElement::tabulate(int nd, const xt::xarray&lt; double &gt; &amp;x, xt::xtensor&lt; double, 4 &gt; &amp;basis_data) const'],['../namespacebasix_1_1polyset.html#a51962db3ce8fece0c958421ce1224cf3',1,'basix::polyset::tabulate()']]],
-  ['todo_20list_101',['Todo List',['../todo.html',1,'']]],
-  ['topological_5fdimension_102',['topological_dimension',['../namespacebasix_1_1cell.html#a801bcee695d91d02f45dcbd9470d2f18',1,'basix::cell']]],
-  ['topology_103',['topology',['../namespacebasix_1_1cell.html#a5cae2b1e6148e0c376d6ad8ea32a2f44',1,'basix::cell']]],
-  ['triangle_5freflection_104',['triangle_reflection',['../namespacebasix_1_1doftransforms.html#a6c9ded7d9268b88859a3aba7925a23c2',1,'basix::doftransforms']]],
-  ['triangle_5frotation_105',['triangle_rotation',['../namespacebasix_1_1doftransforms.html#ae44bcc81e35d7d1ed886f78c8c2ba3de',1,'basix::doftransforms']]],
-  ['type_106',['type',['../namespacebasix_1_1cell.html#a6b9fb94bbe86f3e58ccd241e0e4f2069',1,'basix::cell::type()'],['../namespacebasix_1_1maps.html#acc2c2d4600630fca6e0967d25d0859e9',1,'basix::maps::type()']]]
+  ['solve_104',['solve',['../namespacebasix_1_1math.html#a2a7841e87e7d4f228d53c666dedd33f2',1,'basix::math']]],
+  ['sub_5fentity_5fconnectivity_105',['sub_entity_connectivity',['../namespacebasix_1_1cell.html#a98b2aebaf61e060096e7bb0f7d131a29',1,'basix::cell']]],
+  ['sub_5fentity_5fgeometry_106',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a8527a43720e8ca91eaaf54b6c08f7b7a',1,'basix::cell']]],
+  ['sub_5fentity_5ftype_107',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]],
+  ['subentity_5ftypes_108',['subentity_types',['../namespacebasix_1_1cell.html#a5dd8a1c86ba94d84a5a01cef49e0948c',1,'basix::cell']]]
 ];

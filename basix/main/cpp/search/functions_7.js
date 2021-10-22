@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['idx_178',['idx',['../namespacebasix.html#a7c1ffad0977ef56fe76213782c7e5e8b',1,'basix::idx(int p)'],['../namespacebasix.html#ac96f812a277cfa91a1ce69009b9adf91',1,'basix::idx(int p, int q)'],['../namespacebasix.html#a5181fbefdde5b36362350af7e6a7627d',1,'basix::idx(int p, int q, int r)']]],
-  ['interpolate_179',['interpolate',['../classbasix_1_1FiniteElement.html#acdb08798be1ac44fc0074bcf9c92265e',1,'basix::FiniteElement']]],
-  ['interpolation_5fmatrix_180',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#a61674c5b124276e8ffd697541844d06e',1,'basix::FiniteElement']]],
-  ['interval_5freflection_181',['interval_reflection',['../namespacebasix_1_1doftransforms.html#ac015b07ae249360a506e2938c6f8eac4',1,'basix::doftransforms']]]
+  ['idx_193',['idx',['../namespacebasix_1_1indexing.html#aee955bbd20bb422bca33e4654b7d7e46',1,'basix::indexing::idx(int p)'],['../namespacebasix_1_1indexing.html#a28712f2b2fea490471919a415164e37e',1,'basix::indexing::idx(int p, int q)'],['../namespacebasix_1_1indexing.html#a6cd7c5bb3dad69d721cbdbbc3d5b20c7',1,'basix::indexing::idx(int p, int q, int r)']]],
+  ['interpolate_194',['interpolate',['../classbasix_1_1FiniteElement.html#acdb08798be1ac44fc0074bcf9c92265e',1,'basix::FiniteElement']]],
+  ['interpolation_5fmatrix_195',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#a61674c5b124276e8ffd697541844d06e',1,'basix::FiniteElement']]],
+  ['interval_5freflection_196',['interval_reflection',['../namespacebasix_1_1doftransforms.html#ac015b07ae249360a506e2938c6f8eac4',1,'basix::doftransforms']]]
 ];

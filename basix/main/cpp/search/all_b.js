@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['permute_5fdofs_90',['permute_dofs',['../classbasix_1_1FiniteElement.html#ac51d4be5aabe5c1262a41aa906793e4b',1,'basix::FiniteElement']]],
-  ['points_91',['points',['../classbasix_1_1FiniteElement.html#a507daff721c5d41e9d62b4e68e639bea',1,'basix::FiniteElement']]],
-  ['prepare_5fmatrix_92',['prepare_matrix',['../namespacebasix_1_1precompute.html#a59ec6c149ed1531a21cecce0857fec58',1,'basix::precompute']]],
-  ['prepare_5fpermutation_93',['prepare_permutation',['../namespacebasix_1_1precompute.html#ada081b03020c8ef06aedffb5acd59f3f',1,'basix::precompute']]]
+  ['operator_3d_96',['operator=',['../classbasix_1_1FiniteElement.html#a012641ff0a6abe1bda2e9493615c22fc',1,'basix::FiniteElement::operator=(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a0cd2bef969b9481371fa06f701009794',1,'basix::FiniteElement::operator=(FiniteElement &amp;&amp;element)=default']]],
+  ['outer_97',['outer',['../namespacebasix_1_1math.html#af8ed81dfd366831726ecffdb38f6bf5d',1,'basix::math']]]
 ];
