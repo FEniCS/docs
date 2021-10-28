@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['make_5fdiscontinuous_76',['make_discontinuous',['../namespacebasix_1_1element.html#a9c63e0be8507b2ca4e83c209c3112c16',1,'basix::element']]],
+  ['make_5fdiscontinuous_76',['make_discontinuous',['../namespacebasix_1_1element.html#ab0abac1e88399ef5a5912c7015b585b5',1,'basix::element']]],
   ['make_5fdot_5fintegral_5fmoments_77',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#a4be2b66386a80a45e479a0b3d0f97c59',1,'basix::moments']]],
   ['make_5fgll_5fline_78',['make_gll_line',['../namespacebasix_1_1quadrature.html#aab4f72c22255785a1b92e7434b71a640',1,'basix::quadrature']]],
   ['make_5fintegral_5fmoments_79',['make_integral_moments',['../namespacebasix_1_1moments.html#a5bde2166a8682d31baa22ed671b58c72',1,'basix::moments']]],
