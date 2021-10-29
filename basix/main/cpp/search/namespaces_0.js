@@ -1,14 +1,14 @@
 var searchData=
 [
-  ['basix_124',['basix',['../namespacebasix.html',1,'']]],
-  ['cell_125',['cell',['../namespacebasix_1_1cell.html',1,'basix']]],
-  ['doftransforms_126',['doftransforms',['../namespacebasix_1_1doftransforms.html',1,'basix']]],
-  ['element_127',['element',['../namespacebasix_1_1element.html',1,'basix']]],
-  ['indexing_128',['indexing',['../namespacebasix_1_1indexing.html',1,'basix']]],
-  ['maps_129',['maps',['../namespacebasix_1_1maps.html',1,'basix']]],
-  ['math_130',['math',['../namespacebasix_1_1math.html',1,'basix']]],
-  ['moments_131',['moments',['../namespacebasix_1_1moments.html',1,'basix']]],
-  ['polyset_132',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
-  ['precompute_133',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
-  ['quadrature_134',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]]
+  ['basix_119',['basix',['../namespacebasix.html',1,'']]],
+  ['cell_120',['cell',['../namespacebasix_1_1cell.html',1,'basix']]],
+  ['doftransforms_121',['doftransforms',['../namespacebasix_1_1doftransforms.html',1,'basix']]],
+  ['element_122',['element',['../namespacebasix_1_1element.html',1,'basix']]],
+  ['indexing_123',['indexing',['../namespacebasix_1_1indexing.html',1,'basix']]],
+  ['maps_124',['maps',['../namespacebasix_1_1maps.html',1,'basix']]],
+  ['math_125',['math',['../namespacebasix_1_1math.html',1,'basix']]],
+  ['moments_126',['moments',['../namespacebasix_1_1moments.html',1,'basix']]],
+  ['polyset_127',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
+  ['precompute_128',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
+  ['quadrature_129',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]]
 ];
