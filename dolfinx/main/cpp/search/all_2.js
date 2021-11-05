@@ -80,7 +80,7 @@ var searchData=
   ['create_5fmidpoint_5ftree_112',['create_midpoint_tree',['../de/d27/namespacedolfinx_1_1geometry.html#add9dc7ee8b2be9ba33c85543aff83b4d',1,'dolfinx::geometry']]],
   ['create_5fnew_5fvertices_113',['create_new_vertices',['../d9/dd6/namespacedolfinx_1_1refinement.html#ab797665b09701ade8bd2803ebe39150a',1,'dolfinx::refinement']]],
   ['create_5fpetsc_5findex_5fsets_114',['create_petsc_index_sets',['../d6/dfa/namespacedolfinx_1_1la.html#a274204e0c62548957f678883115c84f8',1,'dolfinx::la']]],
-  ['create_5fpetsc_5fmatrix_115',['create_petsc_matrix',['../d6/dfa/namespacedolfinx_1_1la.html#a0b4360071068f84f6385af2ca0432289',1,'dolfinx::la']]],
+  ['create_5fpetsc_5fmatrix_115',['create_petsc_matrix',['../d6/dfa/namespacedolfinx_1_1la.html#ab0ac5e2ee6641276ce8b15828305fc96',1,'dolfinx::la']]],
   ['create_5fpetsc_5fnullspace_116',['create_petsc_nullspace',['../d6/dfa/namespacedolfinx_1_1la.html#a43322398b5e821c9d64615c9015d4c03',1,'dolfinx::la']]],
   ['create_5fpetsc_5fvector_117',['create_petsc_vector',['../d6/dfa/namespacedolfinx_1_1la.html#a98e50e9c66fd9e3d1d6838acd7bc4517',1,'dolfinx::la::create_petsc_vector(const common::IndexMap &amp;map, int bs)'],['../d6/dfa/namespacedolfinx_1_1la.html#afbcfa1962bdaac8d4e3dc58381bb02ff',1,'dolfinx::la::create_petsc_vector(MPI_Comm comm, std::array&lt; std::int64_t, 2 &gt; range, const std::vector&lt; std::int64_t &gt; &amp;ghosts, int bs)']]],
   ['create_5fsparsity_5fdiscrete_5fgradient_118',['create_sparsity_discrete_gradient',['../d8/dbf/namespacedolfinx_1_1fem.html#a7a50efc1fce5638e32eb2918517169b2',1,'dolfinx::fem']]],
