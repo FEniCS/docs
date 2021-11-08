@@ -286,6 +286,224 @@ transformation matrix to the relevant DOFs.</p>
 permutations directly to data can be used via Basix’s C++
 interface.</p>
 </section>
+<section id="c-demo">
+<h2>C++ demo<a class="headerlink" href="#c-demo" title="Permalink to this headline">¶</a></h2>
+<p>The following C++ code runs the same demo using Basix’s C++ interface:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// ====================================</span>
+<span class="c1">// DOF permutations and transformations</span>
+<span class="c1">// ====================================</span>
+
+<span class="c1">// When using high degree finite elements on general meshes, adjustments</span>
+<span class="c1">// may need to be made to correct for differences in the orientation of</span>
+<span class="c1">// mesh entities on the mesh and on the reference cell. For example, in</span>
+<span class="c1">// a degree 4 Lagrange element on a triangle, there are 3 degrees of</span>
+<span class="c1">// freedom (DOFs) associated with each edge. If two neighbouring cells in</span>
+<span class="c1">// a mesh disagree on the direction of the edge, they could put an</span>
+<span class="c1">// incorrectly combine the local basis functions to give the wrong global</span>
+<span class="c1">// basis function.</span>
+
+<span class="c1">// This issue and the use of permutations and transformations to correct</span>
+<span class="c1">// it is discussed in detail in `Construction of arbitrary order finite</span>
+<span class="c1">// element degree-of-freedom maps on polygonal and polyhedral cell</span>
+<span class="c1">// meshes (Scroggs, Dokken, Richardons, Wells,</span>
+<span class="c1">// 2021) &lt;https://arxiv.org/abs/2102.11901&gt;`_.</span>
+
+<span class="c1">// Functions to permute and transform high degree elements are</span>
+<span class="c1">// provided by Basix. In this demo, we show how these can be used from C++.</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/finite-element.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/lattice.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iomanip&gt;</span><span class="cp"></span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;xtensor/xio.hpp&gt;</span><span class="cp"></span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">type_to_name</span><span class="w"></span>
+<span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">{{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">point</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;point&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">interval</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;interval&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">triangle</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;triangle&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">tetrahedron</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;tetrahedron&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">quadrilateral</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;quadrilateral&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">pyramid</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;pyramid&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">prism</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;prism&quot;</span><span class="p">},</span><span class="w"></span>
+<span class="w">       </span><span class="p">{</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">hexahedron</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;hexahedron&quot;</span><span class="p">}};</span><span class="w"></span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">argv</span><span class="p">[])</span><span class="w"></span>
+<span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// Degree 5 Lagrange element</span>
+<span class="w">  </span><span class="c1">// =========================</span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Degree 5 Lagrange element </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// Create a degree 5 Lagrange element on a triangle</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">family</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">P</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">cell_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">triangle</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">degree</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">equispaced</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// Create the lagrange element</span>
+<span class="w">    </span><span class="n">basix</span><span class="o">::</span><span class="n">FiniteElement</span><span class="w"> </span><span class="n">lagrange</span><span class="w"></span>
+<span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="p">(</span><span class="n">family</span><span class="p">,</span><span class="w"> </span><span class="n">cell_type</span><span class="p">,</span><span class="w"> </span><span class="n">degree</span><span class="p">,</span><span class="w"> </span><span class="n">variant</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// Print bools as true/false instead of 0/1</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">boolalpha</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// The value of `dof_transformations_are_identity` is `false`: this tells</span>
+<span class="w">    </span><span class="c1">// us that permutations or transformations are needed for this element.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are identity: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">dof_transformations_are_identity</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// The value of `dof_transformations_are_permutations` is `true`: this</span>
+<span class="w">    </span><span class="c1">// tells us that for this element, all the corrections we need to apply</span>
+<span class="w">    </span><span class="c1">// permutations. This is the simpler case, and means we make the</span>
+<span class="w">    </span><span class="c1">// orientation corrections by applying permutations when creating the</span>
+<span class="w">    </span><span class="c1">// DOF map.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are permutations: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">dof_transformations_are_permutations</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// We can apply permutations by using the matrices returned by the</span>
+<span class="w">    </span><span class="c1">// method `base_transformations`. This method will return one matrix</span>
+<span class="w">    </span><span class="c1">// for each edge of the cell (for 2D and 3D cells), and two matrices</span>
+<span class="w">    </span><span class="c1">// for each face of the cell (for 3D cells). These describe the effect</span>
+<span class="w">    </span><span class="c1">// of reversing the edge or reflecting and rotating the face.</span>
+
+<span class="w">    </span><span class="c1">// For this element, we know that the base transformations will be</span>
+<span class="w">    </span><span class="c1">// permutation matrices.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Base transformations: </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">base_transformations</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// The matrices returned by `base_transformations` are quite large, and</span>
+<span class="w">    </span><span class="c1">// are equal to the identity matrix except for a small block of the</span>
+<span class="w">    </span><span class="c1">// matrix. It is often easier and more efficient to use the matrices</span>
+<span class="w">    </span><span class="c1">// returned by the method `entity_transformations` instead.</span>
+
+<span class="w">    </span><span class="c1">// `entity_transformations` returns a dictionary that maps the type</span>
+<span class="w">    </span><span class="c1">// of entity (`&quot;interval&quot;`, `&quot;triangle&quot;`, `&quot;quadrilateral&quot;`) to a</span>
+<span class="w">    </span><span class="c1">// matrix describing the effect of permuting that entity on the DOFs</span>
+<span class="w">    </span><span class="c1">// on that entity.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="n">xt</span><span class="o">::</span><span class="n">xtensor</span><span class="o">&lt;</span><span class="kt">double</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">entity__transformation</span><span class="w"></span>
+<span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">entity_transformations</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Entity transformations: </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="k">const</span><span class="o">&amp;</span><span class="w"> </span><span class="p">[</span><span class="n">cell</span><span class="p">,</span><span class="w"> </span><span class="n">transformation</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">entity__transformation</span><span class="p">)</span><span class="w"></span>
+<span class="w">      </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot; -&quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">type_to_name</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;:</span><span class="se">\n</span><span class="s">&quot;</span><span class="w"></span>
+<span class="w">                </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">transformation</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// For this element, we see that this method returns one matrix for</span>
+<span class="w">    </span><span class="c1">// an interval: this matrix reverses the order of the four DOFs</span>
+<span class="w">    </span><span class="c1">// associated with that edge.</span>
+
+<span class="w">    </span><span class="c1">// In orders to work out which DOFs are associated with each edge,</span>
+<span class="w">    </span><span class="c1">// we use the attribute `entity_dofs`. For example, the following can</span>
+<span class="w">    </span><span class="c1">// be used to see which DOF numbers are associated with edge (dim 1)</span>
+<span class="w">    </span><span class="c1">// number 2:</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">edge_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">entity_dofs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">entity_dofs</span><span class="p">()[</span><span class="n">dim</span><span class="p">][</span><span class="n">edge_num</span><span class="p">];</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s"> Entity dofs of Edge number 2: &quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="nl">dof</span> <span class="p">:</span><span class="w"> </span><span class="n">entity_dofs</span><span class="p">)</span><span class="w"></span>
+<span class="w">      </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">dof</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot; &quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// Degree 2 Lagrange element</span>
+<span class="w">  </span><span class="c1">// =========================</span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// For a degree 2 Lagrange element, no permutations or transformations</span>
+<span class="w">    </span><span class="c1">// are needed.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">Degree 2 Lagrange element </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">family</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">P</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">cell_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">triangle</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">degree</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">equispaced</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// Create the lagrange element</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">lagrange</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="p">(</span><span class="n">family</span><span class="p">,</span><span class="w"> </span><span class="n">cell_type</span><span class="p">,</span><span class="w"> </span><span class="n">degree</span><span class="p">,</span><span class="w"> </span><span class="n">variant</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// We can verify this by checking that`dof_transformations_are_identity` is</span>
+<span class="w">    </span><span class="c1">// `True`. To confirm that the transformations are identity matrices, we</span>
+<span class="w">    </span><span class="c1">// also print the base transformations.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are identity: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">dof_transformations_are_identity</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are permutations: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lagrange</span><span class="p">.</span><span class="n">dof_transformations_are_permutations</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// Degree 2 Nédélec element</span>
+<span class="w">  </span><span class="c1">// ========================</span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">Degree 2 Nedelec element </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// For a degree 2 Nédélec (first kind) element on a tetrahedron, the</span>
+<span class="w">    </span><span class="c1">// corrections are not all permutations, so both</span>
+<span class="w">    </span><span class="c1">// `dof_transformations_are_identity` and</span>
+<span class="w">    </span><span class="c1">// `dof_transformations_are_permutations` are `False`.</span>
+
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">family</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">N1E</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">cell_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">tetrahedron</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">degree</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">nedelec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="p">(</span><span class="n">family</span><span class="p">,</span><span class="w"> </span><span class="n">cell_type</span><span class="p">,</span><span class="w"> </span><span class="n">degree</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are identity: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">nedelec</span><span class="p">.</span><span class="n">dof_transformations_are_identity</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Dof transformations are permutations: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">nedelec</span><span class="p">.</span><span class="n">dof_transformations_are_permutations</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// For this element, `entity_transformations` returns a map</span>
+<span class="w">    </span><span class="c1">// with two entries: a matrix for an interval that describes</span>
+<span class="w">    </span><span class="c1">// the effect of reversing the edge; and an array of two matrices</span>
+<span class="w">    </span><span class="c1">// for a triangle. The first matrix for the triangle describes</span>
+<span class="w">    </span><span class="c1">// the effect of rotating the triangle. The second matrix describes</span>
+<span class="w">    </span><span class="c1">// the effect of reflecting the triangle.</span>
+
+<span class="w">    </span><span class="c1">// For this element, the matrix describing the effect of rotating</span>
+<span class="w">    </span><span class="c1">// the triangle is</span>
+
+<span class="w">    </span><span class="c1">// .. math::</span>
+<span class="w">    </span><span class="c1">//    \left(\begin{array}{cc}-1&amp;-1\\1&amp;0\end{array}\right).</span>
+
+<span class="w">    </span><span class="c1">// This is not a permutation, so this must be applied when assembling</span>
+<span class="w">    </span><span class="c1">// a form and cannot be applied to the DOF numbering in the DOF map.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="p">,</span><span class="w"> </span><span class="n">xt</span><span class="o">::</span><span class="n">xtensor</span><span class="o">&lt;</span><span class="kt">double</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">entity__transformation</span><span class="w"></span>
+<span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">nedelec</span><span class="p">.</span><span class="n">entity_transformations</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Entity transformations: </span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="k">const</span><span class="o">&amp;</span><span class="w"> </span><span class="p">[</span><span class="n">cell</span><span class="p">,</span><span class="w"> </span><span class="n">transformation</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">entity__transformation</span><span class="p">)</span><span class="w"></span>
+<span class="w">      </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot; -&quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">type_to_name</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;:</span><span class="se">\n</span><span class="s">&quot;</span><span class="w"></span>
+<span class="w">                </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">transformation</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// To demonstrate how these transformations can be used, we create a</span>
+<span class="w">    </span><span class="c1">// lattice of points where we will tabulate the element.</span>
+
+<span class="w">    </span><span class="n">xt</span><span class="o">::</span><span class="n">xtensor</span><span class="o">&lt;</span><span class="kt">double</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="w"> </span><span class="n">points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">lattice</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="w"></span>
+<span class="w">        </span><span class="n">cell_type</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">lattice</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">equispaced</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">num_points</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">points</span><span class="p">.</span><span class="n">shape</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// If (for example) the direction of edge 2 in the physical cell does</span>
+<span class="w">    </span><span class="c1">// not match its direction on the reference, then we need to adjust the</span>
+<span class="w">    </span><span class="c1">// tabulated data.</span>
+
+<span class="w">    </span><span class="n">xt</span><span class="o">::</span><span class="n">xtensor</span><span class="o">&lt;</span><span class="kt">double</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">original_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nedelec</span><span class="p">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">points</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">xt</span><span class="o">::</span><span class="n">xtensor</span><span class="o">&lt;</span><span class="kt">double</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">mod_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">nedelec</span><span class="p">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">points</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">xtl</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">data</span><span class="p">(</span><span class="n">mod_data</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">mod_data</span><span class="p">.</span><span class="n">size</span><span class="p">());</span><span class="w"></span>
+
+<span class="w">    </span><span class="c1">// If the direction of edge 2 in the physical cell is reflected, it has</span>
+<span class="w">    </span><span class="c1">// cell permutation info `....000010` so (from right to left):</span>
+<span class="w">    </span><span class="c1">//      - edge 0 is not permuted (0)</span>
+<span class="w">    </span><span class="c1">//      - edge 1 is reflected (1)</span>
+<span class="w">    </span><span class="c1">//      - edge 2 is not permuted (0)</span>
+<span class="w">    </span><span class="c1">//      - edge 3 is not permuted (0)</span>
+<span class="w">    </span><span class="c1">//      - edge 4 is not permuted (0)</span>
+<span class="w">    </span><span class="c1">//      - edge 5 is not permuted (0)</span>
+
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">cell_info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mb">0b000010</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">nedelec</span><span class="p">.</span><span class="n">apply_dof_transformation</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">num_points</span><span class="p">,</span><span class="w"> </span><span class="n">cell_info</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s"> Tabulated data is equal: &quot;</span><span class="w"></span>
+<span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">xt</span><span class="o">::</span><span class="n">allclose</span><span class="p">(</span><span class="n">original_data</span><span class="p">,</span><span class="w"> </span><span class="n">mod_data</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -318,6 +536,7 @@ interface.</p>
 <li class="toctree-l3"><a class="reference internal" href="#degree-5-lagrange-element">Degree 5 Lagrange element</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#degree-2-lagrange-element">Degree 2 Lagrange element</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#degree-2-nedelec-element">Degree 2 Nédélec element</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c-demo">C++ demo</a></li>
 </ul>
 </li>
 </ul>
