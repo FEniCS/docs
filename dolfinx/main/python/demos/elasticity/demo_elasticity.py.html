@@ -51,14 +51,12 @@
 smoothed aggregation algebraic multigrid.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">ExitStack</span>
 
-<span class="kn">import</span> <span class="nn">dolfinx</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">BoxMesh</span><span class="p">,</span> <span class="n">DirichletBC</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">VectorFunctionSpace</span><span class="p">,</span> <span class="n">cpp</span>
-<span class="kn">from</span> <span class="nn">dolfinx.cpp.mesh</span> <span class="kn">import</span> <span class="n">CellType</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">BoxMesh</span><span class="p">,</span> <span class="n">DirichletBC</span><span class="p">,</span> <span class="n">Function</span><span class="p">,</span> <span class="n">VectorFunctionSpace</span><span class="p">,</span> <span class="n">la</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="p">(</span><span class="n">apply_lifting</span><span class="p">,</span> <span class="n">assemble_matrix</span><span class="p">,</span> <span class="n">assemble_vector</span><span class="p">,</span>
                          <span class="n">locate_dofs_geometrical</span><span class="p">,</span> <span class="n">set_bc</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="kn">import</span> <span class="n">XDMFFile</span>
-<span class="kn">from</span> <span class="nn">dolfinx.la</span> <span class="kn">import</span> <span class="n">VectorSpaceBasis</span>
+<span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">CellType</span><span class="p">,</span> <span class="n">GhostMode</span>
 <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 <span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
 <span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Identity</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">,</span> <span class="n">TestFunction</span><span class="p">,</span> <span class="n">TrialFunction</span><span class="p">,</span>
@@ -77,7 +75,7 @@ contains rigid body modes.</p>
 
     <span class="c1"># Create list of vectors for null space</span>
     <span class="n">index_map</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span>
-    <span class="n">nullspace_basis</span> <span class="o">=</span> <span class="p">[</span><span class="n">cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+    <span class="n">nullspace_basis</span> <span class="o">=</span> <span class="p">[</span><span class="n">la</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
 
     <span class="k">with</span> <span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
         <span class="n">vec_local</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">nullspace_basis</span><span class="p">]</span>
@@ -102,7 +100,7 @@ contains rigid body modes.</p>
         <span class="n">basis</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="n">dofs</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">x2</span>
 
     <span class="c1"># Create vector space basis and orthogonalize</span>
-    <span class="n">basis</span> <span class="o">=</span> <span class="n">VectorSpaceBasis</span><span class="p">(</span><span class="n">nullspace_basis</span><span class="p">)</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="n">la</span><span class="o">.</span><span class="n">VectorSpaceBasis</span><span class="p">(</span><span class="n">nullspace_basis</span><span class="p">)</span>
     <span class="n">basis</span><span class="o">.</span><span class="n">orthonormalize</span><span class="p">()</span>
 
     <span class="n">_x</span> <span class="o">=</span> <span class="p">[</span><span class="n">basis</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
@@ -113,7 +111,7 @@ contains rigid body modes.</p>
 <span class="n">mesh</span> <span class="o">=</span> <span class="n">BoxMesh</span><span class="p">(</span>
     <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span>
                      <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])],</span> <span class="p">[</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span>
-    <span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">)</span>
+    <span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span> <span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">boundary</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
