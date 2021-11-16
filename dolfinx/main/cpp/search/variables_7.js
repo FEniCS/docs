@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['relaxation_5fparameter_987',['relaxation_parameter',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a3148121886809a628f28fc56ad8e52be',1,'dolfinx::nls::NewtonSolver']]],
-  ['report_988',['report',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a97a6f84e22df2b93506de86ce8a79d99',1,'dolfinx::nls::NewtonSolver']]],
-  ['rtol_989',['rtol',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a998f39325cdbdc7f222613f48d00fbab',1,'dolfinx::nls::NewtonSolver']]]
+  ['relaxation_5fparameter_986',['relaxation_parameter',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a3148121886809a628f28fc56ad8e52be',1,'dolfinx::nls::NewtonSolver']]],
+  ['report_987',['report',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a97a6f84e22df2b93506de86ce8a79d99',1,'dolfinx::nls::NewtonSolver']]],
+  ['rtol_988',['rtol',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a998f39325cdbdc7f222613f48d00fbab',1,'dolfinx::nls::NewtonSolver']]]
 ];
