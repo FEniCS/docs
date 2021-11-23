@@ -7,6 +7,5 @@ var searchData=
   ['make_5fquadrature_82',['make_quadrature',['../namespacebasix_1_1quadrature.html#aaab77678a1bde044106d27b37e7bd2ac',1,'basix::quadrature::make_quadrature(const quadrature::type rule, cell::type celltype, int m)'],['../namespacebasix_1_1quadrature.html#ab78825535baed0bc23e83249e347155a',1,'basix::quadrature::make_quadrature(cell::type celltype, int m)']]],
   ['make_5ftangent_5fintegral_5fmoments_83',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a8844eb7ae28a5457e0ccca6f35850d0d',1,'basix::moments']]],
   ['map_5ffn_84',['map_fn',['../classbasix_1_1FiniteElement.html#a6f7cb986a2f58c91579b8f4f7b7f7aa7',1,'basix::FiniteElement']]],
-  ['map_5ftype_85',['map_type',['../classbasix_1_1FiniteElement.html#abd2f2e222254d8f1a3bf69964906e75d',1,'basix::FiniteElement']]],
-  ['mapping_5ftype_86',['mapping_type',['../classbasix_1_1FiniteElement.html#ad987bd4ad7cf140bf91101f15995ae69',1,'basix::FiniteElement']]]
+  ['map_5ftype_85',['map_type',['../classbasix_1_1FiniteElement.html#a4718b4f0231b8287288ca7fb28588977',1,'basix::FiniteElement']]]
 ];
