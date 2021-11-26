@@ -4,7 +4,7 @@ var searchData=
   ['map_275',['map',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a57a1c20fa436913783628688ff080603',1,'dolfinx::la::Vector']]],
   ['map_5ffn_276',['map_fn',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a8a572072f6c9c34f62fef2ef92b23ad4',1,'dolfinx::fem::FiniteElement']]],
   ['map_5ftype_277',['map_type',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a9f5c6fb1dbf0f53bd88e0f9556cabc7a',1,'dolfinx::fem::FiniteElement']]],
-  ['mark_5fdofs_278',['mark_dofs',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#aed1d60bc1291946ee4a547521d66880d',1,'dolfinx::fem::DirichletBC']]],
+  ['mark_5fdofs_278',['mark_dofs',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a27e7f7bb14d21cf4be6643a3c2787e8b',1,'dolfinx::fem::DirichletBC']]],
   ['mat_279',['mat',['../df/d28/classdolfinx_1_1la_1_1PETScOperator.html#ae1af7d48b2a258e75357d569de5cc0ed',1,'dolfinx::la::PETScOperator']]],
   ['max_5fit_280',['max_it',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a002662d7bae414511e6000ce68081c4e',1,'dolfinx::nls::NewtonSolver']]],
   ['mesh_281',['Mesh',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html',1,'dolfinx::mesh']]],
