@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['operator_3d_90',['operator=',['../classbasix_1_1FiniteElement.html#a012641ff0a6abe1bda2e9493615c22fc',1,'basix::FiniteElement::operator=(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a0cd2bef969b9481371fa06f701009794',1,'basix::FiniteElement::operator=(FiniteElement &amp;&amp;element)=default']]],
-  ['outer_91',['outer',['../namespacebasix_1_1math.html#af8ed81dfd366831726ecffdb38f6bf5d',1,'basix::math']]]
+  ['num_5fentity_5fclosure_5fdofs_89',['num_entity_closure_dofs',['../classbasix_1_1FiniteElement.html#a8d70fa1a7f22cf1a73345980843f8678',1,'basix::FiniteElement']]],
+  ['num_5fentity_5fdofs_90',['num_entity_dofs',['../classbasix_1_1FiniteElement.html#a6ba63ff5a4c5709ce34aea734f39ff38',1,'basix::FiniteElement']]],
+  ['num_5fsub_5fentities_91',['num_sub_entities',['../namespacebasix_1_1cell.html#a2006170ad82ba92eb4554d23c6954f36',1,'basix::cell']]]
 ];

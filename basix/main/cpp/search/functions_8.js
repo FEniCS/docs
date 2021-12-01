@@ -1,11 +1,6 @@
 var searchData=
 [
-  ['make_5fdiscontinuous_197',['make_discontinuous',['../namespacebasix_1_1element.html#ab0abac1e88399ef5a5912c7015b585b5',1,'basix::element']]],
-  ['make_5fdot_5fintegral_5fmoments_198',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#a4be2b66386a80a45e479a0b3d0f97c59',1,'basix::moments']]],
-  ['make_5fintegral_5fmoments_199',['make_integral_moments',['../namespacebasix_1_1moments.html#a5bde2166a8682d31baa22ed671b58c72',1,'basix::moments']]],
-  ['make_5fnormal_5fintegral_5fmoments_200',['make_normal_integral_moments',['../namespacebasix_1_1moments.html#a48457f81a67e1ee99ebd1bf5f899b2fa',1,'basix::moments']]],
-  ['make_5fquadrature_201',['make_quadrature',['../namespacebasix_1_1quadrature.html#aaab77678a1bde044106d27b37e7bd2ac',1,'basix::quadrature::make_quadrature(const quadrature::type rule, cell::type celltype, int m)'],['../namespacebasix_1_1quadrature.html#ab78825535baed0bc23e83249e347155a',1,'basix::quadrature::make_quadrature(cell::type celltype, int m)']]],
-  ['make_5ftangent_5fintegral_5fmoments_202',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#a8844eb7ae28a5457e0ccca6f35850d0d',1,'basix::moments']]],
-  ['map_5ffn_203',['map_fn',['../classbasix_1_1FiniteElement.html#a6f7cb986a2f58c91579b8f4f7b7f7aa7',1,'basix::FiniteElement']]],
-  ['map_5ftype_204',['map_type',['../classbasix_1_1FiniteElement.html#a4718b4f0231b8287288ca7fb28588977',1,'basix::FiniteElement']]]
+  ['idx_198',['idx',['../namespacebasix_1_1indexing.html#aee955bbd20bb422bca33e4654b7d7e46',1,'basix::indexing::idx(int p)'],['../namespacebasix_1_1indexing.html#a28712f2b2fea490471919a415164e37e',1,'basix::indexing::idx(int p, int q)'],['../namespacebasix_1_1indexing.html#a6cd7c5bb3dad69d721cbdbbc3d5b20c7',1,'basix::indexing::idx(int p, int q, int r)']]],
+  ['interpolation_5fmatrix_199',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#a61674c5b124276e8ffd697541844d06e',1,'basix::FiniteElement']]],
+  ['interval_5freflection_200',['interval_reflection',['../namespacebasix_1_1doftransforms.html#ac015b07ae249360a506e2938c6f8eac4',1,'basix::doftransforms']]]
 ];
