@@ -54,10 +54,15 @@
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span>
 <span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">GhostMode</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.io</span> <span class="kn">import</span> <span class="n">perm_gmsh</span> <span class="k">as</span> <span class="n">cell_perm_gmsh</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.io</span> <span class="kn">import</span> <span class="n">distribute_entity_data</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;VTKFile&quot;</span><span class="p">,</span> <span class="s2">&quot;XDMFFile&quot;</span><span class="p">,</span> <span class="s2">&quot;cell_perm_gmsh&quot;</span><span class="p">,</span> <span class="s2">&quot;distribute_entity_data&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="VTKFile"><a class="viewcode-back" href="../../generated/dolfinx.io.html#dolfinx.io.VTKFile">[docs]</a><span class="k">class</span> <span class="nc">VTKFile</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">VTKFile</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Interface to VTK files</span>
+
 <span class="sd">    VTK supports arbitrary order Lagrangian finite elements for the</span>
 <span class="sd">    geometry description. XDMF is the preferred format for geometry</span>
 <span class="sd">    order &lt;= 2.</span>
@@ -112,13 +117,12 @@
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">read_meshtags</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">xpath</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="extract_gmsh_topology_and_markers"><a class="viewcode-back" href="../../generated/dolfinx.io.html#dolfinx.io.extract_gmsh_topology_and_markers">[docs]</a><span class="k">def</span> <span class="nf">extract_gmsh_topology_and_markers</span><span class="p">(</span><span class="n">gmsh_model</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Extract all entities tagged with a physical marker</span>
-<span class="sd">    in the gmsh model, and collects the data per cell type.</span>
-<span class="sd">    Returns a nested dictionary where the first key is the gmsh</span>
-<span class="sd">    MSH element type integer. Each element type present</span>
-<span class="sd">    in the model contains the cell topology of the elements</span>
-<span class="sd">    and corresponding markers.</span>
+<span class="k">def</span> <span class="nf">extract_gmsh_topology_and_markers</span><span class="p">(</span><span class="n">gmsh_model</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Extract all entities tagged with a physical marker in the gmsh</span>
+<span class="sd">    model, and collects the data per cell type. Returns a nested</span>
+<span class="sd">    dictionary where the first key is the gmsh MSH element type integer.</span>
+<span class="sd">    Each element type present in the model contains the cell topology of</span>
+<span class="sd">    the elements and corresponding markers.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">model_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -129,7 +133,7 @@
     <span class="n">topologies</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">phys_grps</span><span class="p">:</span>
         <span class="c1"># Get the entities for a given dimension:</span>
-        <span class="c1"># dim=0-&gt;Points, dim=1-&gt;Lines, dim=2-&gt;Triangles/Quadrilaterals</span>
+        <span class="c1"># dim=0-&gt;Points, dim=1-&gt;Lines, dim=2-&gt;Triangles/Quadrilaterals,</span>
         <span class="c1"># etc.</span>
         <span class="n">entities</span> <span class="o">=</span> <span class="n">gmsh_model</span><span class="o">.</span><span class="n">getEntitiesForPhysicalGroup</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
 
@@ -139,16 +143,19 @@
             <span class="n">element_data</span> <span class="o">=</span> <span class="n">gmsh_model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">getElements</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="n">entity</span><span class="p">)</span>
             <span class="n">element_types</span><span class="p">,</span> <span class="n">element_tags</span><span class="p">,</span> <span class="n">node_tags</span> <span class="o">=</span> <span class="n">element_data</span>
             <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">element_types</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
             <span class="c1"># The MSH type of the cells on the element</span>
             <span class="n">element_type</span> <span class="o">=</span> <span class="n">element_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="n">num_el</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">element_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="c1"># Determine number of local nodes per element to create</span>
-            <span class="c1"># the topology of the elements</span>
+
+            <span class="c1"># Determine number of local nodes per element to create the</span>
+            <span class="c1"># topology of the elements</span>
             <span class="n">properties</span> <span class="o">=</span> <span class="n">gmsh_model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">getElementProperties</span><span class="p">(</span><span class="n">element_type</span><span class="p">)</span>
             <span class="n">name</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">,</span> <span class="n">local_coords</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">properties</span>
-            <span class="c1"># 2D array of shape (num_elements,num_nodes_per_element) containing</span>
-            <span class="c1"># the topology of the elements on this entity</span>
-            <span class="c1"># NOTE: GMSH indexing starts with 1 and not zero.</span>
+
+            <span class="c1"># 2D array of shape (num_elements,num_nodes_per_element)</span>
+            <span class="c1"># containing the topology of the elements on this entity</span>
+            <span class="c1"># NOTE: GMSH indexing starts with 1 and not zero</span>
             <span class="n">element_topology</span> <span class="o">=</span> <span class="n">node_tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
             <span class="c1"># Gather data for each element type and the</span>
@@ -161,13 +168,13 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">topologies</span><span class="p">[</span><span class="n">element_type</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;topology&quot;</span><span class="p">:</span> <span class="n">element_topology</span><span class="p">,</span> <span class="s2">&quot;cell_data&quot;</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_el</span><span class="p">,</span> <span class="n">tag</span><span class="p">)}</span>
 
-    <span class="k">return</span> <span class="n">topologies</span></div>
+    <span class="k">return</span> <span class="n">topologies</span>
 
 
-<div class="viewcode-block" id="extract_gmsh_geometry"><a class="viewcode-back" href="../../generated/dolfinx.io.html#dolfinx.io.extract_gmsh_geometry">[docs]</a><span class="k">def</span> <span class="nf">extract_gmsh_geometry</span><span class="p">(</span><span class="n">gmsh_model</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;For a given gmsh model, extract the mesh geometry</span>
-<span class="sd">    as a numpy (N,3) array where the i-th row</span>
-<span class="sd">    corresponds to the i-th node in the mesh.</span>
+<span class="k">def</span> <span class="nf">extract_gmsh_geometry</span><span class="p">(</span><span class="n">gmsh_model</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;For a given gmsh model, extract the mesh geometry as a numpy</span>
+<span class="sd">    (N,3) array where the i-th row corresponds to the i-th node in the</span>
+<span class="sd">    mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">model_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">gmsh_model</span><span class="o">.</span><span class="n">setCurrent</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
@@ -180,7 +187,7 @@
     <span class="c1"># Sort nodes in geometry according to the unique index</span>
     <span class="n">perm_sort</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">numpy</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">perm_sort</span><span class="p">]</span> <span class="o">==</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)))</span>
-    <span class="k">return</span> <span class="n">points</span><span class="p">[</span><span class="n">perm_sort</span><span class="p">]</span></div>
+    <span class="k">return</span> <span class="n">points</span><span class="p">[</span><span class="n">perm_sort</span><span class="p">]</span>
 
 
 <span class="c1"># Map from Gmsh int to DOLFINx cell type and degree</span>
@@ -195,15 +202,14 @@
                   <span class="mi">36</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)}</span>
 
 
-<div class="viewcode-block" id="ufl_mesh_from_gmsh"><a class="viewcode-back" href="../../generated/dolfinx.io.html#dolfinx.io.ufl_mesh_from_gmsh">[docs]</a><span class="k">def</span> <span class="nf">ufl_mesh_from_gmsh</span><span class="p">(</span><span class="n">gmsh_cell</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">gdim</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Create a UFL mesh from a Gmsh cell identifier and the geometric dimension.</span>
+<span class="k">def</span> <span class="nf">ufl_mesh_from_gmsh</span><span class="p">(</span><span class="n">gmsh_cell</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">gdim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a UFL mesh from a Gmsh cell identifier and the geometric dimension.</span>
 <span class="sd">    See: # http://gmsh.info//doc/texinfo/gmsh.html#MSH-file-format</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">shape</span><span class="p">,</span> <span class="n">degree</span> <span class="o">=</span> <span class="n">_gmsh_to_cells</span><span class="p">[</span><span class="n">gmsh_cell</span><span class="p">]</span>
     <span class="n">cell</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="n">gdim</span><span class="p">)</span>
     <span class="n">scalar_element</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">variant</span><span class="o">=</span><span class="s2">&quot;equispaced&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">VectorElement</span><span class="p">(</span><span class="n">scalar_element</span><span class="p">))</span></div>
+    <span class="k">return</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">VectorElement</span><span class="p">(</span><span class="n">scalar_element</span><span class="p">))</span>
 </pre></div>
 
             <div class="clearer"></div>
