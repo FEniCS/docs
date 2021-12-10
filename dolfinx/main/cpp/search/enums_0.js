@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['assemblytype_977',['AssemblyType',['../d5/dfa/classdolfinx_1_1la_1_1PETScMatrix.html#a5bbac053681532fa23d7c73d1ea5c33b',1,'dolfinx::la::PETScMatrix']]]
+  ['assemblytype_966',['AssemblyType',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a2016e8708121d0d0ec61b19ecb5774c2',1,'dolfinx::la::petsc::Matrix']]]
 ];

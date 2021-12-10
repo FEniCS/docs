@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['xdmffile_513',['XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html',1,'dolfinx::io']]]
+  ['vector_505',['Vector',['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html',1,'dolfinx::la::petsc::Vector'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html',1,'dolfinx::la::Vector&lt; T, Allocator &gt;']]],
+  ['vtkfile_506',['VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html',1,'dolfinx::io']]]
 ];
