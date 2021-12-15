@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['diagonaltype_964',['DiagonalType',['../dc/d4b/namespacedolfinx_1_1generation.html#a6f52bbb37ea4d04914a4c3bdd7ea90bc',1,'dolfinx::generation']]],
-  ['direction_965',['Direction',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a6c1afdbb7c079549d37cd39f20662e63',1,'dolfinx::common::IndexMap']]]
+  ['diagonaltype_960',['DiagonalType',['../dd/d7d/namespacedolfinx_1_1mesh.html#a19c9c1e0bbb4f32c4c1ef17a6965276a',1,'dolfinx::mesh']]],
+  ['direction_961',['Direction',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a6c1afdbb7c079549d37cd39f20662e63',1,'dolfinx::common::IndexMap']]]
 ];
