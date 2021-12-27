@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['value_416',['value',['../d6/d06/classdolfinx_1_1fem_1_1Constant.html#a27ea85f1c0a3d0b5addb021d3c915ee2',1,'dolfinx::fem::Constant::value()'],['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#ae33bf8823793804cf684c5de1b4887bd',1,'dolfinx::fem::DirichletBC::value()']]],
-  ['value_5fdimension_417',['value_dimension',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a6b80d5d2bd6722513606c2e9de20882f',1,'dolfinx::fem::FiniteElement']]],
-  ['value_5frank_418',['value_rank',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ab75a936b0b21004b570cbd1949d7e009',1,'dolfinx::fem::FiniteElement']]],
+  ['value_417',['value',['../d6/d06/classdolfinx_1_1fem_1_1Constant.html#a27ea85f1c0a3d0b5addb021d3c915ee2',1,'dolfinx::fem::Constant::value()'],['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#ae33bf8823793804cf684c5de1b4887bd',1,'dolfinx::fem::DirichletBC::value()']]],
+  ['value_5fshape_418',['value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ad8ab7fbca4c004c5e83fc89a3cbb32e1',1,'dolfinx::fem::FiniteElement']]],
   ['value_5fsize_419',['value_size',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a906a9e59b68fe6107e769f2dec38b94d',1,'dolfinx::fem::Expression::value_size()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aad540b7c23c9e67b5fb20c29493546f3',1,'dolfinx::fem::FiniteElement::value_size()']]],
   ['value_5ftype_420',['value_type',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a37977b4508df5f04fe9cd3573ddebc65',1,'dolfinx::fem::Function::value_type()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a7f2bf7d501f78b3c2557d4909ac6cccf',1,'dolfinx::la::Vector::value_type()']]],
   ['values_421',['values',['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#af458d75e2db531a1ddec1469ddee301c',1,'dolfinx::mesh::MeshTags']]],
