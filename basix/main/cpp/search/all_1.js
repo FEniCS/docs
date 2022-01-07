@@ -10,7 +10,8 @@ var searchData=
   ['maps_19',['maps',['../namespacebasix_1_1maps.html',1,'basix']]],
   ['math_20',['math',['../namespacebasix_1_1math.html',1,'basix']]],
   ['moments_21',['moments',['../namespacebasix_1_1moments.html',1,'basix']]],
-  ['polyset_22',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
-  ['precompute_23',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
-  ['quadrature_24',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]]
+  ['polynomials_22',['polynomials',['../namespacebasix_1_1polynomials.html',1,'basix']]],
+  ['polyset_23',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
+  ['precompute_24',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
+  ['quadrature_25',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]]
 ];
