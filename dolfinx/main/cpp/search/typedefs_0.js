@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['cellpartitionfunction_943',['CellPartitionFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#a3aff8cd030db9b9eac49a749b276561c',1,'dolfinx::mesh']]]
+  ['allocator_5ftype_943',['allocator_type',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#aa181dc20db1eeff30de11f42d5c0abcb',1,'dolfinx::la::Vector']]]
 ];
