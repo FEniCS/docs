@@ -21,7 +21,7 @@ var searchData=
   ['get_5foptions_5fprefix_219',['get_options_prefix',['../d2/dde/classdolfinx_1_1la_1_1petsc_1_1KrylovSolver.html#a75464493eaecffbdadcfdf7ff48c1b30',1,'dolfinx::la::petsc::KrylovSolver::get_options_prefix()'],['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a77a0e8df70491ef24f079aa00abd9c73',1,'dolfinx::la::petsc::Matrix::get_options_prefix()'],['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#a59afc9c61cab1cbf366d23ea8f6a3b4d',1,'dolfinx::la::petsc::Vector::get_options_prefix()']]],
   ['get_5fsub_5fentities_220',['get_sub_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#ab50ae19aec28ecea7c7a27f2ddd46e5e',1,'dolfinx::mesh']]],
   ['get_5ftabulate_5fexpression_221',['get_tabulate_expression',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a0bb46af93694006f01ea69c0b154df1a',1,'dolfinx::fem::Expression']]],
-  ['get_5fvtk_5fcell_5ftype_222',['get_vtk_cell_type',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a9cb03a078bb1b77ea88d679016444ada',1,'dolfinx::io::cells']]],
+  ['get_5fvtk_5fcell_5ftype_222',['get_vtk_cell_type',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a83bce2ba3f86800d5be065d751a5f070',1,'dolfinx::io::cells']]],
   ['ghost_5fowner_5frank_223',['ghost_owner_rank',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a31a1cec37a01986df96cb9400a04dd63',1,'dolfinx::common::IndexMap']]],
   ['ghostmode_224',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#adafbc0ec5001e833100ae1bfdcd300b3',1,'dolfinx::mesh']]],
   ['ghosts_225',['ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ad781ca8d8769372724307e8a0dea8ecf',1,'dolfinx::common::IndexMap']]],
