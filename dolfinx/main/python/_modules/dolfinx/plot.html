@@ -36,7 +36,7 @@
           <div class="body" role="main">
             
   <h1>Source code for dolfinx.plot</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2021 Jørgen S. Dokken and Garth N. Wells</span>
+<span></span><span class="c1"># Copyright (C) 2021-2022 Jørgen S. Dokken and Garth N. Wells</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -50,59 +50,65 @@
 
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">mesh</span> <span class="k">as</span> <span class="n">_mesh</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">mesh</span>
 
-<span class="c1"># NOTE: This dictionary and following function should be revised when</span>
-<span class="c1"># pyvista has better support for arbitrary lagrangian elements, see:</span>
-<span class="c1"># https://github.com/pyvista/pyvista/issues/947</span>
-
-<span class="n">_first_order_vtk</span> <span class="o">=</span> <span class="p">{</span><span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
-                    <span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-                    <span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
-                    <span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-                    <span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">hexahedron</span><span class="p">:</span> <span class="mi">12</span><span class="p">}</span>
+<span class="c1"># NOTE: This dictionary and the below function that uses it should be</span>
+<span class="c1"># revised when pyvista improves rendering of &#39;arbitrary&#39; Lagrange</span>
+<span class="c1"># elements, i.e. for the VTK cell types that define a shape but allow</span>
+<span class="c1"># arbitrary degree geometry. See</span>
+<span class="c1"># https://github.com/pyvista/pyvista/issues/947.</span>
+<span class="c1">#</span>
+<span class="c1"># Cell types can be found at</span>
+<span class="c1"># https://vtk.org/doc/nightly/html/vtkCellType_8h_source.html</span>
+<span class="n">_first_order_vtk</span> <span class="o">=</span> <span class="p">{</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+                    <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">hexahedron</span><span class="p">:</span> <span class="mi">12</span><span class="p">}</span>
 
 
 <div class="viewcode-block" id="create_vtk_mesh"><a class="viewcode-back" href="../../generated/dolfinx.plot.html#dolfinx.plot.create_vtk_mesh">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">create_vtk_mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">_mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">create_vtk_mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">:</span> <span class="n">mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Create vtk mesh topology data for mesh entities of a given</span>
 <span class="sd">    dimension. The vertex indices in the returned topology array are the</span>
 <span class="sd">    indices for the associated entry in the mesh geometry.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">entities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
-        <span class="n">entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">num_cells</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">)</span>
-
-    <span class="c1"># Get the indices in the geometry array that correspong to the</span>
-    <span class="c1"># topology vertices</span>
-    <span class="c1"># NOTE: This linearizes higher order geometries</span>
-    <span class="n">geometry_entities</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">entities_to_geometry</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-
-    <span class="c1"># Array holding the cell type (shape) for each cell</span>
-    <span class="n">cell_type</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span>
-    <span class="k">if</span> <span class="n">cell_type</span> <span class="o">==</span> <span class="n">_mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">prism</span><span class="p">:</span>
+    <span class="n">tdim</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span>
+    <span class="n">cell_type</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span>
+    <span class="n">degree</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">degree</span>
+    <span class="k">if</span> <span class="n">cell_type</span> <span class="o">==</span> <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">prism</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Plotting of prism meshes not supported&quot;</span><span class="p">)</span>
-    <span class="n">degree</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">degree</span>
-    <span class="k">if</span> <span class="n">degree</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Plotting of higher order mesh topologies is experimental.&quot;</span><span class="p">)</span>
 
-    <span class="n">e_type</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_entity_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="n">vtk_type</span> <span class="o">=</span> <span class="n">_first_order_vtk</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="k">if</span> <span class="n">degree</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">get_vtk_cell_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">vtk_type</span><span class="p">)</span>
+    <span class="c1"># Use all local cells if not supplied</span>
+    <span class="k">if</span> <span class="n">entities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">entities</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span><span class="p">)</span>
 
-    <span class="c1"># Get cell data and the DOLFINx -&gt; VTK permutation array</span>
-    <span class="n">num_vertices_per_cell</span> <span class="o">=</span> <span class="n">geometry_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">map_vtk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">perm_vtk</span><span class="p">(</span><span class="n">e_type</span><span class="p">,</span> <span class="n">num_vertices_per_cell</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="n">tdim</span><span class="p">:</span>
+        <span class="n">vtk_topology</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">extract_vtk_connectivity</span><span class="p">(</span><span class="n">msh</span><span class="p">)[</span><span class="n">entities</span><span class="p">]</span>
+        <span class="n">num_nodes_per_cell</span> <span class="o">=</span> <span class="n">vtk_topology</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># NOTE: This linearizes higher order geometries</span>
+        <span class="n">geometry_entities</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">entities_to_geometry</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">degree</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Linearizing topology for higher order sub entities.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Get cell data and the DOLFINx -&gt; VTK permutation array</span>
+        <span class="n">num_nodes_per_cell</span> <span class="o">=</span> <span class="n">geometry_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">map_vtk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">perm_vtk</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_entity_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                                              <span class="n">num_nodes_per_cell</span><span class="p">))</span>
+        <span class="n">vtk_topology</span> <span class="o">=</span> <span class="n">geometry_entities</span><span class="p">[:,</span> <span class="n">map_vtk</span><span class="p">]</span>
 
     <span class="c1"># Create mesh topology</span>
-    <span class="n">topology</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">num_vertices_per_cell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_vertices_per_cell</span>
-    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">geometry_entities</span><span class="p">[:,</span> <span class="n">map_vtk</span><span class="p">]</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">),</span> <span class="n">num_nodes_per_cell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_nodes_per_cell</span>
+    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">vtk_topology</span>
 
-    <span class="k">return</span> <span class="n">topology</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span></div>
+    <span class="c1"># Array holding the cell type (shape) for each cell</span>
+    <span class="n">vtk_type</span> <span class="o">=</span> <span class="n">_first_order_vtk</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="k">if</span> <span class="n">degree</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">get_vtk_cell_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">tdim</span><span class="p">)</span>
+    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">),</span> <span class="n">vtk_type</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">topology</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span></div>
 
 
 <span class="nd">@create_vtk_mesh</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">)</span>
@@ -113,35 +119,32 @@
 <span class="sd">    discontinuous) only.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">family</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">family</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">family</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;Discontinuous Lagrange&#39;</span><span class="p">,</span> <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="s2">&quot;DQ&quot;</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only create meshes from continuous or discontinuous Lagrange spaces&quot;</span><span class="p">)</span>
+
     <span class="n">degree</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">family</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;Discontinuous Lagrange&#39;</span><span class="p">,</span> <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="s2">&quot;DQ&quot;</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">]):</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only create meshes from Continuous or Discontinuous function-spaces&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">degree</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot create topology from cellwise constants.&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">degree</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Plotting of higher order Lagrange functions are experimental.&quot;</span><span class="p">)</span>
 
-    <span class="n">mesh</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">mesh</span>
+    <span class="c1"># Use all local cells if not supplied</span>
+    <span class="n">msh</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">mesh</span>
+    <span class="n">tdim</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span>
     <span class="k">if</span> <span class="n">entities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">num_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
-        <span class="n">entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">num_cells</span> <span class="o">=</span> <span class="n">entities</span><span class="o">.</span><span class="n">size</span>
+        <span class="n">entities</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">tdim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span><span class="p">)</span>
 
     <span class="n">dofmap</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span>
     <span class="n">num_dofs_per_cell</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">dof_layout</span><span class="o">.</span><span class="n">num_dofs</span>
-    <span class="n">cell_type</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span>
+    <span class="n">cell_type</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span>
     <span class="n">perm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">perm_vtk</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">num_dofs_per_cell</span><span class="p">))</span>
 
-    <span class="n">vtk_type</span> <span class="o">=</span> <span class="n">_first_order_vtk</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="k">if</span> <span class="n">degree</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">get_vtk_cell_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">vtk_type</span><span class="p">)</span>
+    <span class="n">vtk_type</span> <span class="o">=</span> <span class="n">_first_order_vtk</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="k">if</span> <span class="n">degree</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">get_vtk_cell_type</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">tdim</span><span class="p">)</span>
+    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">),</span> <span class="n">vtk_type</span><span class="p">)</span>
 
-    <span class="n">topology</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">num_dofs_per_cell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">topology</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">),</span> <span class="n">num_dofs_per_cell</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
     <span class="n">topology</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_dofs_per_cell</span>
     <span class="n">dofmap_</span> <span class="o">=</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">num_dofs_per_cell</span><span class="p">)</span>
 
-    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">dofmap_</span><span class="p">[:</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">perm</span><span class="p">]</span>
+    <span class="n">topology</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">dofmap_</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">entities</span><span class="p">),</span> <span class="n">perm</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">topology</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">tabulate_dof_coordinates</span><span class="p">()</span>
 </pre></div>
 
