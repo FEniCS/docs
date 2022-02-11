@@ -43,6 +43,10 @@
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 <span class="sd">&quot;&quot;&quot;Linear algebra functionality&quot;&quot;&quot;</span>
 
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span> <span class="nn">dolfinx.cpp.la.petsc</span> <span class="kn">import</span> <span class="n">create_vector</span> <span class="k">as</span> <span class="n">create_petsc_vector</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;orthonormalize&quot;</span><span class="p">,</span> <span class="s2">&quot;is_orthonormal&quot;</span><span class="p">,</span> <span class="s2">&quot;create_petsc_vector&quot;</span><span class="p">]</span>
@@ -67,6 +71,78 @@
             <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">y</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">eps</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">False</span>
     <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<span class="k">class</span> <span class="nc">MatrixCSRCMetaClass</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sp</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A distributed sparse matrix that uses compressed sparse row storage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sp: The sparsity pattern that defines the nonzero structure</span>
+<span class="sd">            of the matrix the parallel distribution of the matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">matrix_csr</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MatrixCSRCMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a distributed sparse matrix.</span>
+
+<span class="sd">    The matrix uses compressed sparse row storage.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        sp: The sparsity pattern that defines the nonzero structure of</span>
+<span class="sd">        the matrix the parallel distribution of the matrix.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A sparse matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSR_float32</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSR_float64</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSR_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+    <span class="n">matrixcls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="s2">&quot;MatrixCSR&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">MatrixCSRCMetaClass</span><span class="p">,</span> <span class="n">ftype</span><span class="p">),</span> <span class="p">{})</span>
+    <span class="k">return</span> <span class="n">matrixcls</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">VectorMetaClass</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A distributed vector object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            map: Index map the describes the size and distribution of the vector</span>
+<span class="sd">            bs: Block size</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">vector</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VectorMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a distributed vector.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        map: Index map the describes the size and distribution of the vector</span>
+<span class="sd">        bs: Block size</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A distributed vector</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+        <span class="n">vtype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_float32</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="n">vtype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_float64</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">:</span>
+        <span class="n">vtype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_complex64</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span>
+        <span class="n">vtype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+    <span class="n">vectorcls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="s2">&quot;Vector&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">VectorMetaClass</span><span class="p">,</span> <span class="n">vtype</span><span class="p">),</span> <span class="p">{})</span>
+    <span class="k">return</span> <span class="n">vectorcls</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">)</span>
 </pre></div>
 
             <div class="clearer"></div>
