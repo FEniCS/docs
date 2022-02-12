@@ -1,22 +1,22 @@
----
-jupytext:
-  main_language: python
-  text_representation:
-    extension: .md
-    format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.13.7
----
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.13.6
+# ---
 
-# Elasticity
+# # Elasticity
+#
+# Copyright © 2020-2022 Garth N. Wells and Michal Habera
+#
+# This demo solves the equations of static linear elasticity using a
+# smoothed aggregation algebraic multigrid solver. The demo is
+# implemented in {download}`demo_elasticity.py`.
 
-Copyright © 2020-2022 Garth N. Wells and Michal Habera
-
-This demo solves the equations of static linear elasticity using a
-smoothed aggregation algebraic multigrid solver. The demo is
-implemented in {download}`demo_elasticity.py`.
-
-```python
+# +
 from contextlib import ExitStack
 
 import numpy as np
@@ -35,18 +35,18 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 dtype = PETSc.ScalarType
-```
+# -
 
-## Operators nullspace
+# ## Operators nullspace
+#
+# Smoother aggregation algebraic multigrid solver require the so-called
+# 'near-nullspace', which is the nullspace of the operator in the
+# absence of boundary conditions. The below function builds a PETSc
+# NullSpace object. For this 3D elasticity problem the nullspace is
+# spanned by six vectors -- three translation modes and three rotation
+# modes.
 
-Smoother aggregation algebraic multigrid solver require the so-called
-'near-nullspace', which is the nullspace of the operator in the
-absence of boundary conditions. The below function builds a PETSc
-NullSpace object. For this 3D elasticity problem the nullspace is
-spanned by six vectors -- three translation modes and three rotation
-modes.
 
-```python
 def build_nullspace(V):
     """Build PETSc nullspace for 3D elasticity"""
 
@@ -81,28 +81,24 @@ def build_nullspace(V):
     assert la.is_orthonormal(ns)
 
     return PETSc.NullSpace().create(vectors=ns)
-```
 
-Create a box Mesh
+# Create a box Mesh
 
-```python
+
 msh = create_box(MPI.COMM_WORLD, [np.array([0.0, 0.0, 0.0]),
                                   np.array([2.0, 1.0, 1.0])], [16, 16, 16],
                  CellType.tetrahedron, GhostMode.shared_facet)
-```
 
-Create a centripetal source term ($f = \rho \omega^2 [x_0, \, x_1]$)
+# Create a centripetal source term ($f = \rho \omega^2 [x_0, \, x_1]$)
 
-```python
 ω, ρ = 300.0, 10.0
 x = ufl.SpatialCoordinate(msh)
 f = ufl.as_vector((ρ * ω**2 * x[0], ρ * ω**2 * x[1], 0.0))
-```
 
-Set the elasticity parameters and create a function that computes and
-expression for the stress given a displacement field.
+# Set the elasticity parameters and create a function that computes and
+# expression for the stress given a displacement field.
 
-```python
+# +
 E = 1.0e9
 ν = 0.3
 μ = E / (2.0 * (1.0 + ν))
@@ -112,67 +108,62 @@ E = 1.0e9
 def σ(v):
     """Return an expression for the stress σ given a displacement field"""
     return 2.0 * μ * ufl.sym(grad(v)) + λ * ufl.tr(ufl.sym(grad(v))) * ufl.Identity(len(v))
-```
+# -
 
-A function space space is created and the elasticity variational
-problem defined:
+# A function space space is created and the elasticity variational
+# problem defined:
 
-```python
+
 V = VectorFunctionSpace(msh, ("Lagrange", 1))
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 a = form(inner(σ(u), grad(v)) * dx)
 L = form(inner(f, v) * dx)
-```
 
-A homogeneous (zero) boundary condition is created on $x_0 = 0$ and
-$x_1 = 1$ by finding all boundary facets on $x_0 = 0$ and # $x_1 = 1$,
-and then creating a Dirichlet boundary condition object.
+# A homogeneous (zero) boundary condition is created on $x_0 = 0$ and
+# $x_1 = 1$ by finding all boundary facets on $x_0 = 0$ and # $x_1 = 1$,
+# and then creating a Dirichlet boundary condition object.
 
-```python
 facets = locate_entities_boundary(msh, dim=2,
                                   marker=lambda x: np.logical_or(np.isclose(x[0], 0.0),
                                                                  np.isclose(x[1], 1.0)))
 bc = dirichletbc(np.zeros(3, dtype=dtype),
                  locate_dofs_topological(V, entity_dim=2, entities=facets), V=V)
-```
 
-## Assemble and solve
+# ## Assemble and solve
+#
+# The bilinear form `a` is assembled into a matrix `A`, with
+# modifications for the Dirichlet boundary conditions. The line
+# `A.assemble()` completes any parallel communication required to
+# computed the matrix.
 
-The bilinear form `a` is assembled into a matrix `A`, with
-modifications for the Dirichlet boundary conditions. The line
-`A.assemble()` completes any parallel communication required to
-computed the matrix.
-
-```python
+# +
 A = assemble_matrix(a, bcs=[bc])
 A.assemble()
-```
+# -
 
-The linear form `L` is assembled into a vector `b`, and then modified
-by `apply_lifting` to account for the Dirichlet boundary conditions.
-After calling `apply_lifting`, the method `ghostUpdate` accumulates
-entries on the owning rank, and this is followed by setting the
-boundary values in `b`.
+# The linear form `L` is assembled into a vector `b`, and then modified
+# by `apply_lifting` to account for the Dirichlet boundary conditions.
+# After calling `apply_lifting`, the method `ghostUpdate` accumulates
+# entries on the owning rank, and this is followed by setting the
+# boundary values in `b`.
 
-```python
+# +
 b = assemble_vector(L)
 apply_lifting(b, [a], bcs=[[bc]])
 b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 set_bc(b, [bc])
-```
+# -
 
-Create the a near nullspace and attach it to the PETSc matrix:
+# Create the a near nullspace and attach it to the PETSc matrix:
 
-```python
 null_space = build_nullspace(V)
 A.setNearNullSpace(null_space)
-```
 
-Set PETsc solver options, create a PETSc Krylov solver, and attach the
-matrix `A` to the solver:
+# Set PETsc solver options, create a PETSc Krylov solver, and attach the
+# matrix `A` to the solver:
 
-```python
+# +
 # Set solver options
 opts = PETSc.Options()
 opts["ksp_type"] = "cg"
@@ -193,11 +184,11 @@ solver.setFromOptions()
 
 # Set matrix operator
 solver.setOperators(A)
-```
+# -
 
-Create a solution Function `uh` and solve:
+# Create a solution Function `uh` and solve:
 
-```python
+# +
 uh = Function(V)
 
 # Set a monitor, solve linear system, and dispay the solver
@@ -208,35 +199,35 @@ solver.view()
 
 # Scatter forward the solution vector to udpate ghost values
 uh.x.scatter_forward()
-```
+# -
 
-## Post-processing
+# ## Post-processing
+#
+# The computed solution is now post-processed.
+#
+# Expressions for the deviatoric and Von Mises stress are defined:
 
-The computed solution is now post-processed.
-
-Expressions for the deviatoric and Von Mises stress are defined:
-
-```python
+# +
 sigma_dev = σ(uh) - (1 / 3) * ufl.tr(σ(uh)) * ufl.Identity(len(uh))
 sigma_vm = ufl.sqrt((3 / 2) * inner(sigma_dev, sigma_dev))
-```
+# -
 
-Next, the Von Mises stress is interpolated in a piecewise-constant
-space by creating an {py:class}`Expression<dolfinx.fem.Expression>`
-that is interpolated into the
-{py:class}`Function<dolfinx.fem.Function>` `sigma_vm_h`.
+# Next, the Von Mises stress is interpolated in a piecewise-constant
+# space by creating an {py:class}`Expression<dolfinx.fem.Expression>`
+# that is interpolated into the
+# {py:class}`Function<dolfinx.fem.Function>` `sigma_vm_h`.
 
-```python
+# +
 W = FunctionSpace(msh, ("Discontinuous Lagrange", 0))
 sigma_vm_expr = Expression(sigma_vm, W.element.interpolation_points)
 sigma_vm_h = Function(W)
 sigma_vm_h.interpolate(sigma_vm_expr)
-```
+# -
 
-Save displacement field `uh` and the Von Mises stress `sigma_vm_h` in
-XDMF format files.
+# Save displacement field `uh` and the Von Mises stress `sigma_vm_h` in
+# XDMF format files.
 
-```python
+# +
 with XDMFFile(msh.comm, "displacements.xdmf", "w") as file:
     file.write_mesh(msh)
     file.write_function(uh)
@@ -245,17 +236,17 @@ with XDMFFile(msh.comm, "displacements.xdmf", "w") as file:
 with XDMFFile(msh.comm, "von_mises_stress.xdmf", "w") as file:
     file.write_mesh(msh)
     file.write_function(sigma_vm_h)
-```
+# -
 
-Finally, we compute the $L^2$ norm of the displacement solution
-vector. This is a collective operation (i.e., the method `norm` must
-be called from all MPI ranks), but we print the norm only on rank 0.
+# Finally, we compute the $L^2$ norm of the displacement solution
+# vector. This is a collective operation (i.e., the method `norm` must
+# be called from all MPI ranks), but we print the norm only on rank 0.
 
-```python
+# +
 unorm = uh.x.norm()
 if msh.comm.rank == 0:
     print("Solution vector norm:", unorm)
-```
+# -
 
-The solution vector norm can be a useful check that the solver is
-computing the same result when running in serial and in parallel.
+# The solution vector norm can be a useful check that the solver is
+# computing the same result when running in serial and in parallel.
