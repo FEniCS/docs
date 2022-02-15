@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['lagrange_5fvariant_245',['lagrange_variant',['../namespacebasix_1_1element.html#a5d97cf44f3a72fad549a01ab3933b77f',1,'basix::element']]]
+  ['family_247',['family',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007',1,'basix::element']]]
 ];

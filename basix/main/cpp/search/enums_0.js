@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['family_244',['family',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007',1,'basix::element']]]
+  ['dpc_5fvariant_246',['dpc_variant',['../namespacebasix_1_1element.html#a8e196cd0bcdc926110b57d13fa278060',1,'basix::element']]]
 ];
