@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['atol_975',['atol',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a4c945da12556c26de1ce9b8b7fb7d8c5',1,'dolfinx::nls::NewtonSolver']]]
+  ['atol_975',['atol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a5f31c8d0e4f506478efafbf0faf1ddd8',1,'dolfinx::nls::petsc::NewtonSolver']]]
 ];

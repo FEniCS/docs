@@ -13,8 +13,8 @@ var searchData=
   ['refine_854',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a8770e9e8ea5709867b73e9f1ec67c7ee',1,'dolfinx::refinement::refine()'],['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a271c0806492089c1fc4bd8985866c437',1,'dolfinx::refinement::plaza::refine()'],['../d9/dd6/namespacedolfinx_1_1refinement.html#a1928589bc41d067d0d0e767018c84ebe',1,'dolfinx::refinement::refine()'],['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a5f9da069dddceb41dcd2d2ef4c59bf07',1,'dolfinx::refinement::plaza::refine()']]],
   ['register_5ftiming_855',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#acd8e7e18cdf56676b70d6737a1f5e996',1,'dolfinx::common::TimeLogger']]],
   ['reorder_5fgps_856',['reorder_gps',['../d9/d69/namespacedolfinx_1_1graph.html#adff5504badff95d1730e4f50a0fec6f4',1,'dolfinx::graph']]],
-  ['residual_857',['residual',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#ace3bf06f2286c53d54cb5882915f1b35',1,'dolfinx::nls::NewtonSolver']]],
-  ['residual0_858',['residual0',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a9cc60f23eca54c4d77155b10af4c3741',1,'dolfinx::nls::NewtonSolver']]],
+  ['residual_857',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a5bc4dd79d898810c15dd0502945c2b9b',1,'dolfinx::nls::petsc::NewtonSolver']]],
+  ['residual0_858',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85d326e815eb7db9c976a1c9e6120d69',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['resume_859',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a4ac55a73bb3431db9d4d2fd70ae9a2e8',1,'dolfinx::common::Timer']]],
   ['row_5fptr_860',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a5185aa62918ea7c460d8d431a62d2277',1,'dolfinx::la::MatrixCSR']]]
 ];

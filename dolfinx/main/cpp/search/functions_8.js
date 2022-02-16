@@ -28,5 +28,5 @@ var searchData=
   ['is_5forthonormal_764',['is_orthonormal',['../d6/dfa/namespacedolfinx_1_1la.html#a4adfff33700a1b9e38229650235d1600',1,'dolfinx::la']]],
   ['is_5fsimplex_765',['is_simplex',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac5f08c93e4f57e68777810cfac7493e9',1,'dolfinx::mesh']]],
   ['is_5fview_766',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ae7737414a426675bde6fcb52baea7009',1,'dolfinx::fem::ElementDofLayout']]],
-  ['iteration_767',['iteration',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#a7adc1209b7d4740b330d5ed2ac07e043',1,'dolfinx::nls::NewtonSolver']]]
+  ['iteration_767',['iteration',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a8678fbd15dbdbbd5785209cda2d09b79',1,'dolfinx::nls::petsc::NewtonSolver']]]
 ];

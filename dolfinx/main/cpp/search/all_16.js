@@ -18,7 +18,7 @@ var searchData=
   ['_7ematrix_473',['~Matrix',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a16b81ad394a340df68078080917bc7a5',1,'dolfinx::la::petsc::Matrix']]],
   ['_7emesh_474',['~Mesh',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a557b14251f961e19630554cb21a61d62',1,'dolfinx::mesh::Mesh']]],
   ['_7emeshtags_475',['~MeshTags',['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#aa2ef6f905264d818e285bf907efb40d3',1,'dolfinx::mesh::MeshTags']]],
-  ['_7enewtonsolver_476',['~NewtonSolver',['../d9/dbf/classdolfinx_1_1nls_1_1NewtonSolver.html#aa2e186dfae7a6f9bb6ec574d87f784ac',1,'dolfinx::nls::NewtonSolver']]],
+  ['_7enewtonsolver_476',['~NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a02e8e691d514207918b005334c67e40c',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['_7eoperator_477',['~Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#a04bf06ff5203af6a4fc2e145c7633e77',1,'dolfinx::la::petsc::Operator']]],
   ['_7esparsitypattern_478',['~SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a29fc57c16e60aa5ee72a66909191a963',1,'dolfinx::la::SparsityPattern']]],
   ['_7etable_479',['~Table',['../db/d97/classdolfinx_1_1Table.html#af364da736b43f6d33036bbb7f36bbfd4',1,'dolfinx::Table']]],
