@@ -25,7 +25,8 @@
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINx 0.3.1.0 documentation</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../fem.html" accesskey="U">dolfinx.fem</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">dolfinx.fem.assemble</a></li> 
       </ul>
     </div>  
@@ -36,7 +37,7 @@
           <div class="body" role="main">
             
   <h1>Source code for dolfinx.fem.assemble</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2018-2021 Garth N. Wells</span>
+<span></span><span class="c1"># Copyright (C) 2018-2022 Garth N. Wells</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -45,30 +46,43 @@
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">typing</span>
 
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">from</span> <span class="nn">dolfinx.fem.forms</span> <span class="kn">import</span> <span class="n">FormMetaClass</span>
     <span class="kn">from</span> <span class="nn">dolfinx.fem.bcs</span> <span class="kn">import</span> <span class="n">DirichletBCMetaClass</span>
 
-<span class="kn">import</span> <span class="nn">collections</span>
-<span class="kn">import</span> <span class="nn">contextlib</span>
 <span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">dolfinx</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">la</span>
-<span class="kn">from</span> <span class="nn">dolfinx.fem.bcs</span> <span class="kn">import</span> <span class="n">bcs_by_block</span>
-<span class="kn">from</span> <span class="nn">dolfinx.fem.forms</span> <span class="kn">import</span> <span class="n">extract_function_spaces</span>
-
-<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
-
-<span class="c1"># -- Packing constants and coefficients --------------------------------------</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.fem</span> <span class="kn">import</span> <span class="n">pack_coefficients</span> <span class="k">as</span> <span class="n">_pack_coefficients</span>
+<span class="kn">from</span> <span class="nn">dolfinx.cpp.fem</span> <span class="kn">import</span> <span class="n">pack_constants</span> <span class="k">as</span> <span class="n">_pack_constants</span>
 
 
-<div class="viewcode-block" id="pack_constants"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.pack_constants">[docs]</a><span class="k">def</span> <span class="nf">pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]]):</span>
-    <span class="sd">&quot;&quot;&quot;Compute form constants. If form is an array of forms, this</span>
-<span class="sd">    function returns an array of form constants with the same shape as</span>
-<span class="sd">    form.</span>
+<span class="k">def</span> <span class="nf">pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">,</span>
+                                      <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                                                                                       <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sd">&quot;&quot;&quot;Compute form constants.</span>
+
+<span class="sd">    Pack the `constants` that appear in forms. The packed constants can</span>
+<span class="sd">    be passed to an assembler. This is a performance optimisation for</span>
+<span class="sd">    cases where a form is assembled multiple times and (some) constants</span>
+<span class="sd">    do not change.</span>
+
+<span class="sd">    If ``form`` is an array of forms, this function returns an array of</span>
+<span class="sd">    form constants with the same shape as form.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        form: A single form or array of forms to pack the constants for.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A `constant` array for each form.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="nf">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
@@ -77,15 +91,27 @@
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">Iterable</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sub_form</span><span class="p">:</span> <span class="n">_pack</span><span class="p">(</span><span class="n">sub_form</span><span class="p">),</span> <span class="n">form</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="pack_coefficients"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.pack_coefficients">[docs]</a><span class="k">def</span> <span class="nf">pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]]):</span>
-    <span class="sd">&quot;&quot;&quot;Compute form coefficients. If form is an array of forms, this</span>
-<span class="sd">    function returns an array of form coefficients with the same shape</span>
-<span class="sd">    as form.</span>
+<span class="k">def</span> <span class="nf">pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]]):</span>
+    <span class="sd">&quot;&quot;&quot;Compute form coefficients.</span>
+
+<span class="sd">    Pack the `coefficients` that appear in forms. The packed</span>
+<span class="sd">    coefficients can be passed to an assembler. This is a</span>
+<span class="sd">    performance optimisation for cases where a form is assembled</span>
+<span class="sd">    multiple times and (some) coefficients do not change.</span>
+
+<span class="sd">    If ``form`` is an array of forms, this function returns an array of</span>
+<span class="sd">    form coefficients with the same shape as form.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        form: A single form or array of forms to pack the constants for.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Coefficients for each form.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="nf">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
@@ -94,345 +120,175 @@
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">Iterable</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sub_form</span><span class="p">:</span> <span class="n">_pack</span><span class="p">(</span><span class="n">sub_form</span><span class="p">),</span> <span class="n">form</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_pack</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+
+<span class="c1"># -- Vector and matrix instantiation -----------------------------------------</span>
 
 
-<span class="c1"># -- Vector instantiation ----------------------------------------------------</span>
-
-<div class="viewcode-block" id="create_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector">[docs]</a><span class="k">def</span> <span class="nf">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">VectorMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a Vector that is compatible with a given linear form&quot;&quot;&quot;</span>
     <span class="n">dofmap</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span>
-    <span class="k">return</span> <span class="n">la</span><span class="o">.</span><span class="n">create_petsc_vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">la</span><span class="o">.</span><span class="n">vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">L</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="create_vector_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector_block">[docs]</a><span class="k">def</span> <span class="nf">create_vector_block</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a sparse matrix that is compatible with a given bilinear form&quot;&quot;&quot;</span>
+    <span class="n">sp</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_sparsity_pattern</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">sp</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">la</span><span class="o">.</span><span class="n">matrix_csr</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">a</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="create_vector_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_vector_nest">[docs]</a><span class="k">def</span> <span class="nf">create_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
-
-
-<span class="c1"># -- Matrix instantiation ----------------------------------------------------</span>
-
-<div class="viewcode-block" id="create_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix">[docs]</a><span class="k">def</span> <span class="nf">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">mat_type</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="k">if</span> <span class="n">mat_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">mat_type</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="create_matrix_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix_block">[docs]</a><span class="k">def</span> <span class="nf">create_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="create_matrix_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_matrix_nest">[docs]</a><span class="k">def</span> <span class="nf">create_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">)</span></div>
-
-
-<span class="n">Coefficients</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Coefficients&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;constants&#39;</span><span class="p">,</span> <span class="s1">&#39;coeffs&#39;</span><span class="p">])</span>
 
 <span class="c1"># -- Scalar assembly ---------------------------------------------------------</span>
 
-
-<div class="viewcode-block" id="assemble_scalar"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_scalar">[docs]</a><span class="k">def</span> <span class="nf">assemble_scalar</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">:</span>
+<div class="viewcode-block" id="assemble_scalar"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_scalar">[docs]</a><span class="k">def</span> <span class="nf">assemble_scalar</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Assemble functional. The returned value is local and not</span>
 <span class="sd">    accumulated across processes.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        M: The functional to compute.</span>
+<span class="sd">        constants: Constants that appear in the form. If not provided,</span>
+<span class="sd">            any required constants will be computed.</span>
+<span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
+<span class="sd">            any required coefficients will be computed.</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        The computed scalar on the calling rank.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Passing `constants` and `coefficients` is a performance</span>
+<span class="sd">        optimisation for when a form is assembled multiple times and</span>
+<span class="sd">        when (some) constants and coefficients are unchanged.</span>
+
+<span class="sd">        To compute the functional value on the whole domain, the output</span>
+<span class="sd">        of this function is typically summed across all MPI ranks.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">M</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">M</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+    <span class="n">constants</span> <span class="o">=</span> <span class="n">constants</span> <span class="ow">or</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">coeffs</span> <span class="ow">or</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
 
 
 <span class="c1"># -- Vector assembly ---------------------------------------------------------</span>
 
-<div class="viewcode-block" id="assemble_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear form into a new PETSc vector. The returned vector</span>
-<span class="sd">    is not finalised, i.e. ghost values are not accumulated on the</span>
-<span class="sd">    owning processes.</span>
+<div class="viewcode-block" id="assemble_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<span class="k">def</span> <span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">VectorMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear form into a new Vector.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        L: The linear form assemble.</span>
+<span class="sd">        constants: Constants that appear in the form. If not provided,</span>
+<span class="sd">            any required constants will be computed.</span>
+<span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
+<span class="sd">            any required coefficients will be computed.</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        The assembled vector for the calling rank.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Passing `constants` and `coefficients` is a performance</span>
+<span class="sd">        optimisation for when a form is assembled multiple times and</span>
+<span class="sd">        when (some) constants and coefficients are unchanged.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The returned vector is not finalised, i.e. ghost values are not</span>
+<span class="sd">        accumulated on the owning processes. Calling</span>
+<span class="sd">        :func:`dolfinx.la.VectorMetaClass.scatter_reverse` on the</span>
+<span class="sd">        return vector can accumulate ghost contributions.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">la</span><span class="o">.</span><span class="n">create_petsc_vector</span><span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-                               <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">[:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">constants</span> <span class="o">=</span> <span class="n">constants</span> <span class="ow">or</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">coeffs</span> <span class="ow">or</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">b</span></div>
 
 
-<span class="o">@</span> <span class="n">assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear form into an existing PETSc vector. The vector is</span>
-<span class="sd">    not zeroed before assembly and it is not finalised, i.e. ghost</span>
-<span class="sd">    values are not accumulated on the owning processes.</span>
+<span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Assemble linear form into a new Vector.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        b: The array to assemble the contribution from the calling MPI</span>
+<span class="sd">            rank into. It must have the required size.</span>
+<span class="sd">        L: The linear form assemble.</span>
+<span class="sd">        constants: Constants that appear in the form. If not provided,</span>
+<span class="sd">            any required constants will be computed.</span>
+<span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
+<span class="sd">            any required coefficients will be computed.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Passing `constants` and `coefficients` is a performance</span>
+<span class="sd">        optimisation for when a form is assembled multiple times and</span>
+<span class="sd">        when (some) constants and coefficients are unchanged.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The returned vector is not finalised, i.e. ghost values are not</span>
+<span class="sd">        accumulated on the owning processes. Calling</span>
+<span class="sd">        :func:`dolfinx.la.VectorMetaClass.scatter_reverse` on the</span>
+<span class="sd">        return vector can accumulate ghost contributions.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">constants</span> <span class="o">=</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">b</span>
-
-
-<div class="viewcode-block" id="assemble_vector_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector_nest">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a new nested PETSc (VecNest) vector.</span>
-<span class="sd">    The returned vector is not finalised, i.e. ghost values are not</span>
-<span class="sd">    accumulated on the owning processes.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
-        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-            <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">assemble_vector_nest</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
-
-
-<span class="o">@</span> <span class="n">assemble_vector_nest</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">],</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a nested PETSc (VecNest) vector. The</span>
-<span class="sd">    vector is not zeroed before assembly and it is not finalised, i.e.</span>
-<span class="sd">    ghost values are not accumulated on the owning processes.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">constant</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">L</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">constant</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">b</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_vector_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector_block">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_vector_block</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">],</span>
-                          <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-                          <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-                          <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                          <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-                          <span class="n">coeffs_L</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                          <span class="n">coeffs_a</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector. The vector is not</span>
-<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">assemble_vector_block</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">coeffs_L</span><span class="p">,</span> <span class="n">coeffs_a</span><span class="p">)</span></div>
-
-
-<span class="o">@</span> <span class="n">assemble_vector_block</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-      <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">],</span>
-      <span class="n">a</span><span class="p">,</span>
-      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-      <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-      <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-      <span class="n">coeffs_L</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-      <span class="n">coeffs_a</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector. The vector is not</span>
-<span class="sd">    zeroed and it is not finalised, i.e. ghost values are not</span>
-<span class="sd">    accumulated.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">x0_local</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-        <span class="n">x0_sub</span> <span class="o">=</span> <span class="n">x0_local</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">x0_local</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">x0_sub</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-
-    <span class="n">c_L</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs_L</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs_L</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">),</span>
-           <span class="n">coeffs_L</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs_L</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
-    <span class="n">c_a</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs_a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs_a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-           <span class="n">coeffs_a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs_a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-
-    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">bcs_by_block</span><span class="p">(</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
-    <span class="n">b_local</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">constant_L</span><span class="p">,</span> <span class="n">coeff_L</span><span class="p">,</span> <span class="n">constant_a</span><span class="p">,</span> <span class="n">coeff_a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b_local</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span>
-                                                                             <span class="n">c_L</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_L</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-                                                                             <span class="n">c_a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_a</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">constant_L</span><span class="p">,</span> <span class="n">coeff_L</span><span class="p">)</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">constant_a</span><span class="p">,</span> <span class="n">coeff_a</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">,</span> <span class="n">x0_local</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
-
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">scatter_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">b_local</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-    <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
-
-    <span class="n">bcs0</span> <span class="o">=</span> <span class="n">bcs_by_block</span><span class="p">(</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
-    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">b_array</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getArray</span><span class="p">(</span><span class="n">readonly</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">submap</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">_x0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">,</span> <span class="n">x0_sub</span><span class="p">):</span>
-        <span class="n">size</span> <span class="o">=</span> <span class="n">submap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">submap</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b_array</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">],</span> <span class="n">bc</span><span class="p">,</span> <span class="n">_x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
-        <span class="n">offset</span> <span class="o">+=</span> <span class="n">size</span>
-
-    <span class="k">return</span> <span class="n">b</span>
-
 
 <span class="c1"># -- Matrix assembly ---------------------------------------------------------</span>
 
 
-<div class="viewcode-block" id="assemble_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
+<div class="viewcode-block" id="assemble_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
                     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-                    <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+                    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix. The returned matrix is not</span>
 <span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
-
-
-<span class="o">@</span> <span class="n">assemble_matrix</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
-      <span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span>
-      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-      <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix. The returned matrix is not</span>
-<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bcs</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemblyBegin</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemblyEnd</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">A</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_matrix_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix_nest">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-                         <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">mat_types</span><span class="o">=</span><span class="p">[],</span>
-                         <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-                         <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">mat_types</span><span class="p">)</span>
-    <span class="n">assemble_matrix_nest</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span></div>
 
 
-<span class="o">@</span> <span class="n">assemble_matrix_nest</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-      <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">])):</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="p">(</span><span class="n">a_block</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="n">a_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getNestSubMatrix</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
-                <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="p">(</span><span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">A</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_matrix_block"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix_block">[docs]</a><span class="o">@</span> <span class="n">functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-                          <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-                          <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-                          <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">assemble_matrix_block</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
-
-
-<span class="k">def</span> <span class="nf">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]]):</span>
-    <span class="sd">&quot;&quot;&quot;From a rectangular array of bilinear forms, extraction the function spaces</span>
-<span class="sd">    for each block row and block column</span>
+<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span>
+      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix. The returned matrix is not</span>
+<span class="sd">    finalised, i.e. ghost values are not accumulated.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">constants</span> <span class="o">=</span> <span class="n">constants</span> <span class="ow">or</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">coeffs</span> <span class="ow">or</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
 
-    <span class="k">assert</span> <span class="nb">len</span><span class="p">({</span><span class="nb">len</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span> <span class="k">for</span> <span class="n">cols</span> <span class="ow">in</span> <span class="n">a</span><span class="p">})</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Array of function spaces is not rectangular&quot;</span>
-
-    <span class="c1"># Extract (V0, V1) pair for each block in &#39;a&#39;</span>
-    <span class="k">def</span> <span class="nf">fn</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-    <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
-    <span class="n">Vblock</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">fn</span><span class="p">),</span> <span class="n">a</span><span class="p">)</span>
-
-    <span class="c1"># Compute spaces for each row/column block</span>
-    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">))]</span>
-    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]))]</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">Vrow</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vblock</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">V</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vrow</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">rows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                <span class="n">cols</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-
-    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span>
-    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">col</span><span class="p">]</span>
-    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span>
-
-
-<span class="o">@</span> <span class="n">assemble_matrix_block</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-      <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear forms into matrix&quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-
-    <span class="n">V</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="n">is_rows</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">([(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
-    <span class="n">is_cols</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">([(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
-
-    <span class="c1"># Assemble form</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
-                <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
-
-    <span class="c1"># Flush to enable switch from add to set in the matrix</span>
-    <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
-
-    <span class="c1"># Set diagonal</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
-                <span class="k">if</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
-                    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
-                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
-
+    <span class="c1"># If matrix is a &#39;diagonal&#39;block, set diagonal entry for constrained</span>
+    <span class="c1"># dofs</span>
+    <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bcs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Setting of matrix bc diagonals not yet implemented.&quot;</span><span class="p">)</span>
+    <span class="c1">#     A.assemblyBegin(PETSc.Mat.AssemblyType.FLUSH)</span>
+    <span class="c1">#     A.assemblyEnd(PETSc.Mat.AssemblyType.FLUSH)</span>
+    <span class="c1">#     _cpp.fem.petsc.insert_diagonal(A, a.function_spaces[0], bcs, diagonal)</span>
     <span class="k">return</span> <span class="n">A</span>
 
 
 <span class="c1"># -- Modifiers for Dirichlet conditions ---------------------------------------</span>
 
-<div class="viewcode-block" id="apply_lifting"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.apply_lifting">[docs]</a><span class="k">def</span> <span class="nf">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">],</span>
+
+<div class="viewcode-block" id="apply_lifting"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.apply_lifting">[docs]</a><span class="k">def</span> <span class="nf">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">],</span>
                   <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]],</span>
-                  <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span>
-                  <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                  <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span>
+                  <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Modify RHS vector b for lifting of Dirichlet boundary conditions.</span>
 <span class="sd">    It modifies b such that:</span>
 
-<span class="sd">        b &lt;- b - scale * A_j (g_j - x0_j)</span>
+<span class="sd">    .. math::</span>
+
+<span class="sd">        b \\leftarrow  b - \\text{scale} * A_j (g_j - x0_j)</span>
 
 <span class="sd">    where j is a block (nest) index. For a non-blocked problem j = 0.</span>
 <span class="sd">    The boundary conditions bcs are on the trial spaces V_j. The forms</span>
@@ -442,57 +298,22 @@
 
 <span class="sd">    Ghost contributions are not accumulated (not sent to owner). Caller</span>
 <span class="sd">    is responsible for calling VecGhostUpdateBegin/End.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
-        <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
-        <span class="n">x0_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">array_r</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
-        <span class="n">b_local</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0_r</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="apply_lifting_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.apply_lifting_nest">[docs]</a><span class="k">def</span> <span class="nf">apply_lifting_nest</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">]],</span>
-                       <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">],</span>
-                       <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                       <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="n">Coefficients</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Modify nested vector for lifting of Dirichlet boundary conditions.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">),</span>
-         <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
-    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">bcs_by_block</span><span class="p">(</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">b</span></div>
+    <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">form</span> <span class="ow">and</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="set_bc"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.set_bc">[docs]</a><span class="k">def</span> <span class="nf">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">],</span>
-           <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="set_bc"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.set_bc">[docs]</a><span class="k">def</span> <span class="nf">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">],</span>
+           <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Insert boundary condition values into vector. Only local (owned)</span>
 <span class="sd">    entries are set, hence communication after calling this function is</span>
 <span class="sd">    not required unless ghost entries need to be updated to the boundary</span>
 <span class="sd">    condition value.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">array_r</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="set_bc_nest"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.set_bc_nest">[docs]</a><span class="k">def</span> <span class="nf">set_bc_nest</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]],</span>
-                <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Insert boundary condition values into nested vector. Only local (owned)</span>
-<span class="sd">    entries are set, hence communication after calling this function is</span>
-<span class="sd">    not required unless the ghost entries need to be updated to the</span>
-<span class="sd">    boundary condition value.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="n">x0</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_b</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">_b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
-        <span class="n">set_bc</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span></div>
 </pre></div>
 
             <div class="clearer"></div>
@@ -526,6 +347,7 @@
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../../index.html">DOLFINx 0.3.1.0 documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../fem.html" >dolfinx.fem</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">dolfinx.fem.assemble</a></li> 
       </ul>
     </div>
