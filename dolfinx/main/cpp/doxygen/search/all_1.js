@@ -6,5 +6,5 @@ var searchData=
   ['bs_34',['bs',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#ae871aafbf2303beaf6b19cedb13c4179',1,'dolfinx::fem::DofMap::bs()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a48ddad8b3b7b898f02a7e99332a2ac4e',1,'dolfinx::la::Vector::bs()']]],
   ['build_5fdofmap_5fdata_35',['build_dofmap_data',['../d8/dbf/namespacedolfinx_1_1fem.html#a16b732b5f9b4aa1a46cfd517ce4cd768',1,'dolfinx::fem']]],
   ['build_5fdual_5fgraph_36',['build_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a22058c21f869ae144f8a102037fab98a',1,'dolfinx::mesh']]],
-  ['build_5flocal_5fdual_5fgraph_37',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#a4489d9077946b277842adab1f79ff154',1,'dolfinx::mesh']]]
+  ['build_5flocal_5fdual_5fgraph_37',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#ab88dedd70bc729f62c24cdb2e084ca62',1,'dolfinx::mesh']]]
 ];
