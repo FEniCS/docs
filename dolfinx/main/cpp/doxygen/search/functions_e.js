@@ -5,7 +5,7 @@ var searchData=
   ['pack_5fconstants_879',['pack_constants',['../d8/dbf/namespacedolfinx_1_1fem.html#a2592f3e164abea8ac0a3999ef2055176',1,'dolfinx::fem']]],
   ['partition_880',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#ac6603b6415dbc31b205f4bf8f1086f7c',1,'dolfinx::refinement']]],
   ['partition_5fgraph_881',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#ab7912ac9b196655f4fc4189efa96d794',1,'dolfinx::graph']]],
-  ['partitioner_882',['partitioner',['../d9/d24/namespacedolfinx_1_1graph_1_1kahip.html#a56fa0c328a54921d41fd9ab6a561b24a',1,'dolfinx::graph::kahip']]],
+  ['partitioner_882',['partitioner',['../d9/d24/namespacedolfinx_1_1graph_1_1kahip.html#a6e08b7ddd0eef4c5776244c7ddaeee8d',1,'dolfinx::graph::kahip']]],
   ['perm_5fgmsh_883',['perm_gmsh',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#ab6c07bd4b5ff4a2465c16d3b068c7c5a',1,'dolfinx::io::cells']]],
   ['perm_5fvtk_884',['perm_vtk',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2a7e3b8833e2e82fa43b9f6ca7f57a9b',1,'dolfinx::io::cells']]],
   ['permute_5fdofs_885',['permute_dofs',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#aec922786cd99c8372d146735ccc80a81',1,'dolfinx::fem::CoordinateElement::permute_dofs()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a51efe81a6ca588b565b926a4b0966a85',1,'dolfinx::fem::FiniteElement::permute_dofs()']]],
