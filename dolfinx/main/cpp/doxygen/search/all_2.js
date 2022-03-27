@@ -43,7 +43,7 @@ var searchData=
   ['compute_5fedge_5fsharing_76',['compute_edge_sharing',['../d9/dd6/namespacedolfinx_1_1refinement.html#a9c5ce6f7eed5e080fb82d134ae4b7272',1,'dolfinx::refinement']]],
   ['compute_5fentities_77',['compute_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a4431904d87b8c7d7ec582d426bd07563',1,'dolfinx::mesh']]],
   ['compute_5fentity_5fpermutations_78',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#aeb806bcc85940ea4818196d210d7dff7',1,'dolfinx::mesh']]],
-  ['compute_5fghost_5findices_79',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a567487e639220f18f4b60b896f59837a',1,'dolfinx::graph::build']]],
+  ['compute_5fghost_5findices_79',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a778ab9aadcda0060a8d20cd3f72f1daa',1,'dolfinx::graph::build']]],
   ['compute_5fgraph_5fedges_5fnbx_80',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#ab8e8fca883a7cc606d6a9b47734216ab',1,'dolfinx::MPI']]],
   ['compute_5fgraph_5fedges_5fpcx_81',['compute_graph_edges_pcx',['../da/dfe/namespacedolfinx_1_1MPI.html#a56a5569af31b6c9a7d55bfd5682ab824',1,'dolfinx::MPI']]],
   ['compute_5fincident_5fentities_82',['compute_incident_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a7d3f496c70759da4db55653492ff1387',1,'dolfinx::mesh']]],
