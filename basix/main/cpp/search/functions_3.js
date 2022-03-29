@@ -10,5 +10,5 @@ var searchData=
   ['double_5fcontravariant_5fpiola_183',['double_contravariant_piola',['../namespacebasix_1_1maps.html#a75777c183fd61a0b2ae34561a6ba6dbf',1,'basix::maps']]],
   ['double_5fcovariant_5fpiola_184',['double_covariant_piola',['../namespacebasix_1_1maps.html#a89ab429b80f4f66cb849012ba0bd8d1c',1,'basix::maps']]],
   ['dpc_5fvariant_185',['dpc_variant',['../classbasix_1_1FiniteElement.html#aa06a0c9f071d90d6ea452f9afe7c109d',1,'basix::FiniteElement']]],
-  ['dual_5fmatrix_186',['dual_matrix',['../classbasix_1_1FiniteElement.html#a4c78198dcdb432e4ae3fcc351e8fbb64',1,'basix::FiniteElement']]]
+  ['dual_5fmatrix_186',['dual_matrix',['../classbasix_1_1FiniteElement.html#a3254f3c32a182944ccf7ebf7040cddd9',1,'basix::FiniteElement']]]
 ];

@@ -1,7 +1,7 @@
 var searchData=
 [
   ['cell_5ftype_26',['cell_type',['../classbasix_1_1FiniteElement.html#a07e3921459dce5bff1cb731d1713ccc2',1,'basix::FiniteElement']]],
-  ['coefficient_5fmatrix_27',['coefficient_matrix',['../classbasix_1_1FiniteElement.html#a2b3b649455623416d32ddbd4a2eab2f0',1,'basix::FiniteElement']]],
+  ['coefficient_5fmatrix_27',['coefficient_matrix',['../classbasix_1_1FiniteElement.html#ac364156d55ba44ede65b12741fe7e00f',1,'basix::FiniteElement']]],
   ['compute_5finterpolation_5foperator_28',['compute_interpolation_operator',['../namespacebasix.html#a1aaa537f6fbc81d5a61233326f3cd9b9',1,'basix']]],
   ['contravariant_5fpiola_29',['contravariant_piola',['../namespacebasix_1_1maps.html#a544e6c8e661458dcb505b1fe7eef16bd',1,'basix::maps']]],
   ['covariant_5fpiola_30',['covariant_piola',['../namespacebasix_1_1maps.html#a4cd024956b7df5e3bad0fd0bdf11cbef',1,'basix::maps']]],
