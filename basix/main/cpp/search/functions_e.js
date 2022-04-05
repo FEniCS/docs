@@ -1,5 +1,8 @@
 var searchData=
 [
-  ['quadrilateral_5freflection_232',['quadrilateral_reflection',['../namespacebasix_1_1doftransforms.html#a52df267d553e24bff506b44ab2024add',1,'basix::doftransforms']]],
-  ['quadrilateral_5frotation_233',['quadrilateral_rotation',['../namespacebasix_1_1doftransforms.html#af8f0136e44a78cc36f52bd0948d4f594',1,'basix::doftransforms']]]
+  ['solve_220',['solve',['../namespacebasix_1_1math.html#a2a7841e87e7d4f228d53c666dedd33f2',1,'basix::math']]],
+  ['sub_5fentity_5fconnectivity_221',['sub_entity_connectivity',['../namespacebasix_1_1cell.html#a98b2aebaf61e060096e7bb0f7d131a29',1,'basix::cell']]],
+  ['sub_5fentity_5fgeometry_222',['sub_entity_geometry',['../namespacebasix_1_1cell.html#a8527a43720e8ca91eaaf54b6c08f7b7a',1,'basix::cell']]],
+  ['sub_5fentity_5ftype_223',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]],
+  ['subentity_5ftypes_224',['subentity_types',['../namespacebasix_1_1cell.html#a5dd8a1c86ba94d84a5a01cef49e0948c',1,'basix::cell']]]
 ];
