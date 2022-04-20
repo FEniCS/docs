@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['_7efiniteelement_118',['~FiniteElement',['../classbasix_1_1FiniteElement.html#a8d22cdbee8b090eaee4a441772c94a24',1,'basix::FiniteElement']]]
+  ['wcoeffs_119',['wcoeffs',['../classbasix_1_1FiniteElement.html#ab5dbc12ea585021703d3c6001c4172ac',1,'basix::FiniteElement']]]
 ];
