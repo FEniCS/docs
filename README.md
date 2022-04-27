@@ -64,4 +64,4 @@ the `master` or `main` branch of each project.
 `0.4.0` Python: [https://docs.fenicsproject.org/basix/v0.4.0/](https://docs.fenicsproject.org/basix/v0.4.0/python/)
 
 ### UFL
-`master`: [https://fenics.readthedocs.io/projects/ufl/en/latest/](https://fenics.readthedocs.io/projects/ufl/en/latest/)
+`master`: [https://docs.fenicsproject.org/ufl/main](https://docs.fenicsproject.org/ufl/main/)
