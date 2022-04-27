@@ -1,0 +1,822 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.formatting.ufl2unicode &#8212; Unified Form Language (UFL) 2021.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.formatting.ufl2unicode</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="kn">import</span> <span class="nn">numbers</span>
+
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.map_dag</span> <span class="kn">import</span> <span class="n">map_expr_dag</span>
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">Index</span><span class="p">,</span> <span class="n">FixedIndex</span>
+<span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms</span> <span class="kn">import</span> <span class="n">compute_form_data</span>
+
+
+<div class="viewcode-block" id="PrecedenceRules"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules">[docs]</a><span class="k">class</span> <span class="nc">PrecedenceRules</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="s2">&quot;An enum-like class for C operator precedence levels.&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PrecedenceRules.highest"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.highest">[docs]</a>    <span class="k">def</span> <span class="nf">highest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">highest</span>
+    <span class="n">list_tensor</span> <span class="o">=</span> <span class="n">highest</span>
+    <span class="n">component_tensor</span> <span class="o">=</span> <span class="n">highest</span>
+
+<div class="viewcode-block" id="PrecedenceRules.restricted"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">5</span></div>
+    <span class="n">cell_avg</span> <span class="o">=</span> <span class="n">restricted</span>
+    <span class="n">facet_avg</span> <span class="o">=</span> <span class="n">restricted</span>
+
+<div class="viewcode-block" id="PrecedenceRules.call"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.call">[docs]</a>    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">10</span></div>
+    <span class="n">indexed</span> <span class="o">=</span> <span class="n">call</span>
+    <span class="n">min_value</span> <span class="o">=</span> <span class="n">call</span>
+    <span class="n">max_value</span> <span class="o">=</span> <span class="n">call</span>
+    <span class="n">math_function</span> <span class="o">=</span> <span class="n">call</span>
+    <span class="n">bessel_function</span> <span class="o">=</span> <span class="n">call</span>
+
+<div class="viewcode-block" id="PrecedenceRules.power"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.power">[docs]</a>    <span class="k">def</span> <span class="nf">power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">12</span></div>
+
+<div class="viewcode-block" id="PrecedenceRules.mathop"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.mathop">[docs]</a>    <span class="k">def</span> <span class="nf">mathop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">15</span></div>
+    <span class="n">derivative</span> <span class="o">=</span> <span class="n">mathop</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">mathop</span>
+    <span class="n">deviatoric</span> <span class="o">=</span> <span class="n">mathop</span>
+    <span class="n">cofactor</span> <span class="o">=</span> <span class="n">mathop</span>
+    <span class="n">skew</span> <span class="o">=</span> <span class="n">mathop</span>
+    <span class="n">sym</span> <span class="o">=</span> <span class="n">mathop</span>
+
+<div class="viewcode-block" id="PrecedenceRules.not_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.not_condition">[docs]</a>    <span class="k">def</span> <span class="nf">not_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">20</span></div>
+
+<div class="viewcode-block" id="PrecedenceRules.product"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.product">[docs]</a>    <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">30</span></div>
+    <span class="n">division</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="c1"># mod = product</span>
+    <span class="n">dot</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="n">inner</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="n">outer</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="n">cross</span> <span class="o">=</span> <span class="n">product</span>
+
+<div class="viewcode-block" id="PrecedenceRules.add"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">40</span></div>
+    <span class="c1"># sub = add</span>
+    <span class="n">index_sum</span> <span class="o">=</span> <span class="n">add</span>
+
+<div class="viewcode-block" id="PrecedenceRules.lt"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.lt">[docs]</a>    <span class="k">def</span> <span class="nf">lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">50</span></div>
+    <span class="n">le</span> <span class="o">=</span> <span class="n">lt</span>
+    <span class="n">gt</span> <span class="o">=</span> <span class="n">lt</span>
+    <span class="n">ge</span> <span class="o">=</span> <span class="n">lt</span>
+
+<div class="viewcode-block" id="PrecedenceRules.eq"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.eq">[docs]</a>    <span class="k">def</span> <span class="nf">eq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">60</span></div>
+    <span class="n">ne</span> <span class="o">=</span> <span class="n">eq</span>
+
+<div class="viewcode-block" id="PrecedenceRules.and_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.and_condition">[docs]</a>    <span class="k">def</span> <span class="nf">and_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">70</span></div>
+
+<div class="viewcode-block" id="PrecedenceRules.or_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.or_condition">[docs]</a>    <span class="k">def</span> <span class="nf">or_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">71</span></div>
+
+<div class="viewcode-block" id="PrecedenceRules.conditional"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.conditional">[docs]</a>    <span class="k">def</span> <span class="nf">conditional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">72</span></div>
+
+<div class="viewcode-block" id="PrecedenceRules.lowest"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.PrecedenceRules.lowest">[docs]</a>    <span class="k">def</span> <span class="nf">lowest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">80</span></div>
+    <span class="n">operator</span> <span class="o">=</span> <span class="n">lowest</span></div>
+
+
+<span class="n">_precrules</span> <span class="o">=</span> <span class="n">PrecedenceRules</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="precedence"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.precedence">[docs]</a><span class="k">def</span> <span class="nf">precedence</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_precrules</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span></div>
+
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">colorama</span>
+    <span class="n">has_colorama</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">has_colorama</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="UC"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.UC">[docs]</a><span class="k">class</span> <span class="nc">UC</span><span class="p">:</span>
+    <span class="s2">&quot;An enum-like class for unicode characters.&quot;</span>
+
+    <span class="c1"># Letters in this alphabet have contiguous code point numbers</span>
+    <span class="n">bold_math_a</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;𝐚&quot;</span>
+    <span class="n">bold_math_A</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;𝐀&quot;</span>
+
+    <span class="n">thin_space</span> <span class="o">=</span> <span class="sa">u</span><span class="s2">&quot;</span><span class="se">\u2009</span><span class="s2">&quot;</span>
+
+    <span class="n">superscript_plus</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⁺&#39;</span>
+    <span class="n">superscript_minus</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⁻&#39;</span>
+    <span class="n">superscript_equals</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⁼&#39;</span>
+    <span class="n">superscript_left_paren</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⁽&#39;</span>
+    <span class="n">superscript_right_paren</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⁾&#39;</span>
+    <span class="n">superscript_digits</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;⁰&quot;</span><span class="p">,</span> <span class="s2">&quot;¹&quot;</span><span class="p">,</span> <span class="s2">&quot;²&quot;</span><span class="p">,</span> <span class="s2">&quot;³&quot;</span><span class="p">,</span> <span class="s2">&quot;⁴&quot;</span><span class="p">,</span> <span class="s2">&quot;⁵&quot;</span><span class="p">,</span> <span class="s2">&quot;⁶&quot;</span><span class="p">,</span> <span class="s2">&quot;⁷&quot;</span><span class="p">,</span> <span class="s2">&quot;⁸&quot;</span><span class="p">,</span> <span class="s2">&quot;⁹&quot;</span><span class="p">]</span>
+
+    <span class="n">subscript_plus</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;₊&#39;</span>
+    <span class="n">subscript_minus</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;₋&#39;</span>
+    <span class="n">subscript_equals</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;₌&#39;</span>
+    <span class="n">subscript_left_paren</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;₍&#39;</span>
+    <span class="n">subscript_right_paren</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;₎&#39;</span>
+    <span class="n">subscript_digits</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;₀&quot;</span><span class="p">,</span> <span class="s2">&quot;₁&quot;</span><span class="p">,</span> <span class="s2">&quot;₂&quot;</span><span class="p">,</span> <span class="s2">&quot;₃&quot;</span><span class="p">,</span> <span class="s2">&quot;₄&quot;</span><span class="p">,</span> <span class="s2">&quot;₅&quot;</span><span class="p">,</span> <span class="s2">&quot;₆&quot;</span><span class="p">,</span> <span class="s2">&quot;₇&quot;</span><span class="p">,</span> <span class="s2">&quot;₈&quot;</span><span class="p">,</span> <span class="s2">&quot;₉&quot;</span><span class="p">]</span>
+
+    <span class="n">sqrt</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;√&#39;</span>
+    <span class="n">transpose</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;ᵀ&#39;</span>
+
+    <span class="n">integral</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∫&#39;</span>
+    <span class="n">integral_double</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∬&#39;</span>
+    <span class="n">integral_triple</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∭&#39;</span>
+    <span class="n">integral_contour</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∮&#39;</span>
+    <span class="n">integral_surface</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∯&#39;</span>
+    <span class="n">integral_volume</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∰&#39;</span>
+
+    <span class="nb">sum</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∑&#39;</span>
+    <span class="n">division_slash</span> <span class="o">=</span> <span class="s1">&#39;∕&#39;</span>
+    <span class="n">partial</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∂&#39;</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;ε&#39;</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;ω&#39;</span>
+    <span class="n">Omega</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Ω&#39;</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;γ&#39;</span>
+    <span class="n">Gamma</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;Γ&#39;</span>
+    <span class="n">nabla</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∇&#39;</span>
+    <span class="n">for_all</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∀&#39;</span>
+
+    <span class="n">dot</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⋅&#39;</span>
+    <span class="n">cross_product</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⨯&#39;</span>
+    <span class="n">circled_times</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⊗&#39;</span>
+    <span class="n">nary_product</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∏&#39;</span>
+
+    <span class="n">ne</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;≠&#39;</span>
+    <span class="n">lt</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&lt;&#39;</span>
+    <span class="n">le</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;≤&#39;</span>
+    <span class="n">gt</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;&gt;&#39;</span>
+    <span class="n">ge</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;≥&#39;</span>
+
+    <span class="n">logical_and</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∧&#39;</span>
+    <span class="n">logical_or</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∨&#39;</span>
+    <span class="n">logical_not</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;¬&#39;</span>
+
+    <span class="n">element_of</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∈&#39;</span>
+    <span class="n">not_element_of</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;∉&#39;</span>
+
+    <span class="n">left_white_square_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟦&#39;</span>
+    <span class="n">right_white_squared_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟧&#39;</span>
+    <span class="n">left_angled_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟨&#39;</span>
+    <span class="n">right_angled_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟩&#39;</span>
+    <span class="n">left_double_angled_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟪&#39;</span>
+    <span class="n">right_double_angled_bracket</span> <span class="o">=</span> <span class="sa">u</span><span class="s1">&#39;⟫&#39;</span>
+
+    <span class="n">combining_right_arrow_above</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\u20D7</span><span class="s1">&#39;</span>
+    <span class="n">combining_overline</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\u0305</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="bolden_letter"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.bolden_letter">[docs]</a><span class="k">def</span> <span class="nf">bolden_letter</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;A&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;Z&quot;</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">-</span> <span class="nb">ord</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;A&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="nb">ord</span><span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">bold_math_A</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;z&quot;</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">-</span> <span class="nb">ord</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="nb">ord</span><span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">bold_math_a</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">c</span></div>
+
+
+<div class="viewcode-block" id="superscript_digit"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.superscript_digit">[docs]</a><span class="k">def</span> <span class="nf">superscript_digit</span><span class="p">(</span><span class="n">digit</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">UC</span><span class="o">.</span><span class="n">superscript_digits</span><span class="p">[</span><span class="nb">ord</span><span class="p">(</span><span class="n">digit</span><span class="p">)</span> <span class="o">-</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="subscript_digit"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.subscript_digit">[docs]</a><span class="k">def</span> <span class="nf">subscript_digit</span><span class="p">(</span><span class="n">digit</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">UC</span><span class="o">.</span><span class="n">subscript_digits</span><span class="p">[</span><span class="nb">ord</span><span class="p">(</span><span class="n">digit</span><span class="p">)</span> <span class="o">-</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="bolden_string"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.bolden_string">[docs]</a><span class="k">def</span> <span class="nf">bolden_string</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">bolden_letter</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="overline_string"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.overline_string">[docs]</a><span class="k">def</span> <span class="nf">overline_string</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sa">u</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_overline</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="subscript_number"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.subscript_number">[docs]</a><span class="k">def</span> <span class="nf">subscript_number</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">UC</span><span class="o">.</span><span class="n">subscript_minus</span> <span class="k">if</span> <span class="n">number</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subscript_digit</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="superscript_number"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.superscript_number">[docs]</a><span class="k">def</span> <span class="nf">superscript_number</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">UC</span><span class="o">.</span><span class="n">superscript_minus</span> <span class="k">if</span> <span class="n">number</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">superscript_digit</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="opfont"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.opfont">[docs]</a><span class="k">def</span> <span class="nf">opfont</span><span class="p">(</span><span class="n">opname</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">bolden_string</span><span class="p">(</span><span class="n">opname</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="measure_font"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.measure_font">[docs]</a><span class="k">def</span> <span class="nf">measure_font</span><span class="p">(</span><span class="n">dx</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">bolden_string</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span></div>
+
+
+<span class="n">integral_by_dim</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">3</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral_triple</span><span class="p">,</span>
+    <span class="mi">2</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral_double</span><span class="p">,</span>
+    <span class="mi">1</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">integral_type_to_codim</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="s2">&quot;tdim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="s2">&quot;tdim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;custom&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;overlap&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;interface&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">&quot;cutcell&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">integral_symbols</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral_volume</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral_surface</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral_surface</span><span class="p">,</span>
+    <span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+    <span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+    <span class="s2">&quot;custom&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+    <span class="s2">&quot;overlap&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+    <span class="s2">&quot;interface&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+    <span class="s2">&quot;cutcell&quot;</span><span class="p">:</span> <span class="n">UC</span><span class="o">.</span><span class="n">integral</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">integral_postfixes</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet&quot;</span><span class="p">:</span> <span class="s2">&quot;ext&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="s2">&quot;vertex&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;point&quot;</span><span class="p">:</span> <span class="s2">&quot;point&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;custom&quot;</span><span class="p">:</span> <span class="s2">&quot;custom&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;overlap&quot;</span><span class="p">:</span> <span class="s2">&quot;overlap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;interface&quot;</span><span class="p">:</span> <span class="s2">&quot;interface&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cutcell&quot;</span><span class="p">:</span> <span class="s2">&quot;cutcell&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="get_integral_symbol"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.get_integral_symbol">[docs]</a><span class="k">def</span> <span class="nf">get_integral_symbol</span><span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">):</span>
+    <span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+    <span class="n">codim</span> <span class="o">=</span> <span class="n">integral_type_to_codim</span><span class="p">[</span><span class="n">integral_type</span><span class="p">]</span>
+    <span class="n">itgdim</span> <span class="o">=</span> <span class="n">tdim</span> <span class="o">-</span> <span class="n">codim</span>
+
+    <span class="c1"># ipost = integral_postfixes[integral_type]</span>
+    <span class="n">istr</span> <span class="o">=</span> <span class="n">integral_by_dim</span><span class="p">[</span><span class="n">itgdim</span><span class="p">]</span>
+
+    <span class="c1"># TODO: Render domain description</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+        <span class="n">istr</span> <span class="o">+=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">subdomain_id</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="n">subdomain_id</span> <span class="o">==</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">:</span>
+        <span class="n">istr</span> <span class="o">+=</span> <span class="s2">&quot;[rest of domain]&quot;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">istr</span> <span class="o">+=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">subdomain_id</span><span class="p">])</span>
+
+    <span class="n">dxstr</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">integral_type_to_measure_name</span><span class="p">[</span><span class="n">integral_type</span><span class="p">]</span>
+    <span class="n">dxstr</span> <span class="o">=</span> <span class="n">measure_font</span><span class="p">(</span><span class="n">dxstr</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">istr</span><span class="p">,</span> <span class="n">dxstr</span></div>
+
+
+<div class="viewcode-block" id="par"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.par">[docs]</a><span class="k">def</span> <span class="nf">par</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot;(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="prec"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.prec">[docs]</a><span class="k">def</span> <span class="nf">prec</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">0</span>  <span class="c1"># FIXME</span></div>
+    <span class="c1"># return precedence[expr._ufl_class_]</span>
+
+
+<div class="viewcode-block" id="is_int"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.is_int">[docs]</a><span class="k">def</span> <span class="nf">is_int</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="format_index"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.format_index">[docs]</a><span class="k">def</span> <span class="nf">format_index</span><span class="p">(</span><span class="n">ii</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ii</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ii</span><span class="o">.</span><span class="n">_value</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ii</span><span class="p">,</span> <span class="n">Index</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;i</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">subscript_number</span><span class="p">(</span><span class="n">ii</span><span class="o">.</span><span class="n">_count</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid index type </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">ii</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="ufl2unicode"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.ufl2unicode">[docs]</a><span class="k">def</span> <span class="nf">ufl2unicode</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+    <span class="s2">&quot;Generate Unicode string for a UFL expression or form.&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="n">form_data</span> <span class="o">=</span> <span class="n">compute_form_data</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+        <span class="n">preprocessed_form</span> <span class="o">=</span> <span class="n">form_data</span><span class="o">.</span><span class="n">preprocessed_form</span>
+        <span class="k">return</span> <span class="n">form2unicode</span><span class="p">(</span><span class="n">preprocessed_form</span><span class="p">,</span> <span class="n">form_data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">expression2unicode</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="expression2unicode"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.expression2unicode">[docs]</a><span class="k">def</span> <span class="nf">expression2unicode</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">argument_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coefficient_names</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">rules</span> <span class="o">=</span> <span class="n">Expression2UnicodeHandler</span><span class="p">(</span><span class="n">argument_names</span><span class="p">,</span> <span class="n">coefficient_names</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="form2unicode"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.form2unicode">[docs]</a><span class="k">def</span> <span class="nf">form2unicode</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">formdata</span><span class="p">):</span>
+    <span class="c1"># formname = formdata.name</span>
+    <span class="n">argument_names</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">coefficient_names</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Define form as sum of integrals</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">integrals</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">integrand_string</span> <span class="o">=</span> <span class="n">expression2unicode</span><span class="p">(</span>
+            <span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="n">argument_names</span><span class="p">,</span> <span class="n">coefficient_names</span><span class="p">)</span>
+
+        <span class="n">istr</span><span class="p">,</span> <span class="n">dxstr</span> <span class="o">=</span> <span class="n">get_integral_symbol</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">(),</span> <span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">itg</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">())</span>
+
+        <span class="n">line</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">istr</span><span class="p">,</span> <span class="n">integrand_string</span><span class="p">,</span> <span class="n">dxstr</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">  + &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="binop"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.binop">[docs]</a><span class="k">def</span> <span class="nf">binop</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="p">):</span>
+    <span class="n">eprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+    <span class="n">op0</span><span class="p">,</span> <span class="n">op1</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">ufl_operands</span>
+    <span class="n">aprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">op0</span><span class="p">)</span>
+    <span class="n">bprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">op1</span><span class="p">)</span>
+    <span class="c1"># Assuming left-to-right evaluation, therefore &gt;= and &gt; here:</span>
+    <span class="k">if</span> <span class="n">aprec</span> <span class="o">&gt;=</span> <span class="n">eprec</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bprec</span> <span class="o">&gt;</span> <span class="n">eprec</span><span class="p">:</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sep</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="mathop"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.mathop">[docs]</a><span class="k">def</span> <span class="nf">mathop</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">arg</span><span class="p">,</span> <span class="n">opname</span><span class="p">):</span>
+    <span class="n">eprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+    <span class="n">aprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="n">opname</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">aprec</span> <span class="o">&gt;</span> <span class="n">eprec</span><span class="p">:</span>
+        <span class="n">arg</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="n">sep</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sep</span> <span class="o">=</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Expression2UnicodeHandler"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler">[docs]</a><span class="k">class</span> <span class="nc">Expression2UnicodeHandler</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argument_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coefficient_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">colorama_bold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">argument_names</span> <span class="o">=</span> <span class="n">argument_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_names</span> <span class="o">=</span> <span class="n">coefficient_names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span> <span class="o">=</span> <span class="n">colorama_bold</span> <span class="ow">and</span> <span class="n">has_colorama</span>
+
+    <span class="c1"># --- Terminal objects ---</span>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.scalar_value"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.scalar_value">[docs]</a>    <span class="k">def</span> <span class="nf">scalar_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">o</span><span class="o">.</span><span class="n">_value</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.zero"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.zero">[docs]</a>    <span class="k">def</span> <span class="nf">zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;0</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">0</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;0&quot;</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.identity"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.identity">[docs]</a>    <span class="k">def</span> <span class="nf">identity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">I</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;I&quot;</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.permutation_symbol"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.permutation_symbol">[docs]</a>    <span class="k">def</span> <span class="nf">permutation_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">UC</span><span class="o">.</span><span class="n">epsilon</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.facet_normal"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.facet_normal">[docs]</a>    <span class="k">def</span> <span class="nf">facet_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.spatial_coordinate"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.spatial_coordinate">[docs]</a>    <span class="k">def</span> <span class="nf">spatial_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;x</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.argument"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.argument">[docs]</a>    <span class="k">def</span> <span class="nf">argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># Using ^ for argument numbering and _ for indexing since</span>
+        <span class="c1"># indexing is more common than exponentiation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">number</span><span class="p">()</span>
+            <span class="n">bfn</span> <span class="o">=</span> <span class="s2">&quot;v&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;u&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">bfn</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">bfn</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+                <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">bfn</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">bfn</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_names</span><span class="p">[(</span><span class="n">o</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="n">o</span><span class="o">.</span><span class="n">part</span><span class="p">())]</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.coefficient"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.coefficient">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># Using ^ for coefficient numbering and _ for indexing since</span>
+        <span class="c1"># indexing is more common than exponentiation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_names</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+            <span class="n">var</span> <span class="o">=</span> <span class="s2">&quot;w&quot;</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">var</span> <span class="o">+=</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+                <span class="n">var</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">superscript_number</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_names</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">count</span><span class="p">()]</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.constant"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.constant">[docs]</a>    <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="s2">&quot;c&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">var</span> <span class="o">+=</span> <span class="n">UC</span><span class="o">.</span><span class="n">combining_right_arrow_above</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">colorama_bold</span><span class="p">:</span>
+            <span class="n">var</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">BRIGHT</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">colorama</span><span class="o">.</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET_ALL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">superscript_number</span><span class="p">(</span><span class="n">i</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.multi_index"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.multi_index">[docs]</a>    <span class="k">def</span> <span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">format_index</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.label"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.label">[docs]</a>    <span class="k">def</span> <span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;l</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">subscript_number</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">count</span><span class="p">()),)</span></div>
+
+    <span class="c1"># --- Non-terminal objects ---</span>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.variable"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">l</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;var(</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.index_sum"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.index_sum">[docs]</a>    <span class="k">def</span> <span class="nf">index_sum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="k">if</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># prec(o.ufl_operands[0]) &gt;? prec(o):</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">sum</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.sum"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.sum">[docs]</a>    <span class="k">def</span> <span class="nf">sum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.product"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.product">[docs]</a>    <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.division"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.division">[docs]</a>    <span class="k">def</span> <span class="nf">division</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+                <span class="c1"># Return as a fraction</span>
+                <span class="c1"># NOTE: Maybe consider using fractional slash</span>
+                <span class="c1">#  with normal numbers if terminals can handle it</span>
+                <span class="n">a</span> <span class="o">=</span> <span class="n">superscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">a</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">division_slash</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">division_slash</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.abs"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.abs">[docs]</a>    <span class="k">def</span> <span class="nf">abs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;|</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="p">,)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.transposed"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.transposed">[docs]</a>    <span class="k">def</span> <span class="nf">transposed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">transpose</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.indexed"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.indexed">[docs]</a>    <span class="k">def</span> <span class="nf">indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
+        <span class="n">op0</span><span class="p">,</span> <span class="n">op1</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">Aprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">op0</span><span class="p">)</span>
+        <span class="n">oprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">Aprec</span> <span class="o">&gt;</span> <span class="n">oprec</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.variable_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.variable_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">variable_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="n">nom</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">partial</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">partial</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">par</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nom</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">division_slash</span><span class="p">,</span> <span class="n">denom</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.coefficient_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.coefficient_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">cd</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="n">nom</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">partial</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">partial</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">par</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">nom</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">division_slash</span><span class="p">,</span> <span class="n">denom</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>  <span class="c1"># TODO: Fix this syntax...</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.grad"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="s2">&quot;grad&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.div"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.div">[docs]</a>    <span class="k">def</span> <span class="nf">div</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="s2">&quot;div&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.nabla_grad"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.nabla_grad">[docs]</a>    <span class="k">def</span> <span class="nf">nabla_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">oprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">fprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">fprec</span> <span class="o">&gt;</span> <span class="n">oprec</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">nabla</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.nabla_div"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.nabla_div">[docs]</a>    <span class="k">def</span> <span class="nf">nabla_div</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">oprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">fprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">fprec</span> <span class="o">&gt;</span> <span class="n">oprec</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">nabla</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">dot</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.curl"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.curl">[docs]</a>    <span class="k">def</span> <span class="nf">curl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">oprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">fprec</span> <span class="o">=</span> <span class="n">precedence</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">fprec</span> <span class="o">&gt;</span> <span class="n">oprec</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">nabla</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">cross_product</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">thin_space</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.math_function"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.math_function">[docs]</a>    <span class="k">def</span> <span class="nf">math_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.sqrt"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.sqrt">[docs]</a>    <span class="k">def</span> <span class="nf">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">sqrt</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.exp"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.exp">[docs]</a>    <span class="k">def</span> <span class="nf">exp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;exp&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.atan2"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.atan2">[docs]</a>    <span class="k">def</span> <span class="nf">atan2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">):</span>
+        <span class="n">f1</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span>
+        <span class="n">f2</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f2</span><span class="p">)</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;arctan2&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.bessel_j"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.bessel_j">[docs]</a>    <span class="k">def</span> <span class="nf">bessel_j</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;J&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nu</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.bessel_y"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.bessel_y">[docs]</a>    <span class="k">def</span> <span class="nf">bessel_y</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;Y&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nu</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.bessel_i"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.bessel_i">[docs]</a>    <span class="k">def</span> <span class="nf">bessel_i</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;I&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nu</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.bessel_K"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.bessel_K">[docs]</a>    <span class="k">def</span> <span class="nf">bessel_K</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="n">subscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">nu</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.power"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.power">[docs]</a>    <span class="k">def</span> <span class="nf">power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">superscript_number</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s2">&quot;^&quot;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.outer"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.outer">[docs]</a>    <span class="k">def</span> <span class="nf">outer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">circled_times</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.inner"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.inner">[docs]</a>    <span class="k">def</span> <span class="nf">inner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">, </span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">left_angled_bracket</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">right_angled_bracket</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.dot"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.dot">[docs]</a>    <span class="k">def</span> <span class="nf">dot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">dot</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.cross"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.cross">[docs]</a>    <span class="k">def</span> <span class="nf">cross</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">cross_product</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.determinant"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.determinant">[docs]</a>    <span class="k">def</span> <span class="nf">determinant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;|</span><span class="si">%s</span><span class="s2">|&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">A</span><span class="p">,)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.inverse"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.inverse">[docs]</a>    <span class="k">def</span> <span class="nf">inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">superscript_number</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.trace"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.trace">[docs]</a>    <span class="k">def</span> <span class="nf">trace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="s2">&quot;tr&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.deviatoric"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.deviatoric">[docs]</a>    <span class="k">def</span> <span class="nf">deviatoric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="s2">&quot;dev&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.cofactor"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.cofactor">[docs]</a>    <span class="k">def</span> <span class="nf">cofactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="s2">&quot;cofac&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.skew"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.skew">[docs]</a>    <span class="k">def</span> <span class="nf">skew</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="s2">&quot;skew&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.sym"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.sym">[docs]</a>    <span class="k">def</span> <span class="nf">sym</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="s2">&quot;sym&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.conj"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.conj">[docs]</a>    <span class="k">def</span> <span class="nf">conj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="c1"># Overbar is already taken for average, and there is no superscript asterix in unicode.</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="s2">&quot;conj&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.real"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.real">[docs]</a>    <span class="k">def</span> <span class="nf">real</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="s2">&quot;Re&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.imag"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.imag">[docs]</a>    <span class="k">def</span> <span class="nf">imag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">mathop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="s2">&quot;Im&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.list_tensor"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.list_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">list_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>  <span class="c1"># noqa: E741</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="s2">&quot;]&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.component_tensor"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.component_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">component_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;[</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">for_all</span><span class="p">,</span> <span class="n">ii</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.positive_restricted"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.positive_restricted">[docs]</a>    <span class="k">def</span> <span class="nf">positive_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">superscript_plus</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.negative_restricted"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.negative_restricted">[docs]</a>    <span class="k">def</span> <span class="nf">negative_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">superscript_minus</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.cell_avg"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.cell_avg">[docs]</a>    <span class="k">def</span> <span class="nf">cell_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">overline_string</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.facet_avg"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.facet_avg">[docs]</a>    <span class="k">def</span> <span class="nf">facet_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">overline_string</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.eq"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.eq">[docs]</a>    <span class="k">def</span> <span class="nf">eq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="s2">&quot;=&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.ne"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.ne">[docs]</a>    <span class="k">def</span> <span class="nf">ne</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">ne</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.le"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.le">[docs]</a>    <span class="k">def</span> <span class="nf">le</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">le</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.ge"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.ge">[docs]</a>    <span class="k">def</span> <span class="nf">ge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">ge</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.lt"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.lt">[docs]</a>    <span class="k">def</span> <span class="nf">lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">lt</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.gt"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.gt">[docs]</a>    <span class="k">def</span> <span class="nf">gt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">gt</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.and_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.and_condition">[docs]</a>    <span class="k">def</span> <span class="nf">and_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">logical_and</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.or_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.or_condition">[docs]</a>    <span class="k">def</span> <span class="nf">or_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">UC</span><span class="o">.</span><span class="n">logical_or</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.not_condition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.not_condition">[docs]</a>    <span class="k">def</span> <span class="nf">not_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">logical_not</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.conditional"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.conditional">[docs]</a>    <span class="k">def</span> <span class="nf">conditional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">par</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">If</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;if&quot;</span><span class="p">)</span>
+        <span class="n">Else</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;else&quot;</span><span class="p">)</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">t</span><span class="p">,</span> <span class="n">If</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">Else</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span>  <span class="c1"># noqa: E741</span>
+        <span class="k">return</span> <span class="n">l</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.min_value"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.min_value">[docs]</a>    <span class="k">def</span> <span class="nf">min_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;min&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.max_value"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.max_value">[docs]</a>    <span class="k">def</span> <span class="nf">max_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">opfont</span><span class="p">(</span><span class="s2">&quot;max&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.expr_list"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.expr_list">[docs]</a>    <span class="k">def</span> <span class="nf">expr_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">left_white_square_bracket</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span>
+                             <span class="n">UC</span><span class="o">.</span><span class="n">right_white_squared_bracket</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.expr_mapping"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.expr_mapping">[docs]</a>    <span class="k">def</span> <span class="nf">expr_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">UC</span><span class="o">.</span><span class="n">left_double_angled_bracket</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span>
+                             <span class="n">UC</span><span class="o">.</span><span class="n">left_double_angled_bracket</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expression2UnicodeHandler.expr"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.ufl2unicode.Expression2UnicodeHandler.expr">[docs]</a>    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Missing handler for type </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)))</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

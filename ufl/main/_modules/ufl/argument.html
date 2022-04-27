@@ -1,0 +1,284 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.argument &#8212; Unified Form Language (UFL) 2021.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.argument</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;This module defines the class Argument and a number of related</span>
+<span class="sd">classes (functions), including TestFunction and TrialFunction.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009.</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016.</span>
+<span class="c1"># Modified by Cecile Daversin-Catty, 2018.</span>
+
+<span class="kn">import</span> <span class="nn">numbers</span>
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">FormArgument</span>
+<span class="kn">from</span> <span class="nn">ufl.split_functions</span> <span class="kn">import</span> <span class="n">split</span>
+<span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">FiniteElementBase</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">default_domain</span>
+<span class="kn">from</span> <span class="nn">ufl.functionspace</span> <span class="kn">import</span> <span class="n">AbstractFunctionSpace</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">MixedFunctionSpace</span>
+
+<span class="c1"># Export list for ufl.classes (TODO: not actually classes: drop? these are in ufl.*)</span>
+<span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TestFunction&quot;</span><span class="p">,</span> <span class="s2">&quot;TrialFunction&quot;</span><span class="p">,</span> <span class="s2">&quot;TestFunctions&quot;</span><span class="p">,</span> <span class="s2">&quot;TrialFunctions&quot;</span><span class="p">]</span>
+
+
+<span class="c1"># --- Class representing an argument (basis function) in a form ---</span>
+
+<div class="viewcode-block" id="Argument"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">Argument</span><span class="p">(</span><span class="n">FormArgument</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Representation of an argument to a form.&quot;&quot;&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;_ufl_function_space&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_ufl_shape&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_number&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_part&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function_space</span><span class="p">,</span> <span class="n">number</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">FormArgument</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="c1"># For legacy support for UFL files using cells, we map the cell to</span>
+            <span class="c1"># the default Mesh</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">function_space</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">default_domain</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">cell</span><span class="p">())</span>
+            <span class="n">function_space</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">AbstractFunctionSpace</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting a FunctionSpace or FiniteElement.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span> <span class="o">=</span> <span class="n">function_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_shape</span> <span class="o">=</span> <span class="n">function_space</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting an int for number, not </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">number</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="n">part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting None or an int for part, not </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">part</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_number</span> <span class="o">=</span> <span class="n">number</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_part</span> <span class="o">=</span> <span class="n">part</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span> <span class="o">=</span> <span class="s2">&quot;Argument(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_number</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_part</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the associated UFL shape.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_shape</span>
+
+<div class="viewcode-block" id="Argument.ufl_function_space"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.ufl_function_space">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Get the function space of this Argument.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span></div>
+
+<div class="viewcode-block" id="Argument.ufl_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.ufl_domain">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Deprecated, please use .ufl_function_space().ufl_domain() instead.&quot;</span>
+        <span class="c1"># TODO: deprecate(&quot;Argument.ufl_domain() is deprecated, please</span>
+        <span class="c1"># use .ufl_function_space().ufl_domain() instead.&quot;)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Argument.ufl_element"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.ufl_element">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_element</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Deprecated, please use .ufl_function_space().ufl_element() instead.&quot;</span>
+        <span class="c1"># TODO: deprecate(&quot;Argument.ufl_domain() is deprecated, please</span>
+        <span class="c1"># use .ufl_function_space().ufl_element() instead.&quot;)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Argument.number"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.number">[docs]</a>    <span class="k">def</span> <span class="nf">number</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the Argument number.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_number</span></div>
+
+<div class="viewcode-block" id="Argument.part"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.part">[docs]</a>    <span class="k">def</span> <span class="nf">part</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_part</span></div>
+
+<div class="viewcode-block" id="Argument.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return whether this expression is spatially constant over each cell.&quot;</span>
+        <span class="c1"># TODO: Should in principle do like with Coefficient,</span>
+        <span class="c1"># but that may currently simplify away some arguments</span>
+        <span class="c1"># we want to keep, or? See issue#13.</span>
+        <span class="c1"># When we can annotate zero with arguments, we can change this.</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Argument.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Argument.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Deprecated, please use .ufl_function_space().ufl_domains() instead.&quot;</span>
+        <span class="c1"># TODO: deprecate(&quot;Argument.ufl_domains() is deprecated,</span>
+        <span class="c1"># please use .ufl_function_space().ufl_domains() instead.&quot;)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+        <span class="s2">&quot;Signature data for form arguments depend on the global numbering of the form arguments and domains.&quot;</span>
+        <span class="n">fsdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">_ufl_signature_data_</span><span class="p">(</span><span class="n">renumbering</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;Argument&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_number</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_part</span><span class="p">,</span> <span class="n">fsdata</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">number</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_number</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">number</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;v_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">number</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;v_{</span><span class="si">%s</span><span class="s2">}&quot;</span> <span class="o">%</span> <span class="n">number</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_part</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">part</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_part</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">part</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">^</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">^{</span><span class="si">%s</span><span class="s2">}&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Deliberately comparing exact type and not using isinstance here,</span>
+<span class="sd">        meaning eventual subclasses must reimplement this function to work</span>
+<span class="sd">        correctly, and instances of this class will compare not equal to</span>
+<span class="sd">        instances of eventual subclasses. The overloading allows</span>
+<span class="sd">        subclasses to distinguish between test and trial functions</span>
+<span class="sd">        with a different non-ufl payload, such as dolfin FunctionSpace</span>
+<span class="sd">        with different mesh. This is necessary because arguments with the</span>
+<span class="sd">        same element and argument number are always equal from a pure ufl</span>
+<span class="sd">        point of view, e.g. TestFunction(V1) == TestFunction(V2) if V1 and V2</span>
+<span class="sd">        are the same ufl element but different dolfin function spaces.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_number</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_number</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_part</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_part</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="p">)</span></div>
+
+<span class="c1"># --- Helper functions for pretty syntax ---</span>
+
+
+<div class="viewcode-block" id="TestFunction"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.TestFunction">[docs]</a><span class="k">def</span> <span class="nf">TestFunction</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create a test function argument to a form.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Argument</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TrialFunction"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.TrialFunction">[docs]</a><span class="k">def</span> <span class="nf">TrialFunction</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">part</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create a trial function argument to a form.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Argument</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span></div>
+
+
+<span class="c1"># --- Helper functions for creating subfunctions on mixed elements ---</span>
+
+<div class="viewcode-block" id="Arguments"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.Arguments">[docs]</a><span class="k">def</span> <span class="nf">Arguments</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create an Argument in a mixed space, and return a</span>
+<span class="sd">    tuple with the function components corresponding to the subelements.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">MixedFunctionSpace</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Argument</span><span class="p">(</span><span class="n">function_space</span><span class="o">.</span><span class="n">ufl_sub_space</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">number</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">function_space</span><span class="o">.</span><span class="n">num_sub_spaces</span><span class="p">())]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">split</span><span class="p">(</span><span class="n">Argument</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">number</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="TestFunctions"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.TestFunctions">[docs]</a><span class="k">def</span> <span class="nf">TestFunctions</span><span class="p">(</span><span class="n">function_space</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create a TestFunction in a mixed space, and return a</span>
+<span class="sd">    tuple with the function components corresponding to the subelements.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Arguments</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TrialFunctions"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.argument.TrialFunctions">[docs]</a><span class="k">def</span> <span class="nf">TrialFunctions</span><span class="p">(</span><span class="n">function_space</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create a TrialFunction in a mixed space, and return a</span>
+<span class="sd">    tuple with the function components corresponding to the subelements.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Arguments</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

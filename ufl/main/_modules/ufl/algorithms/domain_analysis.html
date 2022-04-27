@@ -1,0 +1,443 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.domain_analysis &#8212; Unified Form Language (UFL) 2021.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.domain_analysis</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Algorithms for building canonical data structure for integrals over subdomains.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2009-2016 Anders Logg and Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.integral</span> <span class="kn">import</span> <span class="n">Integral</span>
+<span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span> <span class="nn">ufl.sorting</span> <span class="kn">import</span> <span class="n">cmp_expr</span><span class="p">,</span> <span class="n">sorted_expr</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">canonicalize_metadata</span><span class="p">,</span> <span class="n">sorted_by_key</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.coordinate_derivative_helpers</span> <span class="kn">import</span> <span class="n">attach_coordinate_derivatives</span><span class="p">,</span> <span class="n">strip_coordinate_derivatives</span>
+<span class="kn">import</span> <span class="nn">numbers</span>
+
+
+<div class="viewcode-block" id="IntegralData"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.IntegralData">[docs]</a><span class="k">class</span> <span class="nc">IntegralData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Utility class with the members (domain, integral_type,</span>
+<span class="sd">        subdomain_id, integrals, metadata)</span>
+
+<span class="sd">    where metadata is an empty dictionary that may be used for</span>
+<span class="sd">    associating metadata with each object.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;domain&#39;</span><span class="p">,</span> <span class="s1">&#39;integral_type&#39;</span><span class="p">,</span> <span class="s1">&#39;subdomain_id&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;integrals&#39;</span><span class="p">,</span> <span class="s1">&#39;metadata&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;integral_coefficients&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;enabled_coefficients&#39;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">integrals</span><span class="p">,</span>
+                 <span class="n">metadata</span><span class="p">):</span>
+        <span class="k">if</span> <span class="mi">1</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">)):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Multiple domains mismatch in integral data.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">integral_type</span> <span class="o">==</span> <span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Integral type mismatch in integral data.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">subdomain_id</span> <span class="o">==</span> <span class="n">itg</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Subdomain id mismatch in integral data.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="o">=</span> <span class="n">domain</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span> <span class="o">=</span> <span class="n">subdomain_id</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">integrals</span>
+
+        <span class="c1"># This is populated in preprocess using data not available at</span>
+        <span class="c1"># this stage:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integral_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enabled_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># TODO: I think we can get rid of this with some refactoring</span>
+        <span class="c1"># in ffc:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># To preserve behaviour of extract_integral_data:</span>
+        <span class="k">return</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span>
+                 <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span> <span class="o">&lt;</span>
+                <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">integrals</span><span class="p">,</span>
+                 <span class="n">other</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># Currently only used for tests:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">integral_type</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">subdomain_id</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">integrals</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;IntegralData over domain(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">), with integrals:</span><span class="se">\n</span><span class="si">%s</span><span class="se">\n</span><span class="s2">and metadata:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="dicts_lt"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.dicts_lt">[docs]</a><span class="k">def</span> <span class="nf">dicts_lt</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">na</span> <span class="o">!=</span> <span class="n">nb</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ia</span><span class="p">,</span> <span class="n">ib</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sorted_by_key</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">b</span><span class="p">)):</span>
+        <span class="c1"># Assuming keys are sortable (usually str)</span>
+        <span class="k">if</span> <span class="n">ia</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">ib</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ia</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ia</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">ib</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ib</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># Hack to preserve type sorting in py3</span>
+        <span class="c1"># Assuming values are sortable</span>
+        <span class="k">if</span> <span class="n">ia</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">ib</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">ia</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ia</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">ib</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">ib</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># Hack to preserve type sorting in py3</span></div>
+
+
+<span class="c1"># Tuple comparison helper</span>
+<div class="viewcode-block" id="ExprTupleKey"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.ExprTupleKey">[docs]</a><span class="k">class</span> <span class="nc">ExprTupleKey</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># Comparing expression first</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">cmp_expr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">other</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Comparing form compiler data</span>
+            <span class="n">mds</span> <span class="o">=</span> <span class="n">canonicalize_metadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">mdo</span> <span class="o">=</span> <span class="n">canonicalize_metadata</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">mds</span> <span class="o">&lt;</span> <span class="n">mdo</span></div>
+
+
+<div class="viewcode-block" id="group_integrals_by_domain_and_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.group_integrals_by_domain_and_type">[docs]</a><span class="k">def</span> <span class="nf">group_integrals_by_domain_and_type</span><span class="p">(</span><span class="n">integrals</span><span class="p">,</span> <span class="n">domains</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Input:</span>
+<span class="sd">        integrals: list of Integral objects</span>
+<span class="sd">        domains: list of AbstractDomain objects from the parent Form</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        integrals_by_domain_and_type: dict: (domain, integral_type) -&gt; list(Integral)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">integrals_by_domain_and_type</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Integral has no domain.&quot;</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">())</span>
+
+        <span class="c1"># Append integral to list of integrals with shared key</span>
+        <span class="n">integrals_by_domain_and_type</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">integrals_by_domain_and_type</span></div>
+
+
+<div class="viewcode-block" id="integral_subdomain_ids"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.integral_subdomain_ids">[docs]</a><span class="k">def</span> <span class="nf">integral_subdomain_ids</span><span class="p">(</span><span class="n">integral</span><span class="p">):</span>
+    <span class="s2">&quot;Get a tuple of integer subdomains or a valid string subdomain from integral.&quot;</span>
+    <span class="n">did</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">did</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">did</span><span class="p">,)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">did</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">did</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting only integer subdomains in tuple.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">did</span>
+    <span class="k">elif</span> <span class="n">did</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;everywhere&quot;</span><span class="p">,</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">):</span>
+        <span class="c1"># TODO: Define list of valid strings somewhere more central</span>
+        <span class="k">return</span> <span class="n">did</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid domain id </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">did</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rearrange_integrals_by_single_subdomains"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.rearrange_integrals_by_single_subdomains">[docs]</a><span class="k">def</span> <span class="nf">rearrange_integrals_by_single_subdomains</span><span class="p">(</span><span class="n">integrals</span><span class="p">,</span> <span class="n">do_append_everywhere_integrals</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Rearrange integrals over multiple subdomains to single subdomain integrals.</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        integrals: list(Integral)</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        integrals: dict: subdomain_id -&gt; list(Integral) (reconstructed with single subdomain_id)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Split integrals into lists of everywhere and subdomain integrals</span>
+    <span class="n">everywhere_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">subdomain_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">dids</span> <span class="o">=</span> <span class="n">integral_subdomain_ids</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dids</span> <span class="o">==</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;&#39;otherwise&#39; integrals should never occur before preprocessing.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">dids</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+            <span class="n">everywhere_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">subdomain_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">dids</span><span class="p">,</span> <span class="n">itg</span><span class="p">))</span>
+
+    <span class="c1"># Fill single_subdomain_integrals with lists of integrals from</span>
+    <span class="c1"># subdomain_integrals, but split and restricted to single</span>
+    <span class="c1"># subdomain ids</span>
+    <span class="n">single_subdomain_integrals</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">dids</span><span class="p">,</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">subdomain_integrals</span><span class="p">:</span>
+        <span class="c1"># Region or single subdomain id</span>
+        <span class="k">for</span> <span class="n">did</span> <span class="ow">in</span> <span class="n">dids</span><span class="p">:</span>
+            <span class="c1"># Restrict integral to this subdomain!</span>
+            <span class="n">single_subdomain_integrals</span><span class="p">[</span><span class="n">did</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">subdomain_id</span><span class="o">=</span><span class="n">did</span><span class="p">))</span>
+
+    <span class="c1"># Add everywhere integrals to each single subdomain id integral</span>
+    <span class="c1"># list</span>
+    <span class="n">otherwise_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ev_itg</span> <span class="ow">in</span> <span class="n">everywhere_integrals</span><span class="p">:</span>
+        <span class="c1"># Restrict everywhere integral to &#39;otherwise&#39;</span>
+        <span class="n">otherwise_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ev_itg</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">subdomain_id</span><span class="o">=</span><span class="s2">&quot;otherwise&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Restrict everywhere integral to each subdomain</span>
+        <span class="c1"># and append to each integral list</span>
+        <span class="k">if</span> <span class="n">do_append_everywhere_integrals</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">subdomain_id</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">single_subdomain_integrals</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="n">single_subdomain_integrals</span><span class="p">[</span><span class="n">subdomain_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ev_itg</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">subdomain_id</span><span class="o">=</span><span class="n">subdomain_id</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">otherwise_integrals</span><span class="p">:</span>
+        <span class="n">single_subdomain_integrals</span><span class="p">[</span><span class="s2">&quot;otherwise&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">otherwise_integrals</span>
+
+    <span class="k">return</span> <span class="n">single_subdomain_integrals</span></div>
+
+
+<div class="viewcode-block" id="accumulate_integrands_with_same_metadata"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.accumulate_integrands_with_same_metadata">[docs]</a><span class="k">def</span> <span class="nf">accumulate_integrands_with_same_metadata</span><span class="p">(</span><span class="n">integrals</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Taking input on the form:</span>
+<span class="sd">        integrals = [integral0, integral1, ...]</span>
+
+<span class="sd">    Return result on the form:</span>
+<span class="sd">        integrands_by_id = [(integrand0, metadata0),</span>
+<span class="sd">                            (integrand1, metadata1), ...]</span>
+
+<span class="sd">    where integrand0 &lt; integrand1 by the canonical ufl expression ordering criteria.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Group integrals by compiler data hash</span>
+    <span class="n">by_cdid</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">cd</span> <span class="o">=</span> <span class="n">itg</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
+        <span class="n">cdid</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">canonicalize_metadata</span><span class="p">(</span><span class="n">cd</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">cdid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">by_cdid</span><span class="p">:</span>
+            <span class="n">by_cdid</span><span class="p">[</span><span class="n">cdid</span><span class="p">]</span> <span class="o">=</span> <span class="p">([],</span> <span class="n">cd</span><span class="p">)</span>
+        <span class="n">by_cdid</span><span class="p">[</span><span class="n">cdid</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
+
+    <span class="c1"># Accumulate integrands separately for each compiler data object</span>
+    <span class="c1"># id</span>
+    <span class="k">for</span> <span class="n">cdid</span> <span class="ow">in</span> <span class="n">by_cdid</span><span class="p">:</span>
+        <span class="n">integrals</span><span class="p">,</span> <span class="n">cd</span> <span class="o">=</span> <span class="n">by_cdid</span><span class="p">[</span><span class="n">cdid</span><span class="p">]</span>
+        <span class="c1"># Ensure canonical sorting of more than two integrands</span>
+        <span class="n">integrands</span> <span class="o">=</span> <span class="n">sorted_expr</span><span class="p">((</span><span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">))</span>
+        <span class="n">integrands_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">integrands</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">integrands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">by_cdid</span><span class="p">[</span><span class="n">cdid</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">integrands_sum</span><span class="p">,</span> <span class="n">cd</span><span class="p">)</span>
+
+    <span class="c1"># Sort integrands canonically by integrand first then compiler</span>
+    <span class="c1"># data</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">by_cdid</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">ExprTupleKey</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="build_integral_data"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.build_integral_data">[docs]</a><span class="k">def</span> <span class="nf">build_integral_data</span><span class="p">(</span><span class="n">integrals</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build integral data given a list of integrals.</span>
+
+<span class="sd">    :arg integrals: An iterable of :class:`~.Integral` objects.</span>
+<span class="sd">    :returns: A tuple of :class:`IntegralData` objects.</span>
+
+<span class="sd">    The integrals you pass in here must have been rearranged and</span>
+<span class="sd">    gathered (removing the &quot;everywhere&quot; subdomain_id.  To do this, you</span>
+<span class="sd">    should call :func:`group_form_integrals`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">itgs</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+        <span class="n">subdomain_id</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">subdomain_id</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;everywhere&#39; not a valid subdomain id.  Did you forget to call group_form_integrals?&quot;</span><span class="p">)</span>
+        <span class="c1"># Group for integral data (One integral data object for all</span>
+        <span class="c1"># integrals with same domain, itype, subdomain_id (but</span>
+        <span class="c1"># possibly different metadata).</span>
+        <span class="n">itgs</span><span class="p">[(</span><span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+
+    <span class="c1"># Build list with canonical ordering, iteration over dicts</span>
+    <span class="c1"># is not deterministic across python versions</span>
+    <span class="k">def</span> <span class="nf">keyfunc</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+        <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">),</span> <span class="n">integrals</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype</span><span class="p">,</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">sid</span><span class="p">))</span>
+
+    <span class="n">integral_datas</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">),</span> <span class="n">integrals</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">itgs</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
+        <span class="n">integral_datas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">IntegralData</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">integrals</span><span class="p">,</span> <span class="p">{}))</span>
+    <span class="k">return</span> <span class="n">integral_datas</span></div>
+
+
+<div class="viewcode-block" id="group_form_integrals"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.group_form_integrals">[docs]</a><span class="k">def</span> <span class="nf">group_form_integrals</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">domains</span><span class="p">,</span> <span class="n">do_append_everywhere_integrals</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Group integrals by domain and type, performing canonical simplification.</span>
+
+<span class="sd">    :arg form: the :class:`~.Form` to group the integrals of.</span>
+<span class="sd">    :arg domains: an iterable of :class:`~.Domain`s.</span>
+<span class="sd">    :returns: A new :class:`~.Form` with gathered integrands.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Group integrals by domain and type</span>
+    <span class="n">integrals_by_domain_and_type</span> <span class="o">=</span> \
+        <span class="n">group_integrals_by_domain_and_type</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">(),</span> <span class="n">domains</span><span class="p">)</span>
+
+    <span class="n">integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">ufl</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">integral_types</span><span class="p">():</span>
+            <span class="c1"># Get integrals with this domain and type</span>
+            <span class="n">ddt_integrals</span> <span class="o">=</span> <span class="n">integrals_by_domain_and_type</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">ddt_integrals</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Group integrals by subdomain id, after splitting e.g.</span>
+            <span class="c1">#   f*dx((1,2)) + g*dx((2,3)) -&gt; f*dx(1) + (f+g)*dx(2) + g*dx(3)</span>
+            <span class="c1"># (note: before this call, &#39;everywhere&#39; is a valid subdomain_id,</span>
+            <span class="c1"># and after this call, &#39;otherwise&#39; is a valid subdomain_id)</span>
+            <span class="n">single_subdomain_integrals</span> <span class="o">=</span> \
+                <span class="n">rearrange_integrals_by_single_subdomains</span><span class="p">(</span><span class="n">ddt_integrals</span><span class="p">,</span> <span class="n">do_append_everywhere_integrals</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">ss_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">single_subdomain_integrals</span><span class="p">):</span>
+
+                <span class="c1"># strip the coordinate derivatives from all integrals</span>
+                <span class="c1"># this yields a list of the form [(coordinate derivative, integral), ...]</span>
+                <span class="n">stripped_integrals_and_coordderivs</span> <span class="o">=</span> <span class="n">strip_coordinate_derivatives</span><span class="p">(</span><span class="n">ss_integrals</span><span class="p">)</span>
+
+                <span class="c1"># now group the integrals by the coordinate derivative</span>
+                <span class="k">def</span> <span class="nf">calc_hash</span><span class="p">(</span><span class="n">cd</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">tuple_elem</span><span class="o">.</span><span class="n">_ufl_compute_hash_</span><span class="p">()</span>
+                                   <span class="k">for</span> <span class="n">tuple_elem</span> <span class="ow">in</span> <span class="n">tuple_</span><span class="p">)</span> <span class="k">for</span> <span class="n">tuple_</span> <span class="ow">in</span> <span class="n">cd</span><span class="p">)</span>
+                <span class="n">coordderiv_integrals_dict</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">integral</span><span class="p">,</span> <span class="n">coordderiv</span> <span class="ow">in</span> <span class="n">stripped_integrals_and_coordderivs</span><span class="p">:</span>
+                    <span class="n">coordderivhash</span> <span class="o">=</span> <span class="n">calc_hash</span><span class="p">(</span><span class="n">coordderiv</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">coordderivhash</span> <span class="ow">in</span> <span class="n">coordderiv_integrals_dict</span><span class="p">:</span>
+                        <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">coordderiv</span><span class="p">,</span> <span class="p">[</span><span class="n">integral</span><span class="p">])</span>
+
+                <span class="c1"># cd_integrals_dict is now a dict of the form</span>
+                <span class="c1"># { hash: (CoordinateDerivative, [integral, integral, ...]), ... }</span>
+                <span class="c1"># we can now put the integrals back together and then afterwards</span>
+                <span class="c1"># apply the CoordinateDerivative again</span>
+
+                <span class="k">for</span> <span class="n">cdhash</span><span class="p">,</span> <span class="n">samecd_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">coordderiv_integrals_dict</span><span class="p">):</span>
+
+                    <span class="c1"># Accumulate integrands of integrals that share the</span>
+                    <span class="c1"># same compiler data</span>
+                    <span class="n">integrands_and_cds</span> <span class="o">=</span> \
+                        <span class="n">accumulate_integrands_with_same_metadata</span><span class="p">(</span><span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+                    <span class="k">for</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">integrands_and_cds</span><span class="p">:</span>
+                        <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span>
+                                            <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                        <span class="n">integral</span> <span class="o">=</span> <span class="n">attach_coordinate_derivatives</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                        <span class="n">integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="reconstruct_form_from_integral_data"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.reconstruct_form_from_integral_data">[docs]</a><span class="k">def</span> <span class="nf">reconstruct_form_from_integral_data</span><span class="p">(</span><span class="n">integral_data</span><span class="p">):</span>
+    <span class="n">integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ida</span> <span class="ow">in</span> <span class="n">integral_data</span><span class="p">:</span>
+        <span class="n">integrals</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ida</span><span class="o">.</span><span class="n">integrals</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

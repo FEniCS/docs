@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.analysis &#8212; Unified Form Language (UFL) 2021.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.analysis</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Utility algorithms for inspection of and information extraction from UFL objects in various ways.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009-2010.</span>
+<span class="c1"># Modified by Johan Hake, 2010.</span>
+
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span><span class="p">,</span> <span class="n">topological_sorting</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span><span class="p">,</span> <span class="n">FormArgument</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+<span class="kn">from</span> <span class="nn">ufl.constant</span> <span class="kn">import</span> <span class="n">Constant</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.traversal</span> <span class="kn">import</span> <span class="n">iter_expressions</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">unique_pre_traversal</span><span class="p">,</span> <span class="n">traverse_unique_terminals</span>
+
+
+<span class="c1"># TODO: Some of these can possibly be optimised by implementing</span>
+<span class="c1"># inlined stack based traversal algorithms</span>
+
+<span class="k">def</span> <span class="nf">_sorted_by_number_and_part</span><span class="p">(</span><span class="n">seq</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="n">x</span><span class="o">.</span><span class="n">part</span><span class="p">()))</span>
+
+
+<div class="viewcode-block" id="unique_tuple"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.unique_tuple">[docs]</a><span class="k">def</span> <span class="nf">unique_tuple</span><span class="p">(</span><span class="n">objects</span><span class="p">):</span>
+    <span class="s2">&quot;Return tuple of unique objects, preserving initial ordering.&quot;</span>
+    <span class="n">unique_objects</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">handled</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">objects</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">handled</span><span class="p">:</span>
+            <span class="n">handled</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+            <span class="n">unique_objects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">unique_objects</span><span class="p">)</span></div>
+
+
+<span class="c1"># --- Utilities to extract information from an expression ---</span>
+
+<span class="k">def</span> <span class="nf">__unused__extract_classes</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a set of all unique Expr subclasses used in a.</span>
+<span class="sd">    The argument a can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span>
+               <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">unique_pre_traversal</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="extract_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_type">[docs]</a><span class="k">def</span> <span class="nf">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a set of all objects of class ufl_type found in a.</span>
+<span class="sd">    The argument a can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">ufl_type</span><span class="p">,</span> <span class="n">Terminal</span><span class="p">):</span>
+        <span class="c1"># Optimization</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                   <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">unique_pre_traversal</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                   <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="has_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.has_type">[docs]</a><span class="k">def</span> <span class="nf">has_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return if an object of class ufl_type can be found in a.</span>
+<span class="sd">    The argument a can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">ufl_type</span><span class="p">,</span> <span class="n">Terminal</span><span class="p">):</span>
+        <span class="c1"># Optimization</span>
+        <span class="n">traversal</span> <span class="o">=</span> <span class="n">traverse_unique_terminals</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">traversal</span> <span class="o">=</span> <span class="n">unique_pre_traversal</span>
+    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">traversal</span><span class="p">(</span><span class="n">e</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="has_exact_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.has_exact_type">[docs]</a><span class="k">def</span> <span class="nf">has_exact_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return if an object of class ufl_type can be found in a.</span>
+<span class="sd">    The argument a can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="n">tc</span> <span class="o">=</span> <span class="n">ufl_type</span><span class="o">.</span><span class="n">_ufl_typecode_</span>
+    <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">ufl_type</span><span class="p">,</span> <span class="n">Terminal</span><span class="p">):</span>
+        <span class="c1"># Optimization</span>
+        <span class="n">traversal</span> <span class="o">=</span> <span class="n">traverse_unique_terminals</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">traversal</span> <span class="o">=</span> <span class="n">unique_pre_traversal</span>
+    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span> <span class="o">==</span> <span class="n">tc</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">traversal</span><span class="p">(</span><span class="n">e</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_arguments"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_arguments">[docs]</a><span class="k">def</span> <span class="nf">extract_arguments</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a sorted list of all arguments in a,</span>
+<span class="sd">    which can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_sorted_by_number_and_part</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Argument</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_coefficients"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_coefficients">[docs]</a><span class="k">def</span> <span class="nf">extract_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a sorted list of all coefficients in a,</span>
+<span class="sd">    which can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">sorted_by_count</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_constants"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_constants">[docs]</a><span class="k">def</span> <span class="nf">extract_constants</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build a sorted list of all constants in a&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">sorted_by_count</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Constant</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_arguments_and_coefficients"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_arguments_and_coefficients">[docs]</a><span class="k">def</span> <span class="nf">extract_arguments_and_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build two sorted lists of all arguments and coefficients</span>
+<span class="sd">    in a, which can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+
+    <span class="c1"># This function is faster than extract_arguments + extract_coefficients</span>
+    <span class="c1"># for large forms, and has more validation built in.</span>
+
+    <span class="c1"># Extract lists of all form argument instances</span>
+    <span class="n">terminals</span> <span class="o">=</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">FormArgument</span><span class="p">)</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">terminals</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Argument</span><span class="p">)]</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">terminals</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)]</span>
+
+    <span class="c1"># Build number,part: instance mappings, should be one to one</span>
+    <span class="n">bfnp</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="n">f</span><span class="o">.</span><span class="n">part</span><span class="p">()))</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bfnp</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">bfnp</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">Found different Arguments with same number and part.</span>
+<span class="s2">Did you combine test or trial functions from different spaces?</span>
+<span class="s2">The Arguments found are:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;&quot;&quot;</span> <span class="o">%</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">)</span>
+        <span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Build count: instance mappings, should be one to one</span>
+    <span class="n">fcounts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">count</span><span class="p">())</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fcounts</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">fcounts</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">Found different coefficients with same counts.</span>
+<span class="s2">The arguments found are:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;&quot;&quot;</span> <span class="o">%</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;  </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">)</span>
+        <span class="n">error</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+    <span class="c1"># Passed checks, so we can safely sort the instances by count</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">_sorted_by_number_and_part</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="n">sorted_by_count</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span></div>
+
+
+<div class="viewcode-block" id="extract_elements"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_elements">[docs]</a><span class="k">def</span> <span class="nf">extract_elements</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+    <span class="s2">&quot;Build sorted tuple of all elements used in form.&quot;</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="n">extract_arguments_and_coefficients</span><span class="p">(</span><span class="n">form</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_unique_elements"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_unique_elements">[docs]</a><span class="k">def</span> <span class="nf">extract_unique_elements</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+    <span class="s2">&quot;Build sorted tuple of all unique elements used in form.&quot;</span>
+    <span class="k">return</span> <span class="n">unique_tuple</span><span class="p">(</span><span class="n">extract_elements</span><span class="p">(</span><span class="n">form</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_sub_elements"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_sub_elements">[docs]</a><span class="k">def</span> <span class="nf">extract_sub_elements</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+    <span class="s2">&quot;Build sorted tuple of all sub elements (including parent element).&quot;</span>
+    <span class="n">sub_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">sub_elements</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span> <span class="o">+</span> <span class="n">extract_sub_elements</span><span class="p">(</span><span class="n">sub_elements</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sort_elements"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.sort_elements">[docs]</a><span class="k">def</span> <span class="nf">sort_elements</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sort elements so that any sub elements appear before the</span>
+<span class="sd">    corresponding mixed elements. This is useful when sub elements</span>
+<span class="sd">    need to be defined before the corresponding mixed elements.</span>
+
+<span class="sd">    The ordering is based on sorting a directed acyclic graph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Set nodes</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+
+    <span class="c1"># Set edges</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">node</span><span class="p">,</span> <span class="p">[])</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sub_element</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">():</span>
+            <span class="n">edges</span><span class="p">[</span><span class="n">element</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_element</span><span class="p">)</span>
+
+    <span class="c1"># Sort graph</span>
+    <span class="n">sorted_elements</span> <span class="o">=</span> <span class="n">topological_sorting</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">edges</span><span class="p">)</span>
+
+    <span class="c1"># Reverse list of elements</span>
+    <span class="n">sorted_elements</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">sorted_elements</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
