@@ -33,9 +33,9 @@ header-includes:
 
 #### DOLFINx
 
-C++: [https://docs.fenicsproject.org/dolfinx/main/cpp/](https://docs.fenicsproject.org/dolfinx/main/cpp/)
+`main` C++: [https://docs.fenicsproject.org/dolfinx/main/cpp/](https://docs.fenicsproject.org/dolfinx/main/cpp/)
 
-Python: [https://docs.fenicsproject.org/dolfinx/main/python/](https://docs.fenicsproject.org/dolfinx/main/python/)
+`main` Python: [https://docs.fenicsproject.org/dolfinx/main/python/](https://docs.fenicsproject.org/dolfinx/main/python/)
 
 #### FFCx
 
