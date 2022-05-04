@@ -1,0 +1,557 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.apply_geometry_lowering &#8212; Unified Form Language (UFL) 2022.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.apply_geometry_lowering</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Algorithm for lowering abstractions of geometric types.</span>
+
+<span class="sd">This means replacing high-level types with expressions</span>
+<span class="sd">of mostly the Jacobian and reference cell data.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2013-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
+
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span><span class="p">,</span> <span class="n">warning</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">Index</span><span class="p">,</span> <span class="n">indices</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span><span class="p">,</span> <span class="n">memoized_handler</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.map_dag</span> <span class="kn">import</span> <span class="n">map_expr_dag</span>
+<span class="kn">from</span> <span class="nn">ufl.measure</span> <span class="kn">import</span> <span class="n">custom_integral_types</span><span class="p">,</span> <span class="n">point_integral_types</span>
+
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">Integral</span><span class="p">,</span>
+                         <span class="n">ReferenceGrad</span><span class="p">,</span>
+                         <span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">,</span>
+                         <span class="n">CellOrientation</span><span class="p">,</span> <span class="n">CellOrigin</span><span class="p">,</span> <span class="n">CellCoordinate</span><span class="p">,</span>
+                         <span class="n">FacetJacobian</span><span class="p">,</span> <span class="n">FacetJacobianDeterminant</span><span class="p">,</span>
+                         <span class="n">CellFacetJacobian</span><span class="p">,</span>
+                         <span class="n">MaxCellEdgeLength</span><span class="p">,</span>
+                         <span class="n">CellEdgeVectors</span><span class="p">,</span> <span class="n">FacetEdgeVectors</span><span class="p">,</span> <span class="n">CellVertices</span><span class="p">,</span>
+                         <span class="n">ReferenceNormal</span><span class="p">,</span>
+                         <span class="n">ReferenceCellVolume</span><span class="p">,</span> <span class="n">ReferenceFacetVolume</span><span class="p">,</span> <span class="n">CellVolume</span><span class="p">,</span>
+                         <span class="n">SpatialCoordinate</span><span class="p">,</span>
+                         <span class="n">FloatValue</span><span class="p">)</span>
+<span class="c1"># FacetJacobianInverse,</span>
+<span class="c1"># FacetOrientation, QuadratureWeight,</span>
+
+<span class="kn">from</span> <span class="nn">ufl.tensors</span> <span class="kn">import</span> <span class="n">as_tensor</span><span class="p">,</span> <span class="n">as_vector</span>
+<span class="kn">from</span> <span class="nn">ufl.operators</span> <span class="kn">import</span> <span class="n">sqrt</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">min_value</span><span class="p">,</span> <span class="n">conj</span><span class="p">,</span> <span class="n">real</span>
+
+<span class="kn">from</span> <span class="nn">ufl.compound_expressions</span> <span class="kn">import</span> <span class="n">determinant_expr</span><span class="p">,</span> <span class="n">cross_expr</span><span class="p">,</span> <span class="n">inverse_expr</span>
+
+
+<div class="viewcode-block" id="GeometryLoweringApplier"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_geometry_lowering.GeometryLoweringApplier">[docs]</a><span class="k">class</span> <span class="nc">GeometryLoweringApplier</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">preserve_types</span><span class="o">=</span><span class="p">()):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># Store preserve_types as boolean lookup table</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span> <span class="o">=</span> <span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">*</span> <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_num_typecodes_</span>
+        <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">preserve_types</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="GeometryLoweringApplier.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_geometry_lowering.GeometryLoweringApplier.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">t</span></div>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;identity&quot;</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Piola mapped coordinates are not implemented.&quot;</span><span class="p">)</span>
+        <span class="c1"># Note: No longer supporting domain.coordinates(), always</span>
+        <span class="c1"># preserving SpatialCoordinate object.  However if Jacobians</span>
+        <span class="c1"># are not preserved, using</span>
+        <span class="c1"># ReferenceGrad(SpatialCoordinate(domain)) to represent them.</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_coordinate</span><span class="p">(</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">_future_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># If we&#39;re not using Coefficient to represent the spatial</span>
+        <span class="c1"># coordinate, we can just as well just return o here too</span>
+        <span class="c1"># unless we add representation of basis functions and dofs to</span>
+        <span class="c1"># the ufl layer (which is nice to avoid).</span>
+        <span class="k">return</span> <span class="n">o</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">jacobian_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="c1"># TODO: This could in principle use</span>
+        <span class="c1"># preserve_types[JacobianDeterminant] with minor refactoring:</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="n">inverse_expr</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">K</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">jacobian_determinant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">detJ</span> <span class="o">=</span> <span class="n">determinant_expr</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Is &quot;signing&quot; the determinant for manifolds the</span>
+        <span class="c1">#       cleanest approach?  The alternative is to have a</span>
+        <span class="c1">#       specific type for the unsigned pseudo-determinant.</span>
+        <span class="k">if</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">():</span>
+            <span class="n">co</span> <span class="o">=</span> <span class="n">CellOrientation</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">detJ</span> <span class="o">=</span> <span class="n">co</span> <span class="o">*</span> <span class="n">detJ</span>
+
+        <span class="k">return</span> <span class="n">detJ</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">RFJ</span> <span class="o">=</span> <span class="n">CellFacetJacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">RFJ</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_jacobian_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">FJ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">facet_jacobian</span><span class="p">(</span><span class="n">FacetJacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="c1"># This could in principle use</span>
+        <span class="c1"># preserve_types[JacobianDeterminant] with minor refactoring:</span>
+        <span class="k">return</span> <span class="n">inverse_expr</span><span class="p">(</span><span class="n">FJ</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_jacobian_determinant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">FJ</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">facet_jacobian</span><span class="p">(</span><span class="n">FacetJacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">detFJ</span> <span class="o">=</span> <span class="n">determinant_expr</span><span class="p">(</span><span class="n">FJ</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Should we &quot;sign&quot; the facet jacobian determinant for</span>
+        <span class="c1">#       manifolds?  It&#39;s currently used unsigned in</span>
+        <span class="c1">#       apply_integral_scaling.</span>
+        <span class="c1"># if domain.topological_dimension() &lt; domain.geometric_dimension():</span>
+        <span class="c1">#     co = CellOrientation(domain)</span>
+        <span class="c1">#     detFJ = co*detFJ</span>
+
+        <span class="k">return</span> <span class="n">detFJ</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">spatial_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Fall through to coordinate field of domain if it exists.&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+        <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;identity&quot;</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Piola mapped coordinates are not implemented.&quot;</span><span class="p">)</span>
+        <span class="c1"># No longer supporting domain.coordinates(), always preserving</span>
+        <span class="c1"># SpatialCoordinate object.</span>
+        <span class="k">return</span> <span class="n">o</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">cell_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Compute from physical coordinates if they are known, using the appropriate mappings.&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian_inverse</span><span class="p">(</span><span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spatial_coordinate</span><span class="p">(</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="n">CellOrigin</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">x0</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="p">(</span><span class="n">i</span><span class="p">,))</span>
+        <span class="k">return</span> <span class="n">X</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_cell_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Missing computation of facet reference coordinates &quot;</span>
+              <span class="s2">&quot;from physical coordinates via mappings.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">cell_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">():</span>
+            <span class="c1"># Don&#39;t lower for non-affine cells, instead leave it to</span>
+            <span class="c1"># form compiler</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only know how to compute the cell volume of an affine cell.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian_determinant</span><span class="p">(</span><span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">r0</span> <span class="o">=</span> <span class="n">ReferenceCellVolume</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">r0</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_area</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">():</span>
+            <span class="c1"># Don&#39;t lower for non-affine cells, instead leave it to</span>
+            <span class="c1"># form compiler</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only know how to compute the facet area of an affine cell.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="c1"># Area of &quot;facet&quot; of interval (i.e. &quot;area&quot; of a vertex) is defined as 1.0</span>
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">FloatValue</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">facet_jacobian_determinant</span><span class="p">(</span><span class="n">FacetJacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+        <span class="n">r0</span> <span class="o">=</span> <span class="n">ReferenceFacetVolume</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span> <span class="o">*</span> <span class="n">r0</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">circumradius</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">():</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Circumradius only makes sense for affine simplex cells&quot;</span><span class="p">)</span>
+
+        <span class="n">cellname</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span>
+        <span class="n">cellvolume</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_volume</span><span class="p">(</span><span class="n">CellVolume</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">cellname</span> <span class="o">==</span> <span class="s2">&quot;interval&quot;</span><span class="p">:</span>
+            <span class="c1"># Optimization for square interval; no square root needed</span>
+            <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">cellvolume</span>
+
+        <span class="c1"># Compute lengths of cell edges</span>
+        <span class="n">edges</span> <span class="o">=</span> <span class="n">CellEdgeVectors</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+        <span class="n">num_edges</span> <span class="o">=</span> <span class="n">edges</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+        <span class="n">elen</span> <span class="o">=</span> <span class="p">[</span><span class="n">real</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">real</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">conj</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]))))</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_edges</span><span class="p">)]</span>
+
+        <span class="k">if</span> <span class="n">cellname</span> <span class="o">==</span> <span class="s2">&quot;triangle&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">elen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">elen</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">elen</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">cellvolume</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">cellname</span> <span class="o">==</span> <span class="s2">&quot;tetrahedron&quot;</span><span class="p">:</span>
+            <span class="c1"># la, lb, lc = lengths of the sides of an intermediate triangle</span>
+            <span class="c1"># NOTE: Is here some hidden numbering assumption?</span>
+            <span class="n">la</span> <span class="o">=</span> <span class="n">elen</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">elen</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">lb</span> <span class="o">=</span> <span class="n">elen</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">*</span> <span class="n">elen</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">lc</span> <span class="o">=</span> <span class="n">elen</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">*</span> <span class="n">elen</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># p = perimeter</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="p">(</span><span class="n">la</span> <span class="o">+</span> <span class="n">lb</span> <span class="o">+</span> <span class="n">lc</span><span class="p">)</span>
+            <span class="c1"># s = semiperimeter</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">p</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="c1"># area of intermediate triangle with Herons formula</span>
+            <span class="n">triangle_area</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">la</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">lb</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">lc</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">triangle_area</span> <span class="o">/</span> <span class="p">(</span><span class="mf">6.0</span> <span class="o">*</span> <span class="n">cellvolume</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">max_cell_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_cell_edge_length</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">max_value</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">min_cell_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_cell_edge_length</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">min_value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_reduce_cell_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">reduction_op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Don&#39;t lower bendy cells, instead leave it to form compiler</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only know how to compute cell edge lengths of P1 or Q1 cell.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="k">elif</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;interval&quot;</span><span class="p">:</span>
+            <span class="c1"># Interval optimization, square root not needed</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_volume</span><span class="p">(</span><span class="n">CellVolume</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Other P1 or Q1 cells</span>
+            <span class="n">edges</span> <span class="o">=</span> <span class="n">CellEdgeVectors</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">num_edges</span> <span class="o">=</span> <span class="n">edges</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">elen2</span> <span class="o">=</span> <span class="p">[</span><span class="n">real</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">conj</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_edges</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="n">real</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">reduce</span><span class="p">(</span><span class="n">reduction_op</span><span class="p">,</span> <span class="n">elen2</span><span class="p">)))</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">cell_diameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)}:</span>
+            <span class="c1"># Don&#39;t lower bendy cells, instead leave it to form compiler</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only know how to compute cell diameter of P1 or Q1 cell.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="k">elif</span> <span class="n">domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">():</span>
+            <span class="c1"># Simplices</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cell_edge_length</span><span class="p">(</span><span class="n">MaxCellEdgeLength</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Q1 cells, maximal distance between any two vertices</span>
+            <span class="n">verts</span> <span class="o">=</span> <span class="n">CellVertices</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">verts</span> <span class="o">=</span> <span class="p">[</span><span class="n">verts</span><span class="p">[</span><span class="n">v</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">verts</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">elen2</span> <span class="o">=</span> <span class="p">(</span><span class="n">real</span><span class="p">((</span><span class="n">v0</span> <span class="o">-</span> <span class="n">v1</span><span class="p">)[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">conj</span><span class="p">((</span><span class="n">v0</span> <span class="o">-</span> <span class="n">v1</span><span class="p">)[</span><span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">v0</span><span class="p">,</span> <span class="n">v1</span> <span class="ow">in</span> <span class="n">combinations</span><span class="p">(</span><span class="n">verts</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">real</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">reduce</span><span class="p">(</span><span class="n">max_value</span><span class="p">,</span> <span class="n">elen2</span><span class="p">)))</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">max_facet_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_facet_edge_length</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">max_value</span><span class="p">)</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">min_facet_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reduce_facet_edge_length</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">min_value</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_reduce_facet_edge_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">reduction_op</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Facet edge lengths only make sense for topological dimension &gt;= 3.&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Don&#39;t lower bendy cells, instead leave it to form compiler</span>
+            <span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Only know how to compute facet edge lengths of P1 or Q1 cell.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># P1 tetrahedron or Q1 hexahedron</span>
+            <span class="n">edges</span> <span class="o">=</span> <span class="n">FacetEdgeVectors</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">num_edges</span> <span class="o">=</span> <span class="n">edges</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">elen2</span> <span class="o">=</span> <span class="p">[</span><span class="n">real</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">conj</span><span class="p">(</span><span class="n">edges</span><span class="p">[</span><span class="n">e</span><span class="p">,</span> <span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_edges</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="n">real</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">reduce</span><span class="p">(</span><span class="n">reduction_op</span><span class="p">,</span> <span class="n">elen2</span><span class="p">)))</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">cell_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">gdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">==</span> <span class="n">gdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># n-manifold embedded in n-1 space</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="n">tdim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># Surface in 3D</span>
+                <span class="n">t0</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">(</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">t1</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">(</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">cell_normal</span> <span class="o">=</span> <span class="n">cross_expr</span><span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">tdim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># Line in 2D (cell normal is &#39;up&#39; for a line pointing</span>
+                <span class="c1"># to the &#39;right&#39;)</span>
+                <span class="n">cell_normal</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">((</span><span class="o">-</span><span class="n">J</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">J</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Cell normal not implemented for tdim </span><span class="si">%d</span><span class="s2">, gdim </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">tdim</span><span class="p">,</span> <span class="n">gdim</span><span class="p">))</span>
+
+            <span class="c1"># Return normalized vector, sign corrected by cell</span>
+            <span class="c1"># orientation</span>
+            <span class="n">co</span> <span class="o">=</span> <span class="n">CellOrientation</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">co</span> <span class="o">*</span> <span class="n">cell_normal</span> <span class="o">/</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">cell_normal</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">cell_normal</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;What do you want cell normal in gdim=</span><span class="si">{0}</span><span class="s2">, tdim=</span><span class="si">{1}</span><span class="s2"> to be?&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">gdim</span><span class="p">,</span> <span class="n">tdim</span><span class="p">))</span>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">facet_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preserve_types</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">o</span>
+
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Special-case 1D (possibly immersed), for which we say</span>
+            <span class="c1"># that n is just in the direction of J.</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>  <span class="c1"># dx/dX</span>
+            <span class="n">ndir</span> <span class="o">=</span> <span class="n">J</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">gdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">gdim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">nlen</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ndir</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+                <span class="n">nlen</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">ndir</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">ndir</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="n">rn</span> <span class="o">=</span> <span class="n">ReferenceNormal</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># +/- 1.0 here</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">rn</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">ndir</span> <span class="o">/</span> <span class="n">nlen</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Recall that the covariant Piola transform u -&gt; J^(-T)*u</span>
+            <span class="c1"># preserves tangential components. The normal vector is</span>
+            <span class="c1"># characterised by having zero tangential component in</span>
+            <span class="c1"># reference and physical space.</span>
+            <span class="n">Jinv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jacobian_inverse</span><span class="p">(</span><span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+            <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+            <span class="n">rn</span> <span class="o">=</span> <span class="n">ReferenceNormal</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="c1"># compute signed, unnormalised normal; note transpose</span>
+            <span class="n">ndir</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">(</span><span class="n">Jinv</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">rn</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">i</span><span class="p">)</span>
+
+            <span class="c1"># normalise</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">ndir</span> <span class="o">/</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">ndir</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">ndir</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">n</span>
+
+        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Inconsistent dimensions (in=</span><span class="si">%d</span><span class="s2">, out=</span><span class="si">%d</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+
+<div class="viewcode-block" id="apply_geometry_lowering"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_geometry_lowering.apply_geometry_lowering">[docs]</a><span class="k">def</span> <span class="nf">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">preserve_types</span><span class="o">=</span><span class="p">()):</span>
+    <span class="sd">&quot;&quot;&quot;Change GeometricQuantity objects in expression to the lowest level GeometricQuantity objects.</span>
+
+<span class="sd">    Assumes the expression is preprocessed or at least that derivatives have been expanded.</span>
+
+<span class="sd">    @param form:</span>
+<span class="sd">        An Expr or Form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="n">newintegrals</span> <span class="o">=</span> <span class="p">[</span><span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">preserve_types</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">()]</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">newintegrals</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Integral</span><span class="p">):</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">form</span>
+        <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="n">custom_integral_types</span> <span class="o">+</span> <span class="n">point_integral_types</span><span class="p">):</span>
+            <span class="n">automatic_preserve_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">SpatialCoordinate</span><span class="p">,</span> <span class="n">Jacobian</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">automatic_preserve_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">CellCoordinate</span><span class="p">]</span>
+        <span class="n">preserve_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">preserve_types</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">automatic_preserve_types</span><span class="p">)</span>
+
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">GeometryLoweringApplier</span><span class="p">(</span><span class="n">preserve_types</span><span class="p">)</span>
+        <span class="n">newintegrand</span> <span class="o">=</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">newintegrand</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">form</span>
+        <span class="n">mf</span> <span class="o">=</span> <span class="n">GeometryLoweringApplier</span><span class="p">(</span><span class="n">preserve_types</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">expr</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid type </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,))</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,334 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.apply_restrictions &#8212; Unified Form Language (UFL) 2022.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.apply_restrictions</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;This module contains the apply_restrictions algorithm which propagates restrictions in a form towards the terminals.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Restricted</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.map_dag</span> <span class="kn">import</span> <span class="n">map_expr_dag</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span> <span class="nn">ufl.measure</span> <span class="kn">import</span> <span class="n">integral_type_to_measure_name</span>
+
+
+<div class="viewcode-block" id="RestrictionPropagator"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator">[docs]</a><span class="k">class</span> <span class="nc">RestrictionPropagator</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">=</span> <span class="n">side</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
+        <span class="c1"># Caches for propagating the restriction with map_expr_dag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vcaches</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rcaches</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_rp</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">),</span>
+                        <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)}</span>
+
+<div class="viewcode-block" id="RestrictionPropagator.restricted"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;When hitting a restricted quantity, visit child with a separate restriction algorithm.&quot;</span>
+        <span class="c1"># Assure that we have only two levels here, inside or outside</span>
+        <span class="c1"># the Restricted node</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Cannot restrict an expression twice.&quot;</span><span class="p">)</span>
+        <span class="c1"># Configure a propagator for this side and apply to subtree</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">side</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rp</span><span class="p">[</span><span class="n">side</span><span class="p">],</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                            <span class="n">vcache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">vcaches</span><span class="p">[</span><span class="n">side</span><span class="p">],</span>
+                            <span class="n">rcache</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rcaches</span><span class="p">[</span><span class="n">side</span><span class="p">])</span></div>
+
+    <span class="c1"># --- Reusable rules</span>
+
+    <span class="k">def</span> <span class="nf">_ignore_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Ignore current restriction, quantity is independent of side also from a computational point of view.&quot;</span>
+        <span class="k">return</span> <span class="n">o</span>
+
+    <span class="k">def</span> <span class="nf">_require_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Restrict a discontinuous quantity to current side, require a side to be set.&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Discontinuous type </span><span class="si">%s</span><span class="s2"> must be restricted.&quot;</span> <span class="o">%</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_default_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Restrict a continuous quantity to default side if no current restriction is set.&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span>
+        <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_opposite</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Restrict a quantity to default side, if the current restriction is different swap the sign, require a side to be set.&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Discontinuous type </span><span class="si">%s</span><span class="s2"> must be restricted.&quot;</span> <span class="o">%</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_missing_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Missing rule for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="c1"># --- Rules for operators</span>
+
+    <span class="c1"># Default: Operators should reconstruct only if subtrees are not touched</span>
+    <span class="n">operator</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+    <span class="c1"># Assuming apply_derivatives has been called,</span>
+    <span class="c1"># propagating Grad inside the Restricted nodes.</span>
+    <span class="c1"># Considering all grads to be discontinuous, may</span>
+    <span class="c1"># want something else for facet functions in future.</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">_require_restriction</span>
+
+<div class="viewcode-block" id="RestrictionPropagator.variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+        <span class="s2">&quot;Strip variable.&quot;</span>
+        <span class="k">return</span> <span class="n">op</span></div>
+
+<div class="viewcode-block" id="RestrictionPropagator.reference_value"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator.reference_value">[docs]</a>    <span class="k">def</span> <span class="nf">reference_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Reference value of something follows same restriction rule as the underlying object.&quot;</span>
+        <span class="n">f</span><span class="p">,</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">assert</span> <span class="n">f</span><span class="o">.</span><span class="n">_ufl_is_terminal_</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">Restricted</span><span class="p">):</span>
+            <span class="n">side</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">side</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">side</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">o</span></div>
+
+    <span class="c1"># --- Rules for terminals</span>
+
+    <span class="c1"># Require handlers to be specified for all terminals</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">_missing_rule</span>
+
+    <span class="n">multi_index</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+
+    <span class="c1"># Default: Literals should ignore restriction</span>
+    <span class="n">constant_value</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+    <span class="n">constant</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+
+    <span class="c1"># Even arguments with continuous elements such as Lagrange must be</span>
+    <span class="c1"># restricted to associate with the right part of the element</span>
+    <span class="c1"># matrix</span>
+    <span class="n">argument</span> <span class="o">=</span> <span class="n">_require_restriction</span>
+
+    <span class="c1"># Defaults for geometric quantities</span>
+    <span class="n">geometric_cell_quantity</span> <span class="o">=</span> <span class="n">_require_restriction</span>
+    <span class="n">geometric_facet_quantity</span> <span class="o">=</span> <span class="n">_require_restriction</span>
+
+    <span class="c1"># Only a few geometric quantities are independent on the restriction:</span>
+    <span class="n">facet_coordinate</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+    <span class="n">quadrature_weight</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+
+    <span class="c1"># Assuming homogeoneous mesh</span>
+    <span class="n">reference_cell_volume</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+    <span class="n">reference_facet_volume</span> <span class="o">=</span> <span class="n">_ignore_restriction</span>
+
+<div class="viewcode-block" id="RestrictionPropagator.coefficient"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator.coefficient">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Allow coefficients to be unrestricted (apply default if so) if the values are fully continuous across the facet.&quot;</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">()</span>
+        <span class="c1"># TODO: Move this choice to the element class?</span>
+        <span class="n">continuous_families</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;S&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">f</span> <span class="ow">in</span> <span class="n">continuous_families</span> <span class="ow">and</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">f</span> <span class="o">==</span> <span class="s2">&quot;Real&quot;</span><span class="p">:</span>
+            <span class="c1"># If the coefficient _value_ is _fully_ continuous</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default_restricted</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>  <span class="c1"># Must still be computed from one of the sides, we just don&#39;t care which</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_restriction</span><span class="p">(</span><span class="n">o</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="RestrictionPropagator.facet_normal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.RestrictionPropagator.facet_normal">[docs]</a>    <span class="k">def</span> <span class="nf">facet_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">D</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">()</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span>
+        <span class="n">gd</span> <span class="o">=</span> <span class="n">D</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">td</span> <span class="o">=</span> <span class="n">D</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">f</span> <span class="o">==</span> <span class="s2">&quot;Lagrange&quot;</span> <span class="ow">and</span> <span class="n">d</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">gd</span> <span class="o">==</span> <span class="n">td</span><span class="p">:</span>
+            <span class="c1"># For meshes with a continuous linear non-manifold</span>
+            <span class="c1"># coordinate field, the facet normal from side - points in</span>
+            <span class="c1"># the opposite direction of the one from side +.  We must</span>
+            <span class="c1"># still require a side to be chosen by the user but</span>
+            <span class="c1"># rewrite n- -&gt; n+.  This is an optimization, possibly</span>
+            <span class="c1"># premature, however it&#39;s more difficult to do at a later</span>
+            <span class="c1"># stage.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_opposite</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># For other meshes, we require a side to be</span>
+            <span class="c1"># chosen by the user and respect that</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_require_restriction</span><span class="p">(</span><span class="n">o</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="apply_restrictions"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.apply_restrictions">[docs]</a><span class="k">def</span> <span class="nf">apply_restrictions</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+    <span class="s2">&quot;Propagate restriction nodes to wrap differential terminals directly.&quot;</span>
+    <span class="n">integral_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">integral_type_to_measure_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                      <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">)]</span>
+    <span class="n">rules</span> <span class="o">=</span> <span class="n">RestrictionPropagator</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span>
+                              <span class="n">only_integral_type</span><span class="o">=</span><span class="n">integral_types</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DefaultRestrictionApplier"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.DefaultRestrictionApplier">[docs]</a><span class="k">class</span> <span class="nc">DefaultRestrictionApplier</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">=</span> <span class="n">side</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_rp</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="n">DefaultRestrictionApplier</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">),</span>
+                        <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="n">DefaultRestrictionApplier</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)}</span>
+
+<div class="viewcode-block" id="DefaultRestrictionApplier.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.DefaultRestrictionApplier.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># Most terminals are unchanged</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+    <span class="c1"># Default: Operators should reconstruct only if subtrees are not touched</span>
+    <span class="n">operator</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="DefaultRestrictionApplier.restricted"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.DefaultRestrictionApplier.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># Don&#39;t restrict twice</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+<div class="viewcode-block" id="DefaultRestrictionApplier.derivative"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.DefaultRestrictionApplier.derivative">[docs]</a>    <span class="k">def</span> <span class="nf">derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="c1"># I don&#39;t think it&#39;s safe to just apply default restriction</span>
+        <span class="c1"># to the argument of any derivative, i.e. grad(cg1_function)</span>
+        <span class="c1"># is not continuous across cells even if cg1_function is.</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+    <span class="k">def</span> <span class="nf">_default_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="s2">&quot;Restrict a continuous quantity to default side if no current restriction is set.&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span>
+        <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+    <span class="c1"># These are the same from either side but to compute them</span>
+    <span class="c1"># cell (or facet) data from one side must be selected:</span>
+    <span class="n">spatial_coordinate</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="c1"># Depends on cell only to get to the facet:</span>
+    <span class="n">facet_jacobian</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="n">facet_jacobian_determinant</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="n">facet_jacobian_inverse</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="c1"># facet_tangents = _default_restricted</span>
+    <span class="c1"># facet_midpoint = _default_restricted</span>
+    <span class="n">facet_area</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="c1"># facet_diameter = _default_restricted</span>
+    <span class="n">min_facet_edge_length</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="n">max_facet_edge_length</span> <span class="o">=</span> <span class="n">_default_restricted</span>
+    <span class="n">facet_origin</span> <span class="o">=</span> <span class="n">_default_restricted</span>  <span class="c1"># FIXME: Is this valid for quads?</span></div>
+
+
+<div class="viewcode-block" id="apply_default_restrictions"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.apply_default_restrictions">[docs]</a><span class="k">def</span> <span class="nf">apply_default_restrictions</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Some terminals can be restricted from either side.</span>
+
+<span class="sd">    This applies a default restriction to such terminals if unrestricted.&quot;&quot;&quot;</span>
+    <span class="n">integral_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">integral_type_to_measure_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                      <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">)]</span>
+    <span class="n">rules</span> <span class="o">=</span> <span class="n">DefaultRestrictionApplier</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span>
+                              <span class="n">only_integral_type</span><span class="o">=</span><span class="n">integral_types</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,318 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.finiteelement.finiteelementbase &#8212; Unified Form Language (UFL) 2022.2.0.dev0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.finiteelement.finiteelementbase</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="s2">&quot;This module defines the UFL finite element classes.&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Kristian B. Oelgaard</span>
+<span class="c1"># Modified by Marie E. Rognes 2010, 2012</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016</span>
+
+<span class="kn">from</span> <span class="nn">ufl.utils.sequences</span> <span class="kn">import</span> <span class="n">product</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.dicts</span> <span class="kn">import</span> <span class="n">EmptyDict</span>
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.cell</span> <span class="kn">import</span> <span class="n">AbstractCell</span><span class="p">,</span> <span class="n">as_cell</span>
+
+
+<div class="viewcode-block" id="FiniteElementBase"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase">[docs]</a><span class="k">class</span> <span class="nc">FiniteElementBase</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="s2">&quot;Base class for all finite elements.&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_family&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_cell&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_degree&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_quad_scheme&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_value_shape&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_reference_value_shape&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;__weakref__&quot;</span><span class="p">)</span>
+
+    <span class="c1"># TODO: Not all these should be in the base class! In particular</span>
+    <span class="c1"># family, degree, and quad_scheme do not belong here.</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">family</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">quad_scheme</span><span class="p">,</span> <span class="n">value_shape</span><span class="p">,</span>
+                 <span class="n">reference_value_shape</span><span class="p">):</span>
+        <span class="s2">&quot;Initialize basic finite element data.&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">family</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid family type.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">degree</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">degree</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">))):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid degree type.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_shape</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid value_shape type.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reference_value_shape</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid reference_value_shape type.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cell</span> <span class="o">=</span> <span class="n">as_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">AbstractCell</span><span class="p">):</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid cell type.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_family</span> <span class="o">=</span> <span class="n">family</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cell</span> <span class="o">=</span> <span class="n">cell</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_degree</span> <span class="o">=</span> <span class="n">degree</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value_shape</span> <span class="o">=</span> <span class="n">value_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reference_value_shape</span> <span class="o">=</span> <span class="n">reference_value_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_quad_scheme</span> <span class="o">=</span> <span class="n">quad_scheme</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Format as string for evaluation as Python object.</span>
+
+<span class="sd">        NB! Assumes subclass has assigned its repr string to self._repr.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Compute hash code for insertion in hashmaps.&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="s2">&quot;Compute element equality for insertion in hashmaps.&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="s2">&quot;Compute element inequality for insertion in hashmaps.&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="s2">&quot;Compare elements by repr, to give a natural stable sorting.&quot;</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">repr</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FiniteElementBase.family"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.family">[docs]</a>    <span class="k">def</span> <span class="nf">family</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># FIXME: Undefined for base?</span>
+        <span class="s2">&quot;Return finite element family.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_family</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.variant"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.variant">[docs]</a>    <span class="k">def</span> <span class="nf">variant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the variant used to initialise the element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.degree"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.degree">[docs]</a>    <span class="k">def</span> <span class="nf">degree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="s2">&quot;Return polynomial degree of finite element.&quot;</span>
+        <span class="c1"># FIXME: Consider embedded_degree concept for more accurate</span>
+        <span class="c1"># degree, see blueprint</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_degree</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.quadrature_scheme"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.quadrature_scheme">[docs]</a>    <span class="k">def</span> <span class="nf">quadrature_scheme</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return quadrature scheme of finite element.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quad_scheme</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.mapping"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.mapping">[docs]</a>    <span class="k">def</span> <span class="nf">mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Not implemented.&quot;</span>
+        <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Missing implementation of mapping().&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.cell"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.cell">[docs]</a>    <span class="k">def</span> <span class="nf">cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return cell of finite element.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cell</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.is_cellwise_constant"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return whether the basis functions of this</span>
+<span class="sd">        element is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">family</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Real&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.value_shape"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.value_shape">[docs]</a>    <span class="k">def</span> <span class="nf">value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the shape of the value space on the global domain.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_shape</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.reference_value_shape"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.reference_value_shape">[docs]</a>    <span class="k">def</span> <span class="nf">reference_value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the shape of the value space on the reference cell.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reference_value_shape</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.value_size"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.value_size">[docs]</a>    <span class="k">def</span> <span class="nf">value_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the integer product of the value shape.&quot;</span>
+        <span class="k">return</span> <span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.reference_value_size"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.reference_value_size">[docs]</a>    <span class="k">def</span> <span class="nf">reference_value_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the integer product of the reference value shape.&quot;</span>
+        <span class="k">return</span> <span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.symmetry"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.symmetry">[docs]</a>    <span class="k">def</span> <span class="nf">symmetry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># FIXME: different approach</span>
+        <span class="sd">&quot;&quot;&quot;Return the symmetry dict, which is a mapping :math:`c_0 \\to c_1`</span>
+<span class="sd">        meaning that component :math:`c_0` is represented by component</span>
+<span class="sd">        :math:`c_1`.</span>
+<span class="sd">        A component is a tuple of one or more ints.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">EmptyDict</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="s2">&quot;Check that component index i is valid&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">j</span> <span class="o">&lt;</span> <span class="n">k</span> <span class="k">for</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">sh</span><span class="p">))):</span>
+            <span class="n">error</span><span class="p">((</span><span class="s2">&quot;Illegal component index &#39;</span><span class="si">%s</span><span class="s2">&#39; (value rank </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">+</span>
+                   <span class="s2">&quot;for element (value rank </span><span class="si">%d</span><span class="s2">).&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">r</span><span class="p">))</span>
+
+<div class="viewcode-block" id="FiniteElementBase.extract_subelement_component"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.extract_subelement_component">[docs]</a>    <span class="k">def</span> <span class="nf">extract_subelement_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract direct subelement index and subelement relative</span>
+<span class="sd">        component index for a given component index.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_component</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.extract_component"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.extract_component">[docs]</a>    <span class="k">def</span> <span class="nf">extract_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Recursively extract component index relative to a (simple) element</span>
+<span class="sd">        and that element for given value component index.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_component</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_reference_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="s2">&quot;Check that reference component index i is valid.&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="n">r</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">j</span> <span class="o">&lt;</span> <span class="n">k</span> <span class="k">for</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">sh</span><span class="p">))):</span>
+            <span class="n">error</span><span class="p">((</span><span class="s2">&quot;Illegal component index &#39;</span><span class="si">%s</span><span class="s2">&#39; (value rank </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">+</span>
+                   <span class="s2">&quot;for element (value rank </span><span class="si">%d</span><span class="s2">).&quot;</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="n">r</span><span class="p">))</span>
+
+<div class="viewcode-block" id="FiniteElementBase.extract_subelement_reference_component"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.extract_subelement_reference_component">[docs]</a>    <span class="k">def</span> <span class="nf">extract_subelement_reference_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract direct subelement index and subelement relative</span>
+<span class="sd">        reference component index for a given reference component index.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_reference_component</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.extract_reference_component"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.extract_reference_component">[docs]</a>    <span class="k">def</span> <span class="nf">extract_reference_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Recursively extract reference component index relative to a (simple) element</span>
+<span class="sd">        and that element for given reference value component index.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_reference_component</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.num_sub_elements"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.num_sub_elements">[docs]</a>    <span class="k">def</span> <span class="nf">num_sub_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return number of sub-elements.&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="FiniteElementBase.sub_elements"><a class="viewcode-back" href="../../../api-doc/ufl.finiteelement.html#ufl.classes.FiniteElementBase.sub_elements">[docs]</a>    <span class="k">def</span> <span class="nf">sub_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return list of sub-elements.&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="s2">&quot;Add two elements, creating an enriched element&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Can&#39;t add element and </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">other</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">EnrichedElement</span>
+        <span class="k">return</span> <span class="n">EnrichedElement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="s2">&quot;Multiply two elements, creating a mixed element&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Can&#39;t multiply element and </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="n">other</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">MixedElement</span>
+        <span class="k">return</span> <span class="n">MixedElement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="s2">&quot;Restrict finite element to a subdomain, subcomponent or topology (cell).&quot;</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;facet&quot;</span><span class="p">,</span> <span class="s2">&quot;interior&quot;</span><span class="p">):</span>
+            <span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">RestrictedElement</span>
+            <span class="k">return</span> <span class="n">RestrictedElement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
