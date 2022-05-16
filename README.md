@@ -21,9 +21,9 @@ header-includes:
 
 ### Basix
 
-`0.4.1` C++: [https://docs.fenicsproject.org/basix/v0.4.1/](https://docs.fenicsproject.org/basix/v0.4.1/cpp/)
+`0.4.2` C++: [https://docs.fenicsproject.org/basix/v0.4.2/](https://docs.fenicsproject.org/basix/v0.4.2/cpp/)
 
-`0.4.1` Python: [https://docs.fenicsproject.org/basix/v0.4.1/](https://docs.fenicsproject.org/basix/v0.4.1/python/)
+`0.4.2` Python: [https://docs.fenicsproject.org/basix/v0.4.2/](https://docs.fenicsproject.org/basix/v0.4.2/python/)
 
 ### UFL
 
@@ -82,6 +82,10 @@ header-includes:
 `0.1.0`: [https://docs.fenicsproject.org/ffcx/0.1.0](https://docs.fenicsproject.org/ffcx/v0.1.0)
 
 #### Basix
+
+`0.4.1` C++: [https://docs.fenicsproject.org/basix/v0.4.1/](https://docs.fenicsproject.org/basix/v0.4.1/cpp/)
+
+`0.4.1` Python: [https://docs.fenicsproject.org/basix/v0.4.1/](https://docs.fenicsproject.org/basix/v0.4.1/python/)
 
 `0.4.0` C++: [https://docs.fenicsproject.org/basix/v0.4.0/](https://docs.fenicsproject.org/basix/v0.4.0/cpp/)
 
