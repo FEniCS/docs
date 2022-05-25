@@ -71,7 +71,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.fem.assemble</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2018-2022 Garth N. Wells</span>
+<span></span><span class="c1"># Copyright (C) 2018-2022 Garth N. Wells, Jack S. Hale</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -81,13 +81,8 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">collections</span>
-<span class="kn">import</span> <span class="nn">typing</span>
-
-<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">dolfinx.fem.forms</span> <span class="kn">import</span> <span class="n">FormMetaClass</span>
-    <span class="kn">from</span> <span class="nn">dolfinx.fem.bcs</span> <span class="kn">import</span> <span class="n">DirichletBCMetaClass</span>
-
 <span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">typing</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
@@ -96,6 +91,8 @@
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">la</span>
 <span class="kn">from</span> <span class="nn">dolfinx.cpp.fem</span> <span class="kn">import</span> <span class="n">pack_coefficients</span> <span class="k">as</span> <span class="n">_pack_coefficients</span>
 <span class="kn">from</span> <span class="nn">dolfinx.cpp.fem</span> <span class="kn">import</span> <span class="n">pack_constants</span> <span class="k">as</span> <span class="n">_pack_constants</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.bcs</span> <span class="kn">import</span> <span class="n">DirichletBCMetaClass</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.forms</span> <span class="kn">import</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">form_types</span>
 
 
 <span class="k">def</span> <span class="nf">pack_constants</span><span class="p">(</span><span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">FormMetaClass</span><span class="p">,</span>
@@ -206,11 +203,17 @@
 <span class="c1"># -- Vector assembly ---------------------------------------------------------</span>
 
 <div class="viewcode-block" id="assemble_vector"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_vector">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">VectorMetaClass</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span>
+                    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_assemble_vector_form</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
+
+
+<span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">FormMetaClass</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_assemble_vector_form</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">form_types</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">VectorMetaClass</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Assemble linear form into a new Vector.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: The linear form assemble.</span>
+<span class="sd">        L: The linear form to assemble.</span>
 <span class="sd">        constants: Constants that appear in the form. If not provided,</span>
 <span class="sd">            any required constants will be computed.</span>
 <span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
@@ -235,12 +238,12 @@
     <span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">[:]</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">constants</span> <span class="o">=</span> <span class="n">constants</span> <span class="ow">or</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
     <span class="n">coeffs</span> <span class="o">=</span> <span class="n">coeffs</span> <span class="ow">or</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">b</span></div>
+    <span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span>
 
 
 <span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_assemble_vector_array</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Assemble linear form into a new Vector.</span>
 
 <span class="sd">    Args:</span>
@@ -274,40 +277,16 @@
 
 
 <div class="viewcode-block" id="assemble_matrix"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.assemble_matrix">[docs]</a><span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-                    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        a: The bilinear form assemble.</span>
-<span class="sd">        bcs: Boundary conditions that affect the assembled matrix.</span>
-<span class="sd">            Degrees-of-freedom constrained by a boundary condition will</span>
-<span class="sd">            have their rows/columns zeroed and the value ``diagonal``</span>
-<span class="sd">            set on on the matrix diagonal.</span>
-<span class="sd">        constants: Constants that appear in the form. If not provided,</span>
-<span class="sd">            any required constants will be computed.</span>
-<span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
-<span class="sd">            any required coefficients will be computed.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        Matrix representation of the bilinear form ``a``.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        The returned matrix is not finalised, i.e. ghost values are not</span>
-<span class="sd">        accumulated.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bcs</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">bcs</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">A</span></div>
+<span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span>
+                    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">_assemble_matrix_form</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
 
 
-<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">FormMetaClass</span><span class="p">,</span>
-      <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-      <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
+<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span>
+<span class="k">def</span> <span class="nf">_assemble_matrix_csr</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">form_types</span><span class="p">,</span>
+                         <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
 
 <span class="sd">        Args:</span>
@@ -335,6 +314,37 @@
     <span class="c1"># dofs</span>
     <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
         <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span>
+
+
+<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">FormMetaClass</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_assemble_matrix_form</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">form_types</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">DirichletBCMetaClass</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                          <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                          <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        a: The bilinear form assemble.</span>
+<span class="sd">        bcs: Boundary conditions that affect the assembled matrix.</span>
+<span class="sd">            Degrees-of-freedom constrained by a boundary condition will</span>
+<span class="sd">            have their rows/columns zeroed and the value ``diagonal``</span>
+<span class="sd">            set on on the matrix diagonal.</span>
+<span class="sd">        constants: Constants that appear in the form. If not provided,</span>
+<span class="sd">            any required constants will be computed.</span>
+<span class="sd">        coeffs: Coefficients that appear in the form. If not provided,</span>
+<span class="sd">            any required coefficients will be computed.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Matrix representation of the bilinear form ``a``.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The returned matrix is not finalised, i.e. ghost values are not</span>
+<span class="sd">        accumulated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bcs</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">bcs</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">la</span><span class="o">.</span><span class="n">MatrixCSRMetaClass</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">_assemble_matrix_csr</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span>
 
 
