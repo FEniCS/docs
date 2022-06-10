@@ -19,8 +19,8 @@ var searchData=
   ['topology_447',['topology',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ae19e90fb8e555b988b91ab92817ba9f4',1,'dolfinx::mesh::Mesh::topology()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a8c0c4a1f8f56239ea30d0f1b54afbbd8',1,'dolfinx::mesh::Mesh::topology() const']]],
   ['topology_448',['Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a684a5cc1a85a448766d8b9a393ef93ec',1,'dolfinx::mesh::Topology::Topology(MPI_Comm comm, CellType type)'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7b30aa57c5c17cb0e6b55811a4019f56',1,'dolfinx::mesh::Topology::Topology(const Topology &amp;topology)=default'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aab96be7cfde447689c76f356dcee7e3f',1,'dolfinx::mesh::Topology::Topology(Topology &amp;&amp;topology)=default']]],
   ['topology_5fmutable_449',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#afda0407a1cd420a73292867970f12809',1,'dolfinx::mesh::Mesh']]],
-  ['transfer_5fcell_5fmeshtag_450',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a0a4428ef2a32e32f4faeb5903cce4615',1,'dolfinx::refinement']]],
-  ['transfer_5ffacet_5fmeshtag_451',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a9d2297ad6d328a991cdfa51697a65890',1,'dolfinx::refinement']]],
+  ['transfer_5fcell_5fmeshtag_450',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#ad1ea394a2fe4e3d49ba19b3f41f86b27',1,'dolfinx::refinement']]],
+  ['transfer_5ffacet_5fmeshtag_451',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a50f24da86bae65dc34feff06f0f23b3f',1,'dolfinx::refinement']]],
   ['transpose_452',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2901b91b537bd6cb88dbcee4c3ba23e7',1,'dolfinx::io::cells']]],
   ['transpose_5fdofmap_453',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#aa80fbbb7d5da42a5be17e8f9b7ba90c2',1,'dolfinx::fem']]]
 ];
