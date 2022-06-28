@@ -7,7 +7,7 @@ var searchData=
   ['contravariant_5fpiola_31',['contravariant_piola',['../namespacebasix_1_1maps.html#a544e6c8e661458dcb505b1fe7eef16bd',1,'basix::maps']]],
   ['covariant_5fpiola_32',['covariant_piola',['../namespacebasix_1_1maps.html#a4cd024956b7df5e3bad0fd0bdf11cbef',1,'basix::maps']]],
   ['create_33',['create',['../namespacebasix_1_1lattice.html#a427e3631efcdc07eb9eeb6331ded31ab',1,'basix::lattice']]],
-  ['create_5fbdm_34',['create_bdm',['../namespacebasix_1_1element.html#a5b71695b2d9ba36c59895fb2e78905be',1,'basix::element']]],
+  ['create_5fbdm_34',['create_bdm',['../namespacebasix_1_1element.html#a58a105ca92d510a90183e5af66a606dc',1,'basix::element']]],
   ['create_5fbubble_35',['create_bubble',['../namespacebasix_1_1element.html#a2106b064654f5111acad5626ef85251f',1,'basix::element']]],
   ['create_5fcr_36',['create_cr',['../namespacebasix_1_1element.html#a84471ab2ffadde25c9a27c32d402eea5',1,'basix::element']]],
   ['create_5fcustom_5felement_37',['create_custom_element',['../namespacebasix.html#a70c43eb9641fde2b1585cb48f52a3b95',1,'basix']]],
