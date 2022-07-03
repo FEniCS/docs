@@ -17,8 +17,8 @@ var searchData=
   ['create_5fhhj_41',['create_hhj',['../namespacebasix_1_1element.html#a44d6c1bf6bbfb75244f56f596807b564',1,'basix::element']]],
   ['create_5flagrange_42',['create_lagrange',['../namespacebasix_1_1element.html#a17ba78c7e9e1af0ba2528ab13077cec8',1,'basix::element']]],
   ['create_5fnce_43',['create_nce',['../namespacebasix_1_1element.html#afaee7ed04ecbcc31be9f8d7bd5781ba5',1,'basix::element']]],
-  ['create_5fnedelec_44',['create_nedelec',['../namespacebasix_1_1element.html#ac53c3fb6ff71b739832083b290022fe8',1,'basix::element']]],
-  ['create_5fnedelec2_45',['create_nedelec2',['../namespacebasix_1_1element.html#aa57a075a5d88a395e4ebb94529b79402',1,'basix::element']]],
+  ['create_5fnedelec_44',['create_nedelec',['../namespacebasix_1_1element.html#a2a7dda17778d1c7ee980d13139a5ad2c',1,'basix::element']]],
+  ['create_5fnedelec2_45',['create_nedelec2',['../namespacebasix_1_1element.html#a9e4c9c02414d4e27c0f816419480aaa3',1,'basix::element']]],
   ['create_5fnew_46',['create_new',['../namespacebasix_1_1lattice.html#acac0e2c0359f668d4ca65e93d2b23009',1,'basix::lattice']]],
   ['create_5fregge_47',['create_regge',['../namespacebasix_1_1element.html#ad4cd33804013f164f22ad44469af665c',1,'basix::element']]],
   ['create_5frt_48',['create_rt',['../namespacebasix_1_1element.html#a9855c0b58bfd9065af6dc5ad481e09c6',1,'basix::element']]],
@@ -26,5 +26,6 @@ var searchData=
   ['create_5fserendipity_50',['create_serendipity',['../namespacebasix_1_1element.html#adf5a3c33f20854f18fd50f54df312754',1,'basix::element']]],
   ['create_5fserendipity_5fcurl_51',['create_serendipity_curl',['../namespacebasix_1_1element.html#a3851cfe57e48a7a01d9b9d690e5eb9cb',1,'basix::element']]],
   ['create_5fserendipity_5fdiv_52',['create_serendipity_div',['../namespacebasix_1_1element.html#a6f8d373c94ab829fdbdf8b6dea9deeb1',1,'basix::element']]],
-  ['cross_53',['cross',['../namespacebasix_1_1math.html#aa5f177ecf427144c89885f7e50770ab8',1,'basix::math']]]
+  ['cross_53',['cross',['../namespacebasix_1_1math.html#aa5f177ecf427144c89885f7e50770ab8',1,'basix::math']]],
+  ['cross_5fnew_54',['cross_new',['../namespacebasix_1_1math.html#a7a53716f9d085028396b615a890e7456',1,'basix::math']]]
 ];
