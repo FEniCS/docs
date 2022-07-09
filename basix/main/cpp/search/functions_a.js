@@ -1,7 +1,7 @@
 var searchData=
 [
   ['m_242',['M',['../classbasix_1_1FiniteElement.html#af106bf4fb773110ae6280aee8eb42139',1,'basix::FiniteElement']]],
-  ['make_5fdiscontinuous_243',['make_discontinuous',['../namespacebasix_1_1element.html#a1637e664afe0b7a0d9c1d46230d6de22',1,'basix::element::make_discontinuous(const std::array&lt; std::vector&lt; xt::xtensor&lt; double, 2 &gt;&gt;, 4 &gt; &amp;x, const std::array&lt; std::vector&lt; xt::xtensor&lt; double, 4 &gt;&gt;, 4 &gt; &amp;M, int tdim, int value_size)'],['../namespacebasix_1_1element.html#ac9381c89f8bfe5eaa40bebc6286e799d',1,'basix::element::make_discontinuous(const std::array&lt; std::vector&lt; mdspan2_t &gt;, 4 &gt; &amp;x, const std::array&lt; std::vector&lt; mdspan4_t &gt;, 4 &gt; &amp;M, int tdim, int value_size)']]],
+  ['make_5fdiscontinuous_243',['make_discontinuous',['../namespacebasix_1_1element.html#ac5e1688691bc5e1d5c9580ff0f29c738',1,'basix::element']]],
   ['make_5fdot_5fintegral_5fmoments_244',['make_dot_integral_moments',['../namespacebasix_1_1moments.html#aa11c58f5ca9512d32522af9f5f73312c',1,'basix::moments']]],
   ['make_5fdot_5fintegral_5fmoments_5fnew_245',['make_dot_integral_moments_new',['../namespacebasix_1_1moments.html#a8590e41ee35137fc551143b865afa868',1,'basix::moments']]],
   ['make_5fintegral_5fmoments_246',['make_integral_moments',['../namespacebasix_1_1moments.html#a3fc4e52dc8bc405edc8a0ee9f9711ee5',1,'basix::moments']]],

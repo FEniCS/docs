@@ -2,8 +2,8 @@ var searchData=
 [
   ['cell_5ftype_177',['cell_type',['../classbasix_1_1FiniteElement.html#a07e3921459dce5bff1cb731d1713ccc2',1,'basix::FiniteElement']]],
   ['coefficient_5fmatrix_178',['coefficient_matrix',['../classbasix_1_1FiniteElement.html#ac364156d55ba44ede65b12741fe7e00f',1,'basix::FiniteElement']]],
-  ['compute_5fentity_5ftransformations_179',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#a0a27aba1399d76d0c67fd23aa7a13a4d',1,'basix::doftransforms']]],
-  ['compute_5finterpolation_5foperator_180',['compute_interpolation_operator',['../namespacebasix.html#a1aaa537f6fbc81d5a61233326f3cd9b9',1,'basix']]],
+  ['compute_5fentity_5ftransformations_179',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#a7ae057ac4b833ef5565b87060ae1210e',1,'basix::doftransforms']]],
+  ['compute_5finterpolation_5foperator_180',['compute_interpolation_operator',['../namespacebasix.html#a3b672c19276067fd862382d7cb07b432',1,'basix']]],
   ['contravariant_5fpiola_181',['contravariant_piola',['../namespacebasix_1_1maps.html#a544e6c8e661458dcb505b1fe7eef16bd',1,'basix::maps']]],
   ['covariant_5fpiola_182',['covariant_piola',['../namespacebasix_1_1maps.html#a4cd024956b7df5e3bad0fd0bdf11cbef',1,'basix::maps']]],
   ['create_183',['create',['../namespacebasix_1_1lattice.html#a069d543f6906e32e324a69cf6b8c848f',1,'basix::lattice']]],
