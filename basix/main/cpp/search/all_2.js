@@ -7,7 +7,7 @@ var searchData=
   ['cmdspan2_5ft_31',['cmdspan2_t',['../namespacebasix_1_1element.html#ab3e5f850cf3b008e85e42ecbe5c1fa92',1,'basix::element']]],
   ['cmdspan4_5ft_32',['cmdspan4_t',['../namespacebasix_1_1element.html#aa5c3b33286a52a98a26d4cd888357da6',1,'basix::element']]],
   ['coefficient_5fmatrix_33',['coefficient_matrix',['../classbasix_1_1FiniteElement.html#ac364156d55ba44ede65b12741fe7e00f',1,'basix::FiniteElement']]],
-  ['compute_5fentity_5ftransformations_34',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#a7ae057ac4b833ef5565b87060ae1210e',1,'basix::doftransforms']]],
+  ['compute_5fentity_5ftransformations_34',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#aab52f93639d66e15933d245028a3b8cc',1,'basix::doftransforms']]],
   ['compute_5finterpolation_5foperator_35',['compute_interpolation_operator',['../namespacebasix.html#a3b672c19276067fd862382d7cb07b432',1,'basix']]],
   ['contravariant_5fpiola_36',['contravariant_piola',['../namespacebasix_1_1maps.html#a544e6c8e661458dcb505b1fe7eef16bd',1,'basix::maps']]],
   ['covariant_5fpiola_37',['covariant_piola',['../namespacebasix_1_1maps.html#a4cd024956b7df5e3bad0fd0bdf11cbef',1,'basix::maps']]],
@@ -30,6 +30,5 @@ var searchData=
   ['create_5fserendipity_54',['create_serendipity',['../namespacebasix_1_1element.html#adf5a3c33f20854f18fd50f54df312754',1,'basix::element']]],
   ['create_5fserendipity_5fcurl_55',['create_serendipity_curl',['../namespacebasix_1_1element.html#a3851cfe57e48a7a01d9b9d690e5eb9cb',1,'basix::element']]],
   ['create_5fserendipity_5fdiv_56',['create_serendipity_div',['../namespacebasix_1_1element.html#a6f8d373c94ab829fdbdf8b6dea9deeb1',1,'basix::element']]],
-  ['cross_57',['cross',['../namespacebasix_1_1math.html#aa5f177ecf427144c89885f7e50770ab8',1,'basix::math']]],
-  ['cross_5fnew_58',['cross_new',['../namespacebasix_1_1math.html#a7a53716f9d085028396b615a890e7456',1,'basix::math']]]
+  ['cross_5fnew_57',['cross_new',['../namespacebasix_1_1math.html#a7a53716f9d085028396b615a890e7456',1,'basix::math']]]
 ];
