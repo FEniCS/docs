@@ -25,5 +25,5 @@ var searchData=
   ['create_5fserendipity_194',['create_serendipity',['../namespacebasix_1_1element.html#adf5a3c33f20854f18fd50f54df312754',1,'basix::element']]],
   ['create_5fserendipity_5fcurl_195',['create_serendipity_curl',['../namespacebasix_1_1element.html#a3851cfe57e48a7a01d9b9d690e5eb9cb',1,'basix::element']]],
   ['create_5fserendipity_5fdiv_196',['create_serendipity_div',['../namespacebasix_1_1element.html#a6f8d373c94ab829fdbdf8b6dea9deeb1',1,'basix::element']]],
-  ['cross_5fnew_197',['cross_new',['../namespacebasix_1_1math.html#a7a53716f9d085028396b615a890e7456',1,'basix::math']]]
+  ['cross_197',['cross',['../namespacebasix_1_1math.html#a4d10f47ad43a02bab46793d163ffe850',1,'basix::math']]]
 ];
