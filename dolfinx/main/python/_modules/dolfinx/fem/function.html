@@ -72,7 +72,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.fem.function</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2009-2019 Chris N. Richardson, Garth N. Wells and Michal Habera</span>
+<span></span><span class="c1"># Copyright (C) 2009-2022 Chris N. Richardson, Garth N. Wells and Michal Habera</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -88,7 +88,6 @@
 
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">singledispatch</span>
 
-<span class="kn">import</span> <span class="nn">cffi</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">numpy.typing</span> <span class="k">as</span> <span class="nn">npt</span>
 
@@ -185,13 +184,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported scalar type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> for Expression.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_expression</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="p">(</span><span class="n">ufl_expression</span><span class="p">,</span> <span class="n">_X</span><span class="p">),</span>
-                                                            <span class="n">form_compiler_params</span><span class="o">=</span><span class="n">form_compiler_params</span><span class="p">,</span>
-                                                            <span class="n">jit_params</span><span class="o">=</span><span class="n">jit_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_expression</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="p">(</span><span class="n">ufl_expression</span><span class="p">,</span> <span class="n">_X</span><span class="p">),</span>
+                                                                 <span class="n">form_compiler_params</span><span class="o">=</span><span class="n">form_compiler_params</span><span class="p">,</span>
+                                                                 <span class="n">jit_params</span><span class="o">=</span><span class="n">jit_params</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_expression</span> <span class="o">=</span> <span class="n">ufl_expression</span>
-
-        <span class="c1"># Tabulation function.</span>
-        <span class="n">ffi</span> <span class="o">=</span> <span class="n">cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
 
         <span class="c1"># Prepare coefficients data. For every coefficient in form take</span>
         <span class="c1"># its C++ object.</span>
@@ -219,6 +215,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
 
+        <span class="n">ffi</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">ffi</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">create_expression</span><span class="p">(</span><span class="n">dtype</span><span class="p">)(</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_expression</span><span class="p">)),</span>
                                                     <span class="n">coeffs</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_function_space</span><span class="p">)</span>
 
@@ -381,20 +378,24 @@
         <span class="sd">&quot;&quot;&quot;Interpolate an expression</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            u: The function, Expression or Function to interpolate</span>
+<span class="sd">            u: The function, Expression or Function to interpolate.</span>
 <span class="sd">            cells: The cells to interpolate over. If `None` then all</span>
-<span class="sd">                cells are interpolated over</span>
+<span class="sd">                cells are interpolated over.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nd">@singledispatch</span>
-        <span class="k">def</span> <span class="nf">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Interpolate a cpp.fem.Function&quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+
+        <span class="nd">@_interpolate</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Function</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">Function</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Interpolate a fem.Function&quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
 
         <span class="nd">@_interpolate</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-        <span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">u_ptr</span><span class="p">,</span> <span class="n">cells</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="n">u_ptr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Interpolate using a pointer to a function f(x)&quot;&quot;&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolate_ptr</span><span class="p">(</span><span class="n">u_ptr</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
 
         <span class="nd">@_interpolate</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Expression</span><span class="p">)</span>
@@ -407,7 +408,13 @@
             <span class="nb">map</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
             <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">map</span><span class="o">.</span><span class="n">size_local</span> <span class="o">+</span> <span class="nb">map</span><span class="o">.</span><span class="n">num_ghosts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
 
-        <span class="n">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># u is a Function or Expression (or pointer to one)</span>
+            <span class="n">_interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="c1"># u is callable</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">interpolation_coords</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">element</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">cells</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Function.copy"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Function</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Return a copy of the Function. The FunctionSpace is shared and the</span>
@@ -452,8 +459,8 @@
 <span class="sd">            i: The index of the sub-function to extract.</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            The sub functions are numbered from i = 0..N-1, where N is</span>
-<span class="sd">            the total number of sub spaces.</span>
+<span class="sd">            The sub functions are numbered i = 0..N-1, where N is the</span>
+<span class="sd">            total number of sub spaces.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
@@ -520,7 +527,7 @@
                 <span class="n">mesh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span> <span class="n">form_compiler_params</span><span class="o">=</span><span class="n">form_compiler_params</span><span class="p">,</span>
                 <span class="n">jit_params</span><span class="o">=</span><span class="n">jit_params</span><span class="p">)</span>
 
-            <span class="n">ffi</span> <span class="o">=</span> <span class="n">cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
+            <span class="n">ffi</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">ffi</span>
             <span class="n">cpp_element</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_element</span><span class="p">)))</span>
             <span class="n">cpp_dofmap</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_dofmap</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span>
                 <span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_dofmap</span><span class="p">)),</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">)</span>
@@ -615,7 +622,7 @@
 <span class="sd">        new to old dofs.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            The new function space and the map from new to old dofs.</span>
+<span class="sd">            The new function space and the map from new to old degrees-of-freedom.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cpp_space</span><span class="p">,</span> <span class="n">dofs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">collapse</span><span class="p">()</span>
