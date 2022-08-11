@@ -1,0 +1,382 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.formatting.graph &#8212; Unified Form Language (UFL) 2022.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.formatting.graph</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;Algorithms for working with linearized computational graphs.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">heapq</span> <span class="kn">import</span> <span class="n">heapify</span><span class="p">,</span> <span class="n">heappop</span>
+
+<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">unique_pre_traversal</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
+
+<span class="c1"># O(n) = O(|V|) = O(|E|), since |E| &lt; c|V| for a fairly small c.</span>
+
+
+<span class="c1"># --- Basic utility functions ---</span>
+
+<div class="viewcode-block" id="lists"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.lists">[docs]</a><span class="k">def</span> <span class="nf">lists</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="len_items"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.len_items">[docs]</a><span class="k">def</span> <span class="nf">len_items</span><span class="p">(</span><span class="n">sequence</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">len</span><span class="p">,</span> <span class="n">sequence</span><span class="p">))</span></div>
+
+
+<span class="c1"># --- Graph building functions ---</span>
+
+<div class="viewcode-block" id="build_graph"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.build_graph">[docs]</a><span class="k">def</span> <span class="nf">build_graph</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>  <span class="c1"># O(n)</span>
+    <span class="sd">&quot;&quot;&quot;Build a linearized graph from an UFL Expr.</span>
+
+<span class="sd">    Returns G = (V, E), with V being a list of</span>
+<span class="sd">    graph nodes (Expr objects) in post traversal</span>
+<span class="sd">    ordering and E being a list of edges. Each edge</span>
+<span class="sd">    is represented as a (i, j) tuple where i and j</span>
+<span class="sd">    are vertex indices into V.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">handled</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">unique_pre_traversal</span><span class="p">(</span><span class="n">expr</span><span class="p">))):</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">handled</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+            <span class="n">handled</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">V</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">:</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">handled</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
+                <span class="n">e</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+                <span class="n">E</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">V</span><span class="p">,</span> <span class="n">E</span>
+    <span class="k">return</span> <span class="n">G</span></div>
+
+
+<div class="viewcode-block" id="extract_incoming_edges"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.extract_incoming_edges">[docs]</a><span class="k">def</span> <span class="nf">extract_incoming_edges</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>  <span class="c1"># O(n)</span>
+    <span class="s2">&quot;Build lists of incoming edges to each vertex in a linearized graph.&quot;</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">Ein</span> <span class="o">=</span> <span class="n">lists</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+        <span class="n">Ein</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Ein</span></div>
+
+
+<div class="viewcode-block" id="extract_outgoing_edges"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.extract_outgoing_edges">[docs]</a><span class="k">def</span> <span class="nf">extract_outgoing_edges</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>  <span class="c1"># O(n)</span>
+    <span class="s2">&quot;Build list of outgoing edges from each vertex in a linearized graph.&quot;</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">Eout</span> <span class="o">=</span> <span class="n">lists</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+        <span class="n">Eout</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Eout</span></div>
+
+
+<div class="viewcode-block" id="extract_incoming_vertex_connections"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.extract_incoming_vertex_connections">[docs]</a><span class="k">def</span> <span class="nf">extract_incoming_vertex_connections</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>  <span class="c1"># O(n)</span>
+    <span class="sd">&quot;&quot;&quot;Build lists of vertices in incoming and outgoing</span>
+<span class="sd">    edges to and from each vertex in a linearized graph.</span>
+
+<span class="sd">    Returns lists Vin and Vout.&quot;&quot;&quot;</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">Vin</span> <span class="o">=</span> <span class="n">lists</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">E</span><span class="p">:</span>
+        <span class="n">Vin</span><span class="p">[</span><span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Vin</span></div>
+
+
+<div class="viewcode-block" id="extract_outgoing_vertex_connections"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.extract_outgoing_vertex_connections">[docs]</a><span class="k">def</span> <span class="nf">extract_outgoing_vertex_connections</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>  <span class="c1"># O(n)</span>
+    <span class="sd">&quot;&quot;&quot;Build lists of vertices in incoming and outgoing</span>
+<span class="sd">    edges to and from each vertex in a linearized graph.</span>
+
+<span class="sd">    Returns lists Vin and Vout.&quot;&quot;&quot;</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">Vout</span> <span class="o">=</span> <span class="n">lists</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">E</span><span class="p">:</span>
+        <span class="n">Vout</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Vout</span></div>
+
+
+<span class="c1"># --- Graph class ---</span>
+
+<div class="viewcode-block" id="Graph"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph">[docs]</a><span class="k">class</span> <span class="nc">Graph</span><span class="p">:</span>
+    <span class="s2">&quot;Graph class which computes connectivity on demand.&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expression</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span> <span class="o">=</span> <span class="n">build_graph</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Ein</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Eout</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Vin</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_Vout</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Graph.V"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.V">[docs]</a>    <span class="k">def</span> <span class="nf">V</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span></div>
+
+<div class="viewcode-block" id="Graph.E"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.E">[docs]</a>    <span class="k">def</span> <span class="nf">E</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span></div>
+
+<div class="viewcode-block" id="Graph.Ein"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.Ein">[docs]</a>    <span class="k">def</span> <span class="nf">Ein</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Ein</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_Ein</span> <span class="o">=</span> <span class="n">extract_incoming_edges</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Ein</span></div>
+
+<div class="viewcode-block" id="Graph.Eout"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.Eout">[docs]</a>    <span class="k">def</span> <span class="nf">Eout</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Eout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_Eout</span> <span class="o">=</span> <span class="n">extract_outgoing_edges</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Eout</span></div>
+
+<div class="viewcode-block" id="Graph.Vin"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.Vin">[docs]</a>    <span class="k">def</span> <span class="nf">Vin</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Vin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_Vin</span> <span class="o">=</span> <span class="n">extract_incoming_vertex_connections</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Vin</span></div>
+
+<div class="viewcode-block" id="Graph.Vout"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.Graph.Vout">[docs]</a>    <span class="k">def</span> <span class="nf">Vout</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Vout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_Vout</span> <span class="o">=</span> <span class="n">extract_outgoing_vertex_connections</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Vout</span></div>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_E</span><span class="p">))</span></div>
+
+
+<span class="c1"># --- Scheduling algorithms ---</span>
+
+<div class="viewcode-block" id="HeapItem"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.HeapItem">[docs]</a><span class="k">class</span> <span class="nc">HeapItem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">incoming</span><span class="p">,</span> <span class="n">outgoing</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">incoming</span> <span class="o">=</span> <span class="n">incoming</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outgoing</span> <span class="o">=</span> <span class="n">outgoing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">i</span> <span class="o">=</span> <span class="n">i</span>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="n">other</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
+
+    <span class="k">def</span> <span class="fm">__le__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="n">other</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">outgoing</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">],</span> <span class="n">other</span><span class="o">.</span><span class="n">incoming</span><span class="p">[</span><span class="n">other</span><span class="o">.</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span></div>
+
+
+<div class="viewcode-block" id="depth_first_ordering"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.depth_first_ordering">[docs]</a><span class="k">def</span> <span class="nf">depth_first_ordering</span><span class="p">(</span><span class="n">G</span><span class="p">):</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">Vin</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">Vin</span><span class="p">()</span>
+    <span class="n">Vout</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">Vout</span><span class="p">()</span>
+    <span class="n">Ein_count</span> <span class="o">=</span> <span class="n">len_items</span><span class="p">(</span><span class="n">Vin</span><span class="p">)</span>
+    <span class="n">Eout_count</span> <span class="o">=</span> <span class="n">len_items</span><span class="p">(</span><span class="n">Vout</span><span class="p">)</span>
+
+    <span class="c1"># Make a list and a heap of the same items</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="p">[</span><span class="n">HeapItem</span><span class="p">(</span><span class="n">Ein_count</span><span class="p">,</span> <span class="n">Eout_count</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+    <span class="n">heapify</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+
+    <span class="n">ordering</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">q</span><span class="p">:</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">heappop</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+        <span class="n">iv</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">i</span>
+        <span class="n">ordering</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">iv</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">Vin</span><span class="p">[</span><span class="n">iv</span><span class="p">]:</span>
+            <span class="n">Eout_count</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="c1"># Resort heap, worst case linear time, makes this algorithm</span>
+        <span class="c1"># O(n^2)... TODO: Not good!</span>
+        <span class="n">heapify</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+
+    <span class="c1"># TODO: Can later accumulate dependencies as well during dft-like</span>
+    <span class="c1"># algorithm.</span>
+    <span class="k">return</span> <span class="n">ordering</span></div>
+
+
+<span class="c1"># --- Graph partitoning ---</span>
+
+<div class="viewcode-block" id="StringDependencyDefiner"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner">[docs]</a><span class="k">class</span> <span class="nc">StringDependencyDefiner</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given an expr, returns a frozenset of its dependencies.</span>
+
+<span class="sd">    Possible dependency values are:</span>
+<span class="sd">        &quot;c&quot;       - depends on runtime information like the cell, local&lt;-&gt;global coordinate mappings, facet normals, or coefficients</span>
+<span class="sd">        &quot;x&quot;       - depends on local coordinates</span>
+<span class="sd">        &quot;v%d&quot; % i - depends on argument i, for i in [0,rank)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">argument_deps</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coefficient_deps</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">argument_deps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">argument_deps</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">coefficient_deps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">coefficient_deps</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">argument_deps</span> <span class="o">=</span> <span class="n">argument_deps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_deps</span> <span class="o">=</span> <span class="n">coefficient_deps</span>
+
+<div class="viewcode-block" id="StringDependencyDefiner.expr"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.expr">[docs]</a>    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">frozenset</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="StringDependencyDefiner.argument"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.argument">[docs]</a>    <span class="k">def</span> <span class="nf">argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;v</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span>  <span class="c1"># TODO: This is missing the part, but this code is ready for deletion anyway?</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_deps</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="StringDependencyDefiner.coefficient"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.coefficient">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_deps</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="StringDependencyDefiner.geometric_quantity"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.geometric_quantity">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_quantity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">deps</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,))</span>
+        <span class="k">return</span> <span class="n">deps</span></div>
+
+<div class="viewcode-block" id="StringDependencyDefiner.facet_normal"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.facet_normal">[docs]</a>    <span class="k">def</span> <span class="nf">facet_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+        <span class="n">deps</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;c&quot;</span><span class="p">,))</span>
+        <span class="c1"># Enabling coordinate dependency for higher order geometries</span>
+        <span class="c1"># (not handled anywhere else though, so consider this experimental)</span>
+        <span class="c1"># if o.has_higher_degree_cell_geometry():</span>
+        <span class="c1">#     deps = deps | frozenset((&quot;x&quot;,))</span>
+        <span class="k">return</span> <span class="n">deps</span></div>
+
+<div class="viewcode-block" id="StringDependencyDefiner.spatial_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.StringDependencyDefiner.spatial_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">spatial_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>  <span class="c1"># TODO: What about (basis) functions of which derivatives are constant? Should special-case spatial_derivative in partition().</span>
+        <span class="n">deps</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;c&quot;</span><span class="p">,))</span>
+        <span class="c1"># Enabling coordinate dependency for higher order geometries</span>
+        <span class="c1"># (not handled anywhere else though).</span>
+        <span class="c1"># if o.has_higher_degree_cell_geometry():</span>
+        <span class="c1">#     deps = deps | frozenset((&quot;x&quot;,))</span>
+        <span class="k">return</span> <span class="n">deps</span></div></div>
+
+
+<span class="n">dd</span> <span class="o">=</span> <span class="n">StringDependencyDefiner</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="string_set_criteria"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.string_set_criteria">[docs]</a><span class="k">def</span> <span class="nf">string_set_criteria</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">keys</span><span class="p">):</span>
+    <span class="c1"># Using sets of ufl objects</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">dd</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">|=</span> <span class="n">k</span>
+    <span class="k">return</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="partition"><a class="viewcode-back" href="../../../api-doc/ufl.formatting.html#ufl.formatting.graph.partition">[docs]</a><span class="k">def</span> <span class="nf">partition</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">criteria</span><span class="o">=</span><span class="n">string_set_criteria</span><span class="p">):</span>
+    <span class="n">V</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">G</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+
+    <span class="n">Vout</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">Vout</span><span class="p">()</span>
+
+    <span class="n">partitions</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="k">for</span> <span class="n">iv</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+        <span class="c1"># Get keys from all outgoing edges</span>
+        <span class="n">edge_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">keys</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="n">Vout</span><span class="p">[</span><span class="n">iv</span><span class="p">]]</span>
+
+        <span class="c1"># Calculate key for this vertex</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">criteria</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">edge_keys</span><span class="p">)</span>
+
+        <span class="c1"># Store mappings from key to vertex and back</span>
+        <span class="n">partitions</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">iv</span><span class="p">)</span>
+        <span class="n">keys</span><span class="p">[</span><span class="n">iv</span><span class="p">]</span> <span class="o">=</span> <span class="n">key</span>
+    <span class="k">return</span> <span class="n">partitions</span><span class="p">,</span> <span class="n">keys</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

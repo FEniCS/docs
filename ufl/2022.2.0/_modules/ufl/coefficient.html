@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.coefficient &#8212; Unified Form Language (UFL) 2022.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.coefficient</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;This module defines the Coefficient class and a number</span>
+<span class="sd">of related classes, including Constant.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009.</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016.</span>
+<span class="c1"># Modified by Cecile Daversin-Catty, 2018.</span>
+
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">FormArgument</span>
+<span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">FiniteElementBase</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">default_domain</span>
+<span class="kn">from</span> <span class="nn">ufl.functionspace</span> <span class="kn">import</span> <span class="n">AbstractFunctionSpace</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">MixedFunctionSpace</span>
+<span class="kn">from</span> <span class="nn">ufl.split_functions</span> <span class="kn">import</span> <span class="n">split</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.counted</span> <span class="kn">import</span> <span class="n">counted_init</span>
+
+<span class="c1"># --- The Coefficient class represents a coefficient in a form ---</span>
+
+
+<div class="viewcode-block" id="Coefficient"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">Coefficient</span><span class="p">(</span><span class="n">FormArgument</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL form argument type: Representation of a form coefficient.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Slots are disabled here because they cause trouble in PyDOLFIN</span>
+    <span class="c1"># multiple inheritance pattern:</span>
+    <span class="c1"># __slots__ = (&quot;_count&quot;, &quot;_ufl_function_space&quot;, &quot;_repr&quot;, &quot;_ufl_shape&quot;)</span>
+    <span class="n">_ufl_noslots_</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_globalcount</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function_space</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">FormArgument</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">counted_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="c1"># For legacy support for .ufl files using cells, we map</span>
+            <span class="c1"># the cell to The Default Mesh</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">function_space</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">default_domain</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">cell</span><span class="p">())</span>
+            <span class="n">function_space</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">AbstractFunctionSpace</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting a FunctionSpace or FiniteElement.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span> <span class="o">=</span> <span class="n">function_space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_shape</span> <span class="o">=</span> <span class="n">function_space</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span> <span class="o">=</span> <span class="s2">&quot;Coefficient(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_count</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Coefficient.count"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.count">[docs]</a>    <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_count</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return the associated UFL shape.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_shape</span>
+
+<div class="viewcode-block" id="Coefficient.ufl_function_space"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.ufl_function_space">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Get the function space of this coefficient.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span></div>
+
+<div class="viewcode-block" id="Coefficient.ufl_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.ufl_domain">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Shortcut to get the domain of the function space of this coefficient.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Coefficient.ufl_element"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.ufl_element">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_element</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Shortcut to get the finite element of the function space of this coefficient.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Coefficient.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return whether this expression is spatially constant over each cell.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">is_cellwise_constant</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Coefficient.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficient.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Return tuple of domains related to this terminal object.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+        <span class="s2">&quot;Signature data for form arguments depend on the global numbering of the form arguments and domains.&quot;</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">renumbering</span><span class="p">[</span><span class="bp">self</span><span class="p">]</span>
+        <span class="n">fsdata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="o">.</span><span class="n">_ufl_signature_data_</span><span class="p">(</span><span class="n">renumbering</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;Coefficient&quot;</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">fsdata</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_count</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">count</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;w_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">count</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;w_{</span><span class="si">%s</span><span class="s2">}&quot;</span> <span class="o">%</span> <span class="n">count</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_count</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_count</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_function_space</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_function_space</span><span class="p">)</span></div>
+
+
+<span class="c1"># --- Helper functions for subfunctions on mixed elements ---</span>
+
+<div class="viewcode-block" id="Coefficients"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Coefficients">[docs]</a><span class="k">def</span> <span class="nf">Coefficients</span><span class="p">(</span><span class="n">function_space</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;UFL value: Create a Coefficient in a mixed space, and return a</span>
+<span class="sd">    tuple with the function components corresponding to the subelements.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">MixedFunctionSpace</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Coefficient</span><span class="p">(</span><span class="n">function_space</span><span class="o">.</span><span class="n">ufl_sub_space</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">function_space</span><span class="o">.</span><span class="n">num_sub_spaces</span><span class="p">())]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">split</span><span class="p">(</span><span class="n">Coefficient</span><span class="p">(</span><span class="n">function_space</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

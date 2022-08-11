@@ -1,0 +1,492 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.differentiation &#8212; Unified Form Language (UFL) 2022.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.differentiation</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="s2">&quot;Differential operators.&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009.</span>
+
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span>
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span>
+<span class="kn">from</span> <span class="nn">ufl.core.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+
+<span class="kn">from</span> <span class="nn">ufl.exprcontainers</span> <span class="kn">import</span> <span class="n">ExprList</span><span class="p">,</span> <span class="n">ExprMapping</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+<span class="kn">from</span> <span class="nn">ufl.variable</span> <span class="kn">import</span> <span class="n">Variable</span>
+<span class="kn">from</span> <span class="nn">ufl.precedence</span> <span class="kn">import</span> <span class="n">parstr</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">find_geometric_dimension</span>
+<span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_cellwise_constant</span>
+
+
+<span class="c1"># --- Basic differentiation objects ---</span>
+
+<div class="viewcode-block" id="Derivative"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Derivative">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+          <span class="n">is_differential</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Derivative</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="s2">&quot;Base class for all derivative types.&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">):</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CoefficientDerivative"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CoefficientDerivative">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">CoefficientDerivative</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Derivative of the integrand of a form w.r.t. the</span>
+<span class="sd">    degrees of freedom in a discrete Coefficient.&quot;&quot;&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span>
+                <span class="n">coefficient_derivatives</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">ExprList</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting ExprList instance with Coefficients.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span> <span class="n">ExprList</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting ExprList instance with Arguments.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient_derivatives</span><span class="p">,</span> <span class="n">ExprMapping</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting ExprMapping for coefficient derivatives.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">integrand</span>
+        <span class="k">return</span> <span class="n">Derivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span>
+                 <span class="n">coefficient_derivatives</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient_derivatives</span><span class="p">,</span> <span class="n">ExprMapping</span><span class="p">):</span>
+            <span class="n">coefficient_derivatives</span> <span class="o">=</span> <span class="n">ExprMapping</span><span class="p">(</span><span class="n">coefficient_derivatives</span><span class="p">)</span>
+        <span class="n">Derivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span>
+                                   <span class="n">coefficient_derivatives</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;d/dfj { </span><span class="si">%s</span><span class="s2"> }, with fh=</span><span class="si">%s</span><span class="s2">, dfh/dfj = </span><span class="si">%s</span><span class="s2">, and coefficient derivatives </span><span class="si">%s</span><span class="s2">&quot;</span>\
+            <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="CoordinateDerivative"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CoordinateDerivative">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">CoordinateDerivative</span><span class="p">(</span><span class="n">CoefficientDerivative</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Derivative of the integrand of a form w.r.t. the SpatialCoordinates.&quot;&quot;&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;d/dfj { </span><span class="si">%s</span><span class="s2"> }, with fh=</span><span class="si">%s</span><span class="s2">, dfh/dfj = </span><span class="si">%s</span><span class="s2">, and coordinate derivatives </span><span class="si">%s</span><span class="s2">&quot;</span>\
+            <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+               <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="VariableDerivative"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.VariableDerivative">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">VariableDerivative</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;ufl_shape&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting an Expr in VariableDerivative.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="n">Variable</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting a Variable in VariableDerivative.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Differentiation variable cannot have free indices.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="c1"># Return zero if expression is trivially independent of variable</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">_ufl_is_terminal_</span> <span class="ow">and</span> <span class="n">f</span> <span class="o">!=</span> <span class="n">v</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="c1"># Construction</span>
+        <span class="k">return</span> <span class="n">Derivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">Derivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Terminal</span><span class="p">):</span>
+            <span class="k">return</span> <span class="s2">&quot;d</span><span class="si">%s</span><span class="s2">/d[</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;d/d[</span><span class="si">%s</span><span class="s2">] </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                               <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">))</span></div>
+
+
+<span class="c1"># --- Compound differentiation objects ---</span>
+
+<div class="viewcode-block" id="CompoundDerivative"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CompoundDerivative">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">CompoundDerivative</span><span class="p">(</span><span class="n">Derivative</span><span class="p">):</span>
+    <span class="s2">&quot;Base class for all compound derivative types.&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">):</span>
+        <span class="n">Derivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Grad"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Grad">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Grad</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_dim&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">dim</span><span class="p">,),</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="s2">&quot;Return a new object of the same type with new operands.&quot;</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">op</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Operand shape mismatch in Grad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">!=</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free index mismatch in Grad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Grad.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Grad.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">,</span> <span class="n">derivatives</span><span class="o">=</span><span class="p">()):</span>
+        <span class="s2">&quot;Get child from mapping and return the component asked for.&quot;</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">component</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">component</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">derivatives</span> <span class="o">=</span> <span class="n">derivatives</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span>
+                                               <span class="n">index_values</span><span class="p">,</span>
+                                               <span class="n">derivatives</span><span class="o">=</span><span class="n">derivatives</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;grad(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ReferenceGrad"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceGrad">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+          <span class="n">is_in_reference_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ReferenceGrad</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_dim&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">dim</span><span class="p">,),</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="s2">&quot;Return a new object of the same type with new operands.&quot;</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">op</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Operand shape mismatch in ReferenceGrad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">!=</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free index mismatch in ReferenceGrad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ReferenceGrad.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceGrad.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">,</span> <span class="n">derivatives</span><span class="o">=</span><span class="p">()):</span>
+        <span class="s2">&quot;Get child from mapping and return the component asked for.&quot;</span>
+        <span class="n">component</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">component</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">component</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">derivatives</span> <span class="o">=</span> <span class="n">derivatives</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span><span class="p">,)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span>
+                                               <span class="n">index_values</span><span class="p">,</span>
+                                               <span class="n">derivatives</span><span class="o">=</span><span class="n">derivatives</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;reference_grad(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Div"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Div">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Div</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free indices in the divergence argument is not allowed.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># No free indices asserted above</span>
+
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;div(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ReferenceDiv"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceDiv">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+          <span class="n">is_in_reference_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ReferenceDiv</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free indices in the divergence argument is not allowed.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># No free indices asserted above</span>
+
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;reference_div(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="NablaGrad"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.NablaGrad">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">NablaGrad</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_dim&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((</span><span class="n">dim</span><span class="p">,)</span> <span class="o">+</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dim</span> <span class="o">=</span> <span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+        <span class="s2">&quot;Return a new object of the same type with new operands.&quot;</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">op</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Operand shape mismatch in NablaGrad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">!=</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+                <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free index mismatch in NablaGrad reconstruct.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dim</span><span class="p">,)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;nabla_grad(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="NablaDiv"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.NablaDiv">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">NablaDiv</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free indices in the divergence argument is not allowed.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>  <span class="c1"># No free indices asserted above</span>
+
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;nabla_div(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<span class="n">_curl_shapes</span> <span class="o">=</span> <span class="p">{():</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="p">(),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,):</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)}</span>
+
+
+<div class="viewcode-block" id="Curl"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Curl">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Curl</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_shape&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="c1"># Validate input</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">((),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting a scalar, 2D vector or 3D vector.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free indices in the curl argument is not allowed.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">sh</span> <span class="o">=</span> <span class="p">{():</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="p">(),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,):</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)}[</span><span class="n">sh</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>  <span class="c1"># No free indices asserted above</span>
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">_curl_shapes</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">=</span> <span class="n">_curl_shapes</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;curl(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ReferenceCurl"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceCurl">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">is_terminal_modifier</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">is_in_reference_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ReferenceCurl</span><span class="p">(</span><span class="n">CompoundDerivative</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_shape&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="c1"># Validate input</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">((),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)):</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Expecting a scalar, 2D vector or 3D vector.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="n">error</span><span class="p">(</span><span class="s2">&quot;Free indices in the curl argument is not allowed.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if expression is trivially constant</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+            <span class="n">sh</span> <span class="o">=</span> <span class="p">{():</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="p">(),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,):</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)}[</span><span class="n">sh</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>  <span class="c1"># No free indices asserted above</span>
+        <span class="k">return</span> <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">_curl_shapes</span>
+        <span class="n">CompoundDerivative</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">f</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">=</span> <span class="n">_curl_shapes</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;reference_curl(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
