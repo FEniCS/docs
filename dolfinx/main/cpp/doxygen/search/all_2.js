@@ -38,7 +38,7 @@ var searchData=
   ['compute_5fcollisions_73',['compute_collisions',['../de/d27/namespacedolfinx_1_1geometry.html#a5d4f7853e163eb27ed2fc63e20c285a3',1,'dolfinx::geometry::compute_collisions(const BoundingBoxTree &amp;tree, const std::span&lt; const double &gt; &amp;points)'],['../de/d27/namespacedolfinx_1_1geometry.html#a141057866ff1dd8c4d5a0fa37df883ae',1,'dolfinx::geometry::compute_collisions(const BoundingBoxTree &amp;tree0, const BoundingBoxTree &amp;tree1)']]],
   ['compute_5fconnectivity_74',['compute_connectivity',['../dd/d7d/namespacedolfinx_1_1mesh.html#af1c4fa9d6d7c2783965c4f56216350a6',1,'dolfinx::mesh']]],
   ['compute_5fdistance_5fgjk_75',['compute_distance_gjk',['../de/d27/namespacedolfinx_1_1geometry.html#a0fcff9693dd83a9adc0fdbf067aca539',1,'dolfinx::geometry']]],
-  ['compute_5fentities_76',['compute_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a4431904d87b8c7d7ec582d426bd07563',1,'dolfinx::mesh']]],
+  ['compute_5fentities_76',['compute_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#aa1a8bb59548f3a120365028ab2e76b17',1,'dolfinx::mesh']]],
   ['compute_5fentity_5fpermutations_77',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#aeb806bcc85940ea4818196d210d7dff7',1,'dolfinx::mesh']]],
   ['compute_5fghost_5findices_78',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a95811012572f0dc50fed60a37b05b232',1,'dolfinx::graph::build']]],
   ['compute_5fgraph_5fedges_5fnbx_79',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#a65bca82c2eb8705e3975e2fbad5af477',1,'dolfinx::MPI']]],
@@ -86,7 +86,7 @@ var searchData=
   ['create_5fsparsity_5fpattern_121',['create_sparsity_pattern',['../d8/dbf/namespacedolfinx_1_1fem.html#ad3eed6f60241daa4b02ff2be90c54bcd',1,'dolfinx::fem::create_sparsity_pattern(const mesh::Topology &amp;topology, const std::array&lt; std::reference_wrapper&lt; const DofMap &gt;, 2 &gt; &amp;dofmaps, const std::set&lt; IntegralType &gt; &amp;integrals)'],['../d8/dbf/namespacedolfinx_1_1fem.html#afefced23767b97f6cc040b07627f9522',1,'dolfinx::fem::create_sparsity_pattern(const Form&lt; T &gt; &amp;a)']]],
   ['create_5fsubmap_122',['create_submap',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#aae4ae1f54ad3bcaa0162b7d8957c39fa',1,'dolfinx::common::IndexMap']]],
   ['create_5fsubmesh_123',['create_submesh',['../dd/d7d/namespacedolfinx_1_1mesh.html#a2e6377819f6e59a7182e63dffcae592f',1,'dolfinx::mesh']]],
-  ['create_5ftopology_124',['create_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#a4b0385cf389ae62d71db5df4335e34b7',1,'dolfinx::mesh']]],
+  ['create_5ftopology_124',['create_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#a13451f0f18128c8fdb665117aee31a69',1,'dolfinx::mesh']]],
   ['create_5fvector_125',['create_vector',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#a975542d9258713ef7aaa885a660a29b0',1,'dolfinx::la::petsc::Operator']]],
   ['create_5fvector_5fblock_126',['create_vector_block',['../d4/d44/namespacedolfinx_1_1fem_1_1petsc.html#ad2071984b7c4246770228ad79e49672b',1,'dolfinx::fem::petsc']]],
   ['create_5fvector_5fnest_127',['create_vector_nest',['../d4/d44/namespacedolfinx_1_1fem_1_1petsc.html#a7a82687b9bf261027e466f0267927f4f',1,'dolfinx::fem::petsc']]]
