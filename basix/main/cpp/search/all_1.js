@@ -14,5 +14,6 @@ var searchData=
   ['polynomials_23',['polynomials',['../namespacebasix_1_1polynomials.html',1,'basix']]],
   ['polyset_24',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
   ['precompute_25',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
-  ['quadrature_26',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]]
+  ['quadrature_26',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]],
+  ['sobolev_27',['sobolev',['../namespacebasix_1_1sobolev.html',1,'basix']]]
 ];
