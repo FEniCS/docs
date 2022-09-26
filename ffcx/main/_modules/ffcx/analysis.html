@@ -15,6 +15,7 @@
         <script src="../../_static/underscore.js"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
@@ -99,7 +100,7 @@
 
 <span class="kn">import</span> <span class="nn">basix.ufl_wrapper</span>
 <span class="kn">import</span> <span class="nn">ufl</span>
-<span class="kn">from</span> <span class="nn">ffcx.element_interface</span> <span class="kn">import</span> <span class="n">convert_element</span>
+<span class="kn">from</span> <span class="nn">ffcx.element_interface</span> <span class="kn">import</span> <span class="n">convert_element</span><span class="p">,</span> <span class="n">QuadratureElement</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;ffcx&quot;</span><span class="p">)</span>
 
@@ -254,6 +255,17 @@
         <span class="n">do_append_everywhere_integrals</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># do not add dx integrals to dx(i) in UFL</span>
         <span class="n">complex_mode</span><span class="o">=</span><span class="n">complex_mode</span><span class="p">)</span>
 
+    <span class="c1"># If form contains a quadrature element, use the custom quadrature scheme</span>
+    <span class="n">custom_q</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">form_data</span><span class="o">.</span><span class="n">unique_elements</span><span class="p">:</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">convert_element</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">QuadratureElement</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">custom_q</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">custom_q</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">_points</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">_weights</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">numpy</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">_points</span><span class="p">,</span> <span class="n">custom_q</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">assert</span> <span class="n">numpy</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">_weights</span><span class="p">,</span> <span class="n">custom_q</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
     <span class="c1"># Determine unique quadrature degree, quadrature scheme and</span>
     <span class="c1"># precision per each integral data</span>
     <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">integral_data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">form_data</span><span class="o">.</span><span class="n">integral_data</span><span class="p">):</span>
@@ -285,25 +297,28 @@
         <span class="n">qr_default</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
 
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">integral</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">integral_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">):</span>
-            <span class="c1"># Extract quadrature degree</span>
-            <span class="n">qd_metadata</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;quadrature_degree&quot;</span><span class="p">,</span> <span class="n">qd_default</span><span class="p">)</span>
-            <span class="n">pd_estimated</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()[</span><span class="s2">&quot;estimated_polynomial_degree&quot;</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">qd_metadata</span> <span class="o">!=</span> <span class="n">qd_default</span><span class="p">:</span>
-                <span class="n">qd</span> <span class="o">=</span> <span class="n">qd_metadata</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">qd</span> <span class="o">=</span> <span class="n">pd_estimated</span>
-
-            <span class="c1"># Extract quadrature rule</span>
-            <span class="n">qr</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;quadrature_rule&quot;</span><span class="p">,</span> <span class="n">qr_default</span><span class="p">)</span>
-
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Integral </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, integral group </span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- quadrature rule: </span><span class="si">{</span><span class="n">qr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- quadrature degree: </span><span class="si">{</span><span class="n">qd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- precision: </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Update the old metadata</span>
             <span class="n">metadata</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
-            <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;quadrature_degree&quot;</span><span class="p">:</span> <span class="n">qd</span><span class="p">,</span> <span class="s2">&quot;quadrature_rule&quot;</span><span class="p">:</span> <span class="n">qr</span><span class="p">,</span> <span class="s2">&quot;precision&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">})</span>
+            <span class="k">if</span> <span class="n">custom_q</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Extract quadrature degree</span>
+                <span class="n">qd_metadata</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;quadrature_degree&quot;</span><span class="p">,</span> <span class="n">qd_default</span><span class="p">)</span>
+                <span class="n">pd_estimated</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()[</span><span class="s2">&quot;estimated_polynomial_degree&quot;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">qd_metadata</span> <span class="o">!=</span> <span class="n">qd_default</span><span class="p">:</span>
+                    <span class="n">qd</span> <span class="o">=</span> <span class="n">qd_metadata</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">qd</span> <span class="o">=</span> <span class="n">pd_estimated</span>
+
+                <span class="c1"># Extract quadrature rule</span>
+                <span class="n">qr</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;quadrature_rule&quot;</span><span class="p">,</span> <span class="n">qr_default</span><span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Integral </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, integral group </span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- quadrature rule: </span><span class="si">{</span><span class="n">qr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- quadrature degree: </span><span class="si">{</span><span class="n">qd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--- precision: </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;quadrature_degree&quot;</span><span class="p">:</span> <span class="n">qd</span><span class="p">,</span> <span class="s2">&quot;quadrature_rule&quot;</span><span class="p">:</span> <span class="n">qr</span><span class="p">,</span> <span class="s2">&quot;precision&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">})</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;quadrature_points&quot;</span><span class="p">:</span> <span class="n">custom_q</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;quadrature_weights&quot;</span><span class="p">:</span> <span class="n">custom_q</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                 <span class="s2">&quot;quadrature_rule&quot;</span><span class="p">:</span> <span class="s2">&quot;custom&quot;</span><span class="p">,</span> <span class="s2">&quot;precision&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">})</span>
 
             <span class="n">integral_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
 
