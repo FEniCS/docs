@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['operator_537',['Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html',1,'dolfinx::la::petsc']]]
+  ['operator_539',['Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html',1,'dolfinx::la::petsc']]]
 ];
