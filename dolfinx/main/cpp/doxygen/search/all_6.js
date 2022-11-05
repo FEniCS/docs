@@ -29,6 +29,6 @@ var searchData=
   ['ghostmode_235',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#a38d109d131f3180f43267fcf9fe9c4c4',1,'dolfinx::mesh']]],
   ['ghosts_236',['ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a977ef25c8c1a2dcdb5703a02b1764031',1,'dolfinx::common::IndexMap']]],
   ['global_5findices_237',['global_indices',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ae6575d9e7089ab0a49e99ee6f193d730',1,'dolfinx::common::IndexMap']]],
-  ['global_5fto_5flocal_238',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ab1d2b899a3e6ce93cac5e4975f857b5a',1,'dolfinx::common::IndexMap']]],
+  ['global_5fto_5flocal_238',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#abcf69c158f3857c6108a83d5fe281e77',1,'dolfinx::common::IndexMap']]],
   ['graph_239',['graph',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a57058984fc88a2ea966682491f0780f8',1,'dolfinx::la::SparsityPattern']]]
 ];

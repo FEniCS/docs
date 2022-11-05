@@ -4,7 +4,7 @@ var searchData=
   ['map_293',['map',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a146f7b3403455d4e9f6e8cdba5aeb735',1,'dolfinx::la::Vector']]],
   ['map_5fident_294',['map_ident',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#affcae09c2dd151ee8690bbaf72c9501d',1,'dolfinx::fem::FiniteElement']]],
   ['map_5ftype_295',['map_type',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1ea0e3c46b6922df927b7a7f9e282543',1,'dolfinx::fem::FiniteElement']]],
-  ['mark_5fdofs_296',['mark_dofs',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#afee84c6e1b93362cdc9c3b99d228ebdb',1,'dolfinx::fem::DirichletBC']]],
+  ['mark_5fdofs_296',['mark_dofs',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#ae566db907232be8a0a2bc0527c4c7ebd',1,'dolfinx::fem::DirichletBC']]],
   ['mat_297',['mat',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#ade528b2122a5736900370592a773aba9',1,'dolfinx::la::petsc::Operator']]],
   ['mat_5fadd_5fvalues_298',['mat_add_values',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a5dbde419f8ce7d7e23605a845fcc696e',1,'dolfinx::la::MatrixCSR']]],
   ['mat_5fset_5fvalues_299',['mat_set_values',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a0122cde4e6ee6a21928af1994f06f66c',1,'dolfinx::la::MatrixCSR']]],

@@ -28,6 +28,6 @@ var searchData=
   ['get_5fvtk_5fcell_5ftype_769',['get_vtk_cell_type',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a62012942c581b792bda9cdf9c9f3746b',1,'dolfinx::io::cells']]],
   ['ghosts_770',['ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a977ef25c8c1a2dcdb5703a02b1764031',1,'dolfinx::common::IndexMap']]],
   ['global_5findices_771',['global_indices',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ae6575d9e7089ab0a49e99ee6f193d730',1,'dolfinx::common::IndexMap']]],
-  ['global_5fto_5flocal_772',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#ab1d2b899a3e6ce93cac5e4975f857b5a',1,'dolfinx::common::IndexMap']]],
+  ['global_5fto_5flocal_772',['global_to_local',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#abcf69c158f3857c6108a83d5fe281e77',1,'dolfinx::common::IndexMap']]],
   ['graph_773',['graph',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a57058984fc88a2ea966682491f0780f8',1,'dolfinx::la::SparsityPattern']]]
 ];
