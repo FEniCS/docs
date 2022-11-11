@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['u_0',['U',['../dc/de4/classdolfinx_1_1io_1_1ADIOS2Writer.html#adaaaa7a484339df79650c7a78510f62f',1,'dolfinx::io::ADIOS2Writer']]]
+  ['scalar_5ftype_0',['scalar_type',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#ae879758ab49a8cd7f2302f96a9e9dd0c',1,'dolfinx::fem::Expression::scalar_type()'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#ae879758ab49a8cd7f2302f96a9e9dd0c',1,'dolfinx::fem::Form::scalar_type()']]]
 ];

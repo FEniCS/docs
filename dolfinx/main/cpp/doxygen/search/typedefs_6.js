@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['value_5ftype_0',['value_type',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#afb9ded5f49336ae503bb9f2035ea902b',1,'dolfinx::fem::Function::value_type()'],['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#afb9ded5f49336ae503bb9f2035ea902b',1,'dolfinx::la::MatrixCSR::value_type()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#afb9ded5f49336ae503bb9f2035ea902b',1,'dolfinx::la::Vector::value_type()']]]
+  ['u_0',['U',['../dc/de4/classdolfinx_1_1io_1_1ADIOS2Writer.html#adaaaa7a484339df79650c7a78510f62f',1,'dolfinx::io::ADIOS2Writer']]]
 ];
