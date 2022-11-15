@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['geometry_0',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ae71ef513a479cf7e015a6cb5afbf1641',1,'dolfinx::mesh::Mesh']]],
-  ['geometry_1',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a94d2303ba392d7736a1144d0c42779a4',1,'dolfinx::mesh::Geometry::Geometry(std::shared_ptr&lt; const common::IndexMap &gt; index_map, U &amp;&amp;dofmap, const fem::CoordinateElement &amp;element, V &amp;&amp;x, int dim, W &amp;&amp;input_global_indices)'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8d09a97e889f432c7165b139299947d3',1,'dolfinx::mesh::Geometry::Geometry(const Geometry &amp;)=default'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8ada746cf034501d1f8e557c590281a5',1,'dolfinx::mesh::Geometry::Geometry(Geometry &amp;&amp;)=default']]],
-  ['geometry_2',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#add8f82da9dd336f41f56e4e6887541df',1,'dolfinx::mesh::Mesh']]],
+  ['geometry_0',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8d09a97e889f432c7165b139299947d3',1,'dolfinx::mesh::Geometry::Geometry(const Geometry &amp;)=default'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8ada746cf034501d1f8e557c590281a5',1,'dolfinx::mesh::Geometry::Geometry(Geometry &amp;&amp;)=default']]],
+  ['geometry_1',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#add8f82da9dd336f41f56e4e6887541df',1,'dolfinx::mesh::Mesh::geometry()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ae71ef513a479cf7e015a6cb5afbf1641',1,'dolfinx::mesh::Mesh::geometry() const']]],
+  ['geometry_2',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a94d2303ba392d7736a1144d0c42779a4',1,'dolfinx::mesh::Geometry']]],
   ['get_3',['get',['../db/d97/classdolfinx_1_1Table.html#a68dc49b85daedd62f800503285fba101',1,'dolfinx::Table']]],
   ['get_5fbbox_4',['get_bbox',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a3a7216c7d18d14c451ada6aaf0f10c81',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['get_5fcell_5fpermutation_5finfo_5',['get_cell_permutation_info',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a50b3cacb19e901914944b4a72cd155c3',1,'dolfinx::mesh::Topology']]],

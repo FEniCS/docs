@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['tag_0',['tag',['../da/dfe/namespacedolfinx_1_1MPI.html#afcd86812aa931ca4c65bcccedc27592d',1,'dolfinx::MPI']]],
-  ['type_1',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
+  ['reduction_0',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a536aaa97b969b0acd31603703012bbff',1,'dolfinx::Table']]],
+  ['refinementoptions_1',['RefinementOptions',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a0630bc7b4a33916d468340fc053dea88',1,'dolfinx::refinement::plaza']]]
 ];
