@@ -9,9 +9,6 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
     <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-    <script src="../../../_static/jquery.js"></script>
-    <script src="../../../_static/underscore.js"></script>
-    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../../../_static/doctools.js"></script>
     <script src="../../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -33,31 +30,27 @@
           <div class="body" role="main">
             
   <h1>Source code for ufl.algorithms.apply_function_pullbacks</h1><div class="highlight"><pre>
-<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
-<span class="sd">&quot;&quot;&quot;Algorithm for replacing gradients in an expression with reference gradients and coordinate mappings.&quot;&quot;&quot;</span>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm for replacing gradients in an expression with reference gradients and coordinate mappings.&quot;&quot;&quot;</span>
 
 <span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
-<span class="c1">#</span>
-<span class="c1"># Modified by Lizao Li &lt;lzlarryli@gmail.com&gt;, 2016</span>
 
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span><span class="p">,</span> <span class="n">accumulate</span><span class="p">,</span> <span class="n">repeat</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">accumulate</span><span class="p">,</span> <span class="n">chain</span><span class="p">,</span> <span class="n">repeat</span>
 
-<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
 
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span>
+                         <span class="n">ReferenceValue</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">indices</span>
 <span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span><span class="p">,</span> <span class="n">memoized_handler</span>
-<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
-
-<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">ReferenceValue</span><span class="p">,</span>
-                         <span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">)</span>
-
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span> <span class="nn">ufl.log</span> <span class="kn">import</span> <span class="n">error</span>
 <span class="kn">from</span> <span class="nn">ufl.tensors</span> <span class="kn">import</span> <span class="n">as_tensor</span><span class="p">,</span> <span class="n">as_vector</span>
 <span class="kn">from</span> <span class="nn">ufl.utils.sequences</span> <span class="kn">import</span> <span class="n">product</span>
-<span class="kn">import</span> <span class="nn">numpy</span>
 
 
 <div class="viewcode-block" id="sub_elements_with_mappings"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.sub_elements_with_mappings">[docs]</a><span class="k">def</span> <span class="nf">sub_elements_with_mappings</span><span class="p">(</span><span class="n">element</span><span class="p">):</span>
@@ -95,7 +88,7 @@
 
 
 <div class="viewcode-block" id="apply_known_single_pullback"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_known_single_pullback">[docs]</a><span class="k">def</span> <span class="nf">apply_known_single_pullback</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Apply pullback with given mapping.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply pullback with given mapping.</span>
 
 <span class="sd">    :arg r: Expression wrapped in ReferenceValue</span>
 <span class="sd">    :arg element: The element defining the mapping</span>
@@ -105,7 +98,7 @@
     <span class="c1"># Coefficient/Argument (in the case of mixed elements, see below</span>
     <span class="c1"># in apply_single_function_pullbacks), to which we cannot apply ReferenceValue</span>
     <span class="n">mapping</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span>
-    <span class="n">domain</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;physical&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">r</span>
     <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;identity&quot;</span><span class="p">:</span>
@@ -150,7 +143,7 @@
 
 
 <div class="viewcode-block" id="apply_single_function_pullbacks"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_single_function_pullbacks">[docs]</a><span class="k">def</span> <span class="nf">apply_single_function_pullbacks</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Apply an appropriate pullback to something in physical space</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply an appropriate pullback to something in physical space</span>
 
 <span class="sd">    :arg r: An expression wrapped in ReferenceValue.</span>
 <span class="sd">    :arg element: The element this expression lives in.</span>
@@ -225,7 +218,7 @@
 
 
 <div class="viewcode-block" id="apply_function_pullbacks"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_function_pullbacks">[docs]</a><span class="k">def</span> <span class="nf">apply_function_pullbacks</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Change representation of coefficients and arguments in expression</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change representation of coefficients and arguments in expression</span>
 <span class="sd">    by applying Piola mappings where applicable and representing all</span>
 <span class="sd">    form arguments in reference value.</span>
 
@@ -290,10 +283,10 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2022, FEniCS Project.
+      &copy;2023, FEniCS Project.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.0.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
