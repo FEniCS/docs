@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.jit &mdash; DOLFINx 0.6.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> DOLFINx
+          </a>
+              <div class="version">
+                0.6.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dolfinx.jit</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.jit</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2017-2018 Chris N. Richardson and Garth N. Wells</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Just-in-time (JIT) compilation using FFCx&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">import</span> <span class="nn">ffcx</span>
+<span class="kn">import</span> <span class="nn">ffcx.codegeneration.jit</span>
+<span class="kn">import</span> <span class="nn">ufl</span>
+
+<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ffcx_jit&quot;</span><span class="p">,</span> <span class="s2">&quot;get_options&quot;</span><span class="p">]</span>
+
+<span class="n">DOLFINX_DEFAULT_JIT_OPTIONS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cache_dir&quot;</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;XDG_CACHE_HOME&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;.cache&quot;</span><span class="p">))</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;fenics&quot;</span><span class="p">),</span>
+         <span class="s2">&quot;Path for storing DOLFINx JIT cache. &quot;</span>
+         <span class="s2">&quot;Default prefix ~/.cache/ can be changed using XDG_CACHE_HOME environment variable.&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;cffi_debug&quot;</span><span class="p">:</span>
+        <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;CFFI debug mode&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;cffi_extra_compile_args&quot;</span><span class="p">:</span>
+        <span class="p">([</span><span class="s2">&quot;-O2&quot;</span><span class="p">,</span> <span class="s2">&quot;-g0&quot;</span><span class="p">],</span> <span class="s2">&quot;Extra C compiler arguments to pass to CFFI&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;cffi_verbose&quot;</span><span class="p">:</span>
+        <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;CFFI verbose mode&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;cffi_libraries&quot;</span><span class="p">:</span>
+        <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Extra libraries to link&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;timeout&quot;</span><span class="p">:</span>
+        <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;Timeout for JIT compilation&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">mpi_jit_decorator</span><span class="p">(</span><span class="n">local_jit</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A decorator for jit compilation.</span>
+
+<span class="sd">    Use this function as a decorator to any jit compiler function. In a</span>
+<span class="sd">    parallel run, this function will first call the jit compilation</span>
+<span class="sd">    function on the first process. When this is done, and the module is</span>
+<span class="sd">    in the cache, it will call the jit compiler on the remaining</span>
+<span class="sd">    processes, which will then use the cached module.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">local_jit</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">mpi_jit</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+        <span class="c1"># Just call JIT compiler when running in serial</span>
+        <span class="k">if</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Default status (0 == ok, 1 == fail)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Compile first on process 0</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">root</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">error_msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="c1"># TODO: This would have lower overhead if using the dijitso.jit</span>
+        <span class="c1"># features to inject a waiting callback instead of waiting out</span>
+        <span class="c1"># here. That approach allows all processes to first look in the</span>
+        <span class="c1"># cache, introducing a barrier only on cache miss. There&#39;s also</span>
+        <span class="c1"># a sketch in dijitso of how to make only one process per</span>
+        <span class="c1"># physical cache directory do the compilation.</span>
+
+        <span class="c1"># Wait for the compiling process to finish and get status</span>
+        <span class="c1"># TODO: Would be better to broadcast the status from root but</span>
+        <span class="c1"># this works.</span>
+        <span class="n">global_status</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">MAX</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">global_status</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Success, call jit on all other processes (this should just</span>
+            <span class="c1"># read the cache)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fail simultaneously on all processes, to allow catching</span>
+            <span class="c1"># the error without deadlock</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;Compilation failed on root node.&quot;</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed just-in-time compilation of form: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span>
+
+    <span class="c1"># Return the decorated jit function</span>
+    <span class="k">return</span> <span class="n">mpi_jit</span>
+
+
+<span class="nd">@functools</span><span class="o">.</span><span class="n">lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_load_options</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads options from JSON files.&quot;&quot;&quot;</span>
+    <span class="n">user_config_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;XDG_CONFIG_HOME&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;.config&quot;</span><span class="p">))</span> \
+        <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;dolfinx&quot;</span><span class="p">,</span> <span class="s2">&quot;dolfinx_jit_options.json&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">user_config_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">user_options</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">user_options</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">pwd_config_file</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;dolfinx_jit_options.json&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pwd_config_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pwd_options</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">pwd_options</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">user_options</span><span class="p">,</span> <span class="n">pwd_options</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_options"><a class="viewcode-back" href="../../generated/dolfinx.jit.html#dolfinx.jit.get_options">[docs]</a><span class="k">def</span> <span class="nf">get_options</span><span class="p">(</span><span class="n">priority_options</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a copy of the merged JIT option values for DOLFINx.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        priority_options: take priority over all other option values (see notes)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: merged option values</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        See ffcx_jit for user facing documentation.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="n">DOLFINX_DEFAULT_JIT_OPTIONS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">options</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="c1"># NOTE: _load_options uses functools.lru_cache</span>
+    <span class="n">user_options</span><span class="p">,</span> <span class="n">pwd_options</span> <span class="o">=</span> <span class="n">_load_options</span><span class="p">()</span>
+
+    <span class="n">options</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">user_options</span><span class="p">)</span>
+    <span class="n">options</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pwd_options</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">priority_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">priority_options</span><span class="p">)</span>
+
+    <span class="n">options</span><span class="p">[</span><span class="s2">&quot;cache_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">options</span><span class="p">[</span><span class="s2">&quot;cache_dir&quot;</span><span class="p">]))</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">options</span></div>
+
+
+<div class="viewcode-block" id="ffcx_jit"><a class="viewcode-back" href="../../generated/dolfinx.jit.html#dolfinx.jit.ffcx_jit">[docs]</a><span class="nd">@mpi_jit_decorator</span>
+<span class="k">def</span> <span class="nf">ffcx_jit</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">,</span> <span class="n">form_compiler_options</span><span class="o">=</span><span class="p">{},</span> <span class="n">jit_options</span><span class="o">=</span><span class="p">{}):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compile UFL object with FFCx and CFFI.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ufl_object: Object to compile, e.g. ufl.Form</span>
+<span class="sd">        form_compiler_options: Options used in FFCx compilation of</span>
+<span class="sd">            this form. Run `ffcx --help` at the commandline to see all</span>
+<span class="sd">            available options. Takes priority over all other option</span>
+<span class="sd">            values.</span>
+<span class="sd">        jit_options: Options used in CFFI JIT compilation of C code</span>
+<span class="sd">            generated by FFCx. See `python/dolfinx/jit.py` for all</span>
+<span class="sd">            available options. Takes priority over all other</span>
+<span class="sd">            option values.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (compiled object, module, (header code, implementation code))</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        Priority ordering of options controlling DOLFINx JIT</span>
+<span class="sd">        compilation from highest to lowest is:</span>
+
+<span class="sd">        -  **jit_options** (API)</span>
+<span class="sd">        -  **$PWD/dolfinx_jit_options.json** (local options)</span>
+<span class="sd">        -  **$XDG_CONFIG_HOME/dolfinx/dolfinx_jit_options.json**</span>
+<span class="sd">           (user options)</span>
+<span class="sd">        -  **DOLFINX_DEFAULT_JIT_OPTIONS** in `dolfinx.jit`</span>
+
+<span class="sd">        Priority ordering of options controlling FFCx from highest to</span>
+<span class="sd">        lowest is:</span>
+
+<span class="sd">        -  **form_compiler_optionss** (API)</span>
+<span class="sd">        -  **$PWD/ffcx_options.json** (local options)</span>
+<span class="sd">        -  **$XDG_CONFIG_HOME/ffcx/ffcx_options.json** (user options)</span>
+<span class="sd">        -  **FFCX_DEFAULT_OPTIONS** in `ffcx.options`</span>
+
+<span class="sd">        `$XDG_CONFIG_HOME` is `~/.config/` if the environment variable is not set.</span>
+
+<span class="sd">        The contents of the `dolfinx_options.json` files are cached</span>
+<span class="sd">        on the first call. Subsequent calls to this function use this</span>
+<span class="sd">        cache.</span>
+
+<span class="sd">        Example `dolfinx_jit_options.json` file:</span>
+
+<span class="sd">            **{ &quot;cffi_extra_compile_args&quot;: [&quot;-O2&quot;, &quot;-march=native&quot; ],  &quot;cffi_verbose&quot;: True }**</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Prepare form compiler options with priority options</span>
+    <span class="n">p_ffcx</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">get_options</span><span class="p">(</span><span class="n">form_compiler_options</span><span class="p">)</span>
+    <span class="n">p_jit</span> <span class="o">=</span> <span class="n">get_options</span><span class="p">(</span><span class="n">jit_options</span><span class="p">)</span>
+
+    <span class="c1"># Switch on type and compile, returning cffi object</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">codegeneration</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">compile_forms</span><span class="p">([</span><span class="n">ufl_object</span><span class="p">],</span> <span class="n">options</span><span class="o">=</span><span class="n">p_ffcx</span><span class="p">,</span> <span class="o">**</span><span class="n">p_jit</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElementBase</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">codegeneration</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">compile_elements</span><span class="p">([</span><span class="n">ufl_object</span><span class="p">],</span> <span class="n">options</span><span class="o">=</span><span class="n">p_ffcx</span><span class="p">,</span> <span class="o">**</span><span class="n">p_jit</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">codegeneration</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">compile_coordinate_maps</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">ufl_object</span><span class="p">],</span> <span class="n">options</span><span class="o">=</span><span class="n">p_ffcx</span><span class="p">,</span> <span class="o">**</span><span class="n">p_jit</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ufl</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">codegeneration</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">compile_expressions</span><span class="p">([</span><span class="n">ufl_object</span><span class="p">],</span> <span class="n">options</span><span class="o">=</span><span class="n">p_ffcx</span><span class="p">,</span> <span class="o">**</span><span class="n">p_jit</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">ufl_object</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
