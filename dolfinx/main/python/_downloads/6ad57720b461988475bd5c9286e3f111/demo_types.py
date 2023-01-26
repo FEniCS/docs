@@ -1,23 +1,23 @@
----
-jupytext:
-  main_language: python
-  text_representation:
-    extension: .md
-    format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.14.4
----
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.13.6
+# ---
 
-# Solving PDEs with different scalar (float) types
+# # Solving PDEs with different scalar (float) types
+#
+# This demo  ({download}`demo_types.py`) shows:
+#
+# - How to solve problems using different scalar types, .e.g. single or
+#   double precision, or complex numbers
+# - Interfacing with [SciPy](https://scipy.org/) sparse linear algebra
+#   functionality
 
-This demo  ({download}`demo_types.py`) shows:
-
-- How to solve problems using different scalar types, .e.g. single or
-  double precision, or complex numbers
-- Interfacing with [SciPy](https://scipy.org/) sparse linear algebra
-  functionality
-
-```python
+# +
 import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
@@ -26,26 +26,24 @@ import ufl
 from dolfinx import fem, la, mesh, plot
 
 from mpi4py import MPI
-```
 
-SciPy solvers do not support MPI, so all computations will be
-performed on a single MPI rank
+# -
 
-```python
+# SciPy solvers do not support MPI, so all computations will be
+# performed on a single MPI rank
+
+# +
 comm = MPI.COMM_SELF
-```
+# -
 
-Create a mesh and function space.
+# Create a mesh and function space.
 
-```python
 msh = mesh.create_rectangle(comm=comm, points=((0.0, 0.0), (2.0, 1.0)), n=(32, 16),
                             cell_type=mesh.CellType.triangle)
 V = fem.FunctionSpace(msh, ("Lagrange", 1))
-```
 
-Define a variational problem.
+# Define a variational problem.
 
-```python
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(msh)
 fr = 10 * ufl.exp(-((x[0] - 0.5) ** 2 + (x[1] - 0.5) ** 2) / 0.02)
@@ -54,23 +52,20 @@ gr = ufl.sin(5 * x[0])
 gc = ufl.sin(5 * x[0]) * 1j
 a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
 L = ufl.inner(fr + fc, v) * ufl.dx + ufl.inner(gr + gc, v) * ufl.ds
-```
 
-In preparation for constructing Dirichlet boundary conditions, locate
-facets on the constrained boundary and the corresponding
-degrees-of-freedom.
+# In preparation for constructing Dirichlet boundary conditions, locate
+# facets on the constrained boundary and the corresponding
+# degrees-of-freedom.
 
-```python
 facets = mesh.locate_entities_boundary(msh, dim=1,
                                        marker=lambda x: np.logical_or(np.isclose(x[0], 0.0),
                                                                       np.isclose(x[0], 2.0)))
 dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-```
 
-The below function computes the solution of the finite problem using a
-specified scalar type.
 
-```python
+# The below function computes the solution of the finite problem using a
+# specified scalar type.
+
 def solve(dtype=np.float32):
     """Solve the variational problem"""
 
@@ -99,11 +94,10 @@ def solve(dtype=np.float32):
     uh = fem.Function(V, dtype=dtype)
     uh.x.array[:] = scipy.sparse.linalg.spsolve(As, b.array)
     return uh
-```
 
-This function visualises the solution.
+# This function visualises the solution.
 
-```python
+
 def display(u, filter=np.real):
     """Plot the solution using pyvista"""
     try:
@@ -124,20 +118,16 @@ def display(u, filter=np.real):
             plotter.show()
     except ModuleNotFoundError:
         print("'pyvista' is required to visualise the solution")
-```
 
-Solve the variational problem using different scalar types
 
-```python
+# Solve the variational problem using different scalar types
+
 uh = solve(dtype=np.float32)
 uh = solve(dtype=np.float64)
 uh = solve(dtype=np.complex64)
 uh = solve(dtype=np.complex128)
-```
 
-Display the last computed solution
+# Display the last computed solution
 
-```python
 display(uh, np.real)
 display(uh, np.imag)
-```

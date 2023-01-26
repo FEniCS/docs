@@ -1,23 +1,23 @@
----
-jupytext:
-  main_language: python
-  text_representation:
-    extension: .md
-    format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.14.4
----
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.13.6
+# ---
 
-# Mesh generation with Gmsh
+# # Mesh generation with Gmsh
+#
+# Copyright (C) 2020-2022 Garth N. Wells and Jørgen S. Dokken
+#
+# This demo shows how to create meshes uses the Gmsh Python interface.
+# It is implemented in {download}`demo_gmsh.py`.
+#
+# The required modules are imported. The Gmsh Python module is required.
 
-Copyright (C) 2020-2022 Garth N. Wells and Jørgen S. Dokken
-
-This demo shows how to create meshes uses the Gmsh Python interface.
-It is implemented in {download}`demo_gmsh.py`.
-
-The required modules are imported. The Gmsh Python module is required.
-
-```python
+# +
 import sys
 
 try:
@@ -30,13 +30,14 @@ except ImportError:
 from dolfinx.io import XDMFFile, gmshio
 
 from mpi4py import MPI
-```
 
-Generate a mesh on each rank with the Gmsh API, and create a DOLFINx
-mesh on each rank with corresponding mesh tags for the cells of the
-mesh.
+# -
 
-```python
+# Generate a mesh on each rank with the Gmsh API, and create a DOLFINx
+# mesh on each rank with corresponding mesh tags for the cells of the
+# mesh.
+
+# +
 gmsh.initialize()
 
 # Choose if Gmsh output is verbose
@@ -67,13 +68,14 @@ with XDMFFile(msh.comm, f"out_gmsh/mesh_rank_{MPI.COMM_WORLD.rank}.xdmf", "w") a
     file.write_meshtags(cell_markers)
     msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
     file.write_meshtags(facet_markers)
-```
 
-Create a distributed (parallel) mesh with affine geometry. The mesh is
-generated on rank 0, then a distributed DOLFINx mesh is created.
-Create mesh tags on exterior facets.
+# -
 
-```python
+# Create a distributed (parallel) mesh with affine geometry. The mesh is
+# generated on rank 0, then a distributed DOLFINx mesh is created.
+# Create mesh tags on exterior facets.
+
+# +
 
 mesh_comm = MPI.COMM_WORLD
 model_rank = 0
@@ -111,12 +113,12 @@ with XDMFFile(msh.comm, "out_gmsh/mesh.xdmf", "w") as file:
     msh.topology.create_connectivity(2, 3)
     file.write_meshtags(mt, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
     file.write_meshtags(ft, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
-```
+# -
 
-Create a distributed (parallel) mesh with quadratic geometry. Generate
-the Gmsh mesh on rank 0, and then build a distributed DOLFINx mesh.
+# Create a distributed (parallel) mesh with quadratic geometry. Generate
+# the Gmsh mesh on rank 0, and then build a distributed DOLFINx mesh.
 
-```python
+# +
 mesh_comm = MPI.COMM_WORLD
 model_rank = 0
 if mesh_comm.rank == model_rank:
@@ -139,12 +141,12 @@ with XDMFFile(msh.comm, "out_gmsh/mesh.xdmf", "a") as file:
     file.write_mesh(msh)
     file.write_meshtags(ct, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
     file.write_meshtags(ft, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
-```
+# -
 
-Create a distributed (parallel) 2nd order hexahedral mesh. Generate
-the Gmsh mesh on rank 0, then build a distributed DOLFINx mesh.
+# Create a distributed (parallel) 2nd order hexahedral mesh. Generate
+# the Gmsh mesh on rank 0, then build a distributed DOLFINx mesh.
 
-```python
+# +
 model_rank = 0
 mesh_comm = MPI.COMM_WORLD
 if mesh_comm.rank == model_rank:
@@ -191,4 +193,5 @@ with XDMFFile(msh.comm, "out_gmsh/mesh.xdmf", "a") as file:
     file.write_mesh(msh)
     file.write_meshtags(mt, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
     file.write_meshtags(ft, geometry_xpath=f"/Xdmf/Domain/Grid[@Name='{msh.name}']/Geometry")
-```
+
+# -
