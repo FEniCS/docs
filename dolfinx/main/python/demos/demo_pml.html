@@ -153,15 +153,14 @@ for the variational forms and the solver. It illustrates how to:</p>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="kn">import</span> <span class="n">VTXWriter</span><span class="p">,</span> <span class="n">gmshio</span>
 <span class="kn">from</span> <span class="nn">efficiencies_pml_demo</span> <span class="kn">import</span> <span class="n">calculate_analytical_efficiencies</span>
 <span class="kn">from</span> <span class="nn">mesh_wire_pml</span> <span class="kn">import</span> <span class="n">generate_mesh_wire</span>
-
-<span class="kn">import</span> <span class="nn">ufl</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">plot</span>
-<span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="kn">import</span> <span class="n">VTXWriter</span><span class="p">,</span> <span class="n">gmshio</span>
-
 <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 <span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
+
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">plot</span>
 </pre></div>
 </div>
 <p>Since we want to solve time-harmonic Maxwell’s equation, we require
@@ -206,8 +205,7 @@ propagation direction <span class="math notranslate nohighlight">\(\hat{\mathbf{
 \]</div>
 <p>The function <code class="docutils literal notranslate"><span class="pre">background_field</span></code> below implements this analytical
 formula:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
-<span class="k">def</span> <span class="nf">background_field</span><span class="p">(</span><span class="n">theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">k0</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">background_field</span><span class="p">(</span><span class="n">theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n_b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">k0</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span>
                      <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]):</span>
 
     <span class="n">kx</span> <span class="o">=</span> <span class="n">n_b</span> <span class="o">*</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
@@ -217,8 +215,7 @@ formula:</p>
 </pre></div>
 </div>
 <p>For convenience, we define the <span class="math notranslate nohighlight">\(\nabla\times\)</span> operator for a 2D vector</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
-<span class="k">def</span> <span class="nf">curl_2d</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">curl_2d</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">ufl</span><span class="o">.</span><span class="n">as_vector</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">dx</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dx</span><span class="p">(</span><span class="mi">1</span><span class="p">)))</span>
 </pre></div>
 </div>
@@ -277,13 +274,11 @@ transformation in the following way:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">gmsh</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span>
 <span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-
     <span class="n">model</span> <span class="o">=</span> <span class="n">generate_mesh_wire</span><span class="p">(</span><span class="n">radius_wire</span><span class="p">,</span> <span class="n">radius_scatt</span><span class="p">,</span> <span class="n">l_dom</span><span class="p">,</span> <span class="n">l_pml</span><span class="p">,</span>
                                <span class="n">in_wire_size</span><span class="p">,</span> <span class="n">on_wire_size</span><span class="p">,</span> <span class="n">scatt_size</span><span class="p">,</span> <span class="n">pml_size</span><span class="p">,</span>
                                <span class="n">au_tag</span><span class="p">,</span> <span class="n">bkg_tag</span><span class="p">,</span> <span class="n">scatt_tag</span><span class="p">,</span> <span class="n">pml_tag</span><span class="p">)</span>
-
 <span class="n">model</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">domain</span><span class="p">,</span> <span class="n">cell_tags</span><span class="p">,</span> <span class="n">facet_tags</span> <span class="o">=</span> <span class="n">gmshio</span><span class="o">.</span><span class="n">model_to_mesh</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gdim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">msh</span><span class="p">,</span> <span class="n">cell_tags</span><span class="p">,</span> <span class="n">facet_tags</span> <span class="o">=</span> <span class="n">gmshio</span><span class="o">.</span><span class="n">model_to_mesh</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gdim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
 <span class="n">gmsh</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
 <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
@@ -292,11 +287,11 @@ transformation in the following way:</p>
 <p>We visualize the mesh and subdomains with
 <a class="reference external" href="https://docs.pyvista.org/">PyVista</a></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">have_pyvista</span><span class="p">:</span>
-    <span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_mesh</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">geometry</span><span class="p">)</span>
     <span class="n">pyvista</span><span class="o">.</span><span class="n">set_jupyter_backend</span><span class="p">(</span><span class="s2">&quot;pythreejs&quot;</span><span class="p">)</span>
     <span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">()</span>
-    <span class="n">num_local_cells</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
+    <span class="n">num_local_cells</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">size_local</span>
     <span class="n">grid</span><span class="o">.</span><span class="n">cell_data</span><span class="p">[</span><span class="s2">&quot;Marker&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">cell_tags</span><span class="o">.</span><span class="n">indices</span> <span class="o">&lt;</span> <span class="n">num_local_cells</span><span class="p">]</span>
     <span class="n">grid</span><span class="o">.</span><span class="n">set_active_scalars</span><span class="p">(</span><span class="s2">&quot;Marker&quot;</span><span class="p">)</span>
     <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -332,8 +327,8 @@ specified here below:</p>
 <a class="reference external" href="https://defelement.com/elements/nedelec1.html">Nedelec (first kind)</a>
 element to represent the electric field:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">degree</span> <span class="o">=</span> <span class="mi">3</span>
-<span class="n">curl_el</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="s2">&quot;N1curl&quot;</span><span class="p">,</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">)</span>
-<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">curl_el</span><span class="p">)</span>
+<span class="n">curl_el</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">(</span><span class="s2">&quot;N1curl&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">curl_el</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Next, we interpolate <span class="math notranslate nohighlight">\(\mathbf{E}_b\)</span> into the function space <span class="math notranslate nohighlight">\(V\)</span>,
@@ -351,7 +346,7 @@ define our trial and test function, and the integration domains:</p>
 <span class="n">v_3d</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">as_vector</span><span class="p">((</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
 
 <span class="c1"># Measures for subdomains</span>
-<span class="n">dx</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dx&quot;</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="n">cell_tags</span><span class="p">)</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dx&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="n">cell_tags</span><span class="p">)</span>
 <span class="n">dDom</span> <span class="o">=</span> <span class="n">dx</span><span class="p">((</span><span class="n">au_tag</span><span class="p">,</span> <span class="n">bkg_tag</span><span class="p">))</span>
 <span class="n">dPml_xy</span> <span class="o">=</span> <span class="n">dx</span><span class="p">(</span><span class="n">pml_tag</span><span class="p">)</span>
 <span class="n">dPml_x</span> <span class="o">=</span> <span class="n">dx</span><span class="p">(</span><span class="n">pml_tag</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
@@ -370,7 +365,7 @@ reference have a look at <a class="reference external" href="https://refractivei
 that takes the value <span class="math notranslate nohighlight">\(\varepsilon_m\)</span> for cells inside the wire, while
 it takes the value of the background permittivity <span class="math notranslate nohighlight">\(\varepsilon_b\)</span> in
 the background region:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">D</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
 <span class="n">eps</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
 <span class="n">au_cells</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">au_tag</span><span class="p">)</span>
 <span class="n">bkg_cells</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">bkg_tag</span><span class="p">)</span>
@@ -382,7 +377,7 @@ the background region:</p>
 <p>Now we need to define our weak form in DOLFINx. Let’s write the PML
 weak form first. As a first step, we can define our new complex
 coordinates as:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
 <span class="n">alpha</span> <span class="o">=</span> <span class="mi">1</span>
 
 <span class="c1"># PML corners</span>
@@ -505,11 +500,11 @@ here below function named <code class="docutils literal notranslate"><span class
 <p>Let’s now save the solution in a <code class="docutils literal notranslate"><span class="pre">bp</span></code>-file. In order to do so, we need
 to interpolate our solution discretized with Nedelec elements into a
 compatible discontinuous Lagrange space.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">V_dg</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">VectorFunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="n">degree</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">V_dg</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">VectorFunctionSpace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="n">degree</span><span class="p">))</span>
 <span class="n">Esh_dg</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V_dg</span><span class="p">)</span>
 <span class="n">Esh_dg</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">Esh</span><span class="p">)</span>
 
-<span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Esh.bp&quot;</span><span class="p">,</span> <span class="n">Esh_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">vtx</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;Esh.bp&quot;</span><span class="p">,</span> <span class="n">Esh_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">vtx</span><span class="p">:</span>
     <span class="n">vtx</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -520,13 +515,11 @@ DOLFINx demo.</p>
     <span class="n">V_cells</span><span class="p">,</span> <span class="n">V_types</span><span class="p">,</span> <span class="n">V_x</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">create_vtk_mesh</span><span class="p">(</span><span class="n">V_dg</span><span class="p">)</span>
     <span class="n">V_grid</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">UnstructuredGrid</span><span class="p">(</span><span class="n">V_cells</span><span class="p">,</span> <span class="n">V_types</span><span class="p">,</span> <span class="n">V_x</span><span class="p">)</span>
     <span class="n">Esh_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">V_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-    <span class="n">Esh_values</span><span class="p">[:,</span> <span class="p">:</span><span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">Esh_dg</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">V_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
-
+    <span class="n">Esh_values</span><span class="p">[:,</span> <span class="p">:</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">Esh_dg</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">V_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">real</span>
     <span class="n">V_grid</span><span class="o">.</span><span class="n">point_data</span><span class="p">[</span><span class="s2">&quot;u&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Esh_values</span>
 
     <span class="n">pyvista</span><span class="o">.</span><span class="n">set_jupyter_backend</span><span class="p">(</span><span class="s2">&quot;pythreejs&quot;</span><span class="p">)</span>
     <span class="n">plotter</span> <span class="o">=</span> <span class="n">pyvista</span><span class="o">.</span><span class="n">Plotter</span><span class="p">()</span>
-
     <span class="n">plotter</span><span class="o">.</span><span class="n">add_text</span><span class="p">(</span><span class="s2">&quot;magnitude&quot;</span><span class="p">,</span> <span class="n">font_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
     <span class="n">plotter</span><span class="o">.</span><span class="n">add_mesh</span><span class="p">(</span><span class="n">V_grid</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">show_edges</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">plotter</span><span class="o">.</span><span class="n">view_xy</span><span class="p">()</span>
@@ -547,7 +540,7 @@ DOLFINx demo.</p>
 <span class="n">E_dg</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V_dg</span><span class="p">)</span>
 <span class="n">E_dg</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
 
-<span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;E.bp&quot;</span><span class="p">,</span> <span class="n">E_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">vtx</span><span class="p">:</span>
+<span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;E.bp&quot;</span><span class="p">,</span> <span class="n">E_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">vtx</span><span class="p">:</span>
     <span class="n">vtx</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -583,18 +576,17 @@ inner facet, and therefore it requires a slightly different approach:</p>
 <span class="c1"># Geometrical cross section of the wire</span>
 <span class="n">gcs</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">radius_wire</span>
 
-<span class="n">n</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FacetNormal</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+<span class="n">n</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FacetNormal</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
 <span class="n">n_3d</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">as_vector</span><span class="p">((</span><span class="n">n</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
 
 <span class="c1"># Create a marker for the integration boundary for the scattering</span>
 <span class="c1"># efficiency</span>
 <span class="n">marker</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
 <span class="n">scatt_facets</span> <span class="o">=</span> <span class="n">facet_tags</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">scatt_tag</span><span class="p">)</span>
-<span class="n">incident_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">scatt_facets</span><span class="p">,</span>
-                                                <span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
-                                                <span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+<span class="n">incident_cells</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">scatt_facets</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+                                                <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 
-<span class="n">midpoints</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_midpoints</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">domain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">incident_cells</span><span class="p">)</span>
+<span class="n">midpoints</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_midpoints</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">incident_cells</span><span class="p">)</span>
 <span class="n">inner_cells</span> <span class="o">=</span> <span class="n">incident_cells</span><span class="p">[(</span><span class="n">midpoints</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">midpoints</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">radius_scatt</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">]</span>
 
 <span class="n">marker</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">inner_cells</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
@@ -607,18 +599,18 @@ inner facet, and therefore it requires a slightly different approach:</p>
 <span class="n">dAu</span> <span class="o">=</span> <span class="n">dx</span><span class="p">(</span><span class="n">au_tag</span><span class="p">)</span>
 
 <span class="c1"># Define integration facet for the scattering efficiency</span>
-<span class="n">dS</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dS&quot;</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="n">facet_tags</span><span class="p">)</span>
+<span class="n">dS</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dS&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="n">facet_tags</span><span class="p">)</span>
 
 <span class="c1"># Normalized absorption efficiency</span>
 <span class="n">q_abs_fenics_proc</span> <span class="o">=</span> <span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">(</span><span class="n">Q</span> <span class="o">*</span> <span class="n">dAu</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">gcs</span> <span class="o">*</span> <span class="n">I0</span><span class="p">))</span><span class="o">.</span><span class="n">real</span>
 <span class="c1"># Sum results from all MPI processes</span>
-<span class="n">q_abs_fenics</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">q_abs_fenics_proc</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
+<span class="n">q_abs_fenics</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">q_abs_fenics_proc</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 
 <span class="c1"># Normalized scattering efficiency</span>
 <span class="n">q_sca_fenics_proc</span> <span class="o">=</span> <span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">((</span><span class="n">P</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="n">P</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">))</span> <span class="o">*</span> <span class="n">dS</span><span class="p">(</span><span class="n">scatt_tag</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="n">gcs</span> <span class="o">*</span> <span class="n">I0</span><span class="p">))</span><span class="o">.</span><span class="n">real</span>
 
 <span class="c1"># Sum results from all MPI processes</span>
-<span class="n">q_sca_fenics</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">q_sca_fenics_proc</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
+<span class="n">q_sca_fenics</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">q_sca_fenics_proc</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 
 <span class="c1"># Extinction efficiency</span>
 <span class="n">q_ext_fenics</span> <span class="o">=</span> <span class="n">q_abs_fenics</span> <span class="o">+</span> <span class="n">q_sca_fenics</span>
@@ -628,8 +620,7 @@ inner facet, and therefore it requires a slightly different approach:</p>
 <span class="n">err_sca</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">q_sca_analyt</span> <span class="o">-</span> <span class="n">q_sca_fenics</span><span class="p">)</span> <span class="o">/</span> <span class="n">q_sca_analyt</span>
 <span class="n">err_ext</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">q_ext_analyt</span> <span class="o">-</span> <span class="n">q_ext_fenics</span><span class="p">)</span> <span class="o">/</span> <span class="n">q_ext_analyt</span>
 
-
-<span class="k">if</span> <span class="n">domain</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">()</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The analytical absorption efficiency is </span><span class="si">{</span><span class="n">q_abs_analyt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The numerical absorption efficiency is </span><span class="si">{</span><span class="n">q_abs_fenics</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
