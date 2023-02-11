@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['reuse_0',['reuse',['../d5/d46/classdolfinx_1_1io_1_1FidesWriter.html#a5852c3f28e31c45bb2a2091948923b00a62c7d2cb28cdcf65811a70f7a053d8cb',1,'dolfinx::io::FidesWriter']]]
+  ['none_0',['none',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement::plaza']]]
 ];

@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['update_0',['update',['../d5/d46/classdolfinx_1_1io_1_1FidesWriter.html#a5852c3f28e31c45bb2a2091948923b00a3ac340832f29c11538fbe2d6f75e8bcc',1,'dolfinx::io::FidesWriter']]]
+  ['parent_5fcell_0',['parent_cell',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a8590651f92c51895ca7d8effbf26e3a6',1,'dolfinx::refinement::plaza']]],
+  ['parent_5fcell_5fand_5ffacet_1',['parent_cell_and_facet',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016aa564af488c12ee346fdbc0f50825f5e8',1,'dolfinx::refinement::plaza']]],
+  ['parent_5ffacet_2',['parent_facet',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016afaaa6ae5cd96d1dd51447fb6afb7d6f8',1,'dolfinx::refinement::plaza']]]
 ];
