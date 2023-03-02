@@ -12,7 +12,7 @@ var searchData=
   ['create_5fcr_183',['create_cr',['../namespacebasix_1_1element.html#a84471ab2ffadde25c9a27c32d402eea5',1,'basix::element']]],
   ['create_5fcustom_5felement_184',['create_custom_element',['../namespacebasix.html#acb3cac1fdfabf4943e0dc6722d5be98e',1,'basix']]],
   ['create_5fdpc_185',['create_dpc',['../namespacebasix_1_1element.html#abeda5131675620abf0be4ba89a9517e6',1,'basix::element']]],
-  ['create_5felement_186',['create_element',['../namespacebasix.html#ab1eb84de3a53d9e6757005e87099f99d',1,'basix::create_element(element::family family, cell::type cell, int degree, bool discontinuous)'],['../namespacebasix.html#a48de4a0c00220f6bbd8a9bc28bbbf190',1,'basix::create_element(element::family family, cell::type cell, int degree, element::lagrange_variant lvariant, bool discontinuous)'],['../namespacebasix.html#af01c2865ddee73bfefdb5629f4cec752',1,'basix::create_element(element::family family, cell::type cell, int degree, element::lagrange_variant lvariant, element::dpc_variant dvariant, bool discontinuous)']]],
+  ['create_5felement_186',['create_element',['../namespacebasix.html#af01c2865ddee73bfefdb5629f4cec752',1,'basix']]],
   ['create_5fhermite_187',['create_hermite',['../namespacebasix_1_1element.html#a04d378cc3cd7cfb031a77f0795d19069',1,'basix::element']]],
   ['create_5fhhj_188',['create_hhj',['../namespacebasix_1_1element.html#a44d6c1bf6bbfb75244f56f596807b564',1,'basix::element']]],
   ['create_5flagrange_189',['create_lagrange',['../namespacebasix_1_1element.html#a17ba78c7e9e1af0ba2528ab13077cec8',1,'basix::element']]],
