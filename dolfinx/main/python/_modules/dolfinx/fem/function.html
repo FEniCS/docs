@@ -92,20 +92,19 @@
 
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">singledispatch</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">numpy.typing</span> <span class="k">as</span> <span class="nn">npt</span>
-
 <span class="kn">import</span> <span class="nn">basix</span>
 <span class="kn">import</span> <span class="nn">basix.ufl_wrapper</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">numpy.typing</span> <span class="k">as</span> <span class="nn">npt</span>
 <span class="kn">import</span> <span class="nn">ufl</span>
 <span class="kn">import</span> <span class="nn">ufl.algorithms</span>
 <span class="kn">import</span> <span class="nn">ufl.algorithms.analysis</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">la</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="n">dofmap</span>
+<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
 <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span>
 
-<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">la</span>
 
 
 <div class="viewcode-block" id="Constant"><a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Constant">[docs]</a><span class="k">class</span> <span class="nc">Constant</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">):</span>
@@ -545,13 +544,15 @@
 
         <span class="k">if</span> <span class="n">cppV</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Initialise the ufl.FunctionSpace</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FiniteElementBase</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># UFL element</span>
                 <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">element</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
+            <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Expected sequence of (element_type, degree)&quot;</span>
                 <span class="n">e</span> <span class="o">=</span> <span class="n">ElementMetaData</span><span class="p">(</span><span class="o">*</span><span class="n">element</span><span class="p">)</span>
-                <span class="n">ufl_element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl_wrapper</span><span class="o">.</span><span class="n">create_element</span><span class="p">(</span>
+                <span class="n">ufl_e</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl_wrapper</span><span class="o">.</span><span class="n">create_element</span><span class="p">(</span>
                     <span class="n">e</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">cellname</span><span class="p">(),</span> <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span> <span class="n">gdim</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">())</span>
-                <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">ufl_element</span><span class="p">)</span>
+                <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">ufl_e</span><span class="p">)</span>
 
             <span class="c1"># Compile dofmap and element and create DOLFIN objects</span>
             <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_element</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_dofmap</span><span class="p">),</span> <span class="n">module</span><span class="p">,</span> <span class="n">code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span>
