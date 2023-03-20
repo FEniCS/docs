@@ -24,5 +24,5 @@ var searchData=
   ['extract_5fsub_5fdofmap_21',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
   ['extract_5fsub_5felement_22',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
   ['extract_5ftopology_23',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
-  ['extract_5fvtk_5fconnectivity_24',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a13bb2853ef37a1bd263ae2149260bd59',1,'dolfinx::io']]]
+  ['extract_5fvtk_5fconnectivity_24',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#af438ce61245593078a889b13fa4f8cec',1,'dolfinx::io']]]
 ];

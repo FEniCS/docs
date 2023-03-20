@@ -5,7 +5,7 @@ var searchData=
   ['needs_5fdof_5ftransformations_2',['needs_dof_transformations',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a42dab99126ab3dbc778779339f0dee55',1,'dolfinx::fem::FiniteElement']]],
   ['needs_5ffacet_5fpermutations_3',['needs_facet_permutations',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a2706d72fc422a090ea83c6975543f9fa',1,'dolfinx::fem::Form']]],
   ['newtonsolver_4',['NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html',1,'NewtonSolver'],['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a694ffbfde5de38322954b9ff70ae9a8a',1,'dolfinx::nls::petsc::NewtonSolver::NewtonSolver()']]],
-  ['nmm_5finterpolation_5fdata_5ft_5',['nmm_interpolation_data_t',['../d8/dbf/namespacedolfinx_1_1fem.html#a5e5136621718411353c330e2b52cb1d4',1,'dolfinx::fem']]],
+  ['nmm_5finterpolation_5fdata_5ft_5',['nmm_interpolation_data_t',['../d8/dbf/namespacedolfinx_1_1fem.html#a8d74344077c8a7eef8c2ccb780498d59',1,'dolfinx::fem']]],
   ['nnz_5fdiag_6',['nnz_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a5c76a6f74ef0aec646374dd6716b58e0',1,'dolfinx::la::SparsityPattern']]],
   ['nnz_5foff_5fdiag_7',['nnz_off_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a26aa980b1174e63fc8eb625f647d312e',1,'dolfinx::la::SparsityPattern']]],
   ['none_8',['none',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement::plaza']]],
