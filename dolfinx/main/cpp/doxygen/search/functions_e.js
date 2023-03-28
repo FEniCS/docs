@@ -1,10 +1,10 @@
 var searchData=
 [
   ['pack_0',['pack',['../d9/dc0/fem_2utils_8h.html#a2bc6c78f486612d085b5ff146a3d2892',1,'dolfinx::fem::impl']]],
-  ['pack_5fcoefficient_5fentity_1',['pack_coefficient_entity',['../d9/dc0/fem_2utils_8h.html#a7d553611ea013794324684bedd91e54f',1,'dolfinx::fem::impl']]],
-  ['pack_5fcoefficients_2',['pack_coefficients',['../d8/dbf/namespacedolfinx_1_1fem.html#a6e678c67573db55488975a7381c4faf2',1,'dolfinx::fem::pack_coefficients(const Form&lt; T &gt; &amp;form, IntegralType integral_type, int id, std::span&lt; T &gt; c, int cstride)'],['../d8/dbf/namespacedolfinx_1_1fem.html#ae0973638c9324047759036d0d7d7a9d4',1,'dolfinx::fem::pack_coefficients(const Form&lt; T &gt; &amp;form, std::map&lt; std::pair&lt; IntegralType, int &gt;, std::pair&lt; std::vector&lt; T &gt;, int &gt; &gt; &amp;coeffs)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a94e04cc06edbb60a7377af408fa9cde8',1,'dolfinx::fem::pack_coefficients(const Expression&lt; T &gt; &amp;u, std::span&lt; const std::int32_t &gt; cells)']]],
+  ['pack_5fcoefficient_5fentity_1',['pack_coefficient_entity',['../d9/dc0/fem_2utils_8h.html#ac55079e3d295dcb11b19888c41c394f8',1,'dolfinx::fem::impl']]],
+  ['pack_5fcoefficients_2',['pack_coefficients',['../d8/dbf/namespacedolfinx_1_1fem.html#afe3d41645e59a80bc5fb83565ba6bcf6',1,'dolfinx::fem::pack_coefficients(const Form&lt; T, U &gt; &amp;form, IntegralType integral_type, int id, std::span&lt; T &gt; c, int cstride)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a8b8db5346f987c894fa348b1b1af67bd',1,'dolfinx::fem::pack_coefficients(const Form&lt; T, U &gt; &amp;form, std::map&lt; std::pair&lt; IntegralType, int &gt;, std::pair&lt; std::vector&lt; T &gt;, int &gt; &gt; &amp;coeffs)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a22c975cce390e97c8b01af4339a118aa',1,'dolfinx::fem::pack_coefficients(const Expression&lt; T, U &gt; &amp;u, std::span&lt; const std::int32_t &gt; cells)']]],
   ['pack_5fconstants_3',['pack_constants',['../d8/dbf/namespacedolfinx_1_1fem.html#a76745e4ab8bddc25e8451f8d7bcfb8e0',1,'dolfinx::fem']]],
-  ['partition_4',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a03d5764aa704126054ecea5500378417',1,'dolfinx::refinement']]],
+  ['partition_4',['partition',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6d051b94258d1dd9246ba7b9811832e4',1,'dolfinx::refinement']]],
   ['partition_5fgraph_5',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#ab7912ac9b196655f4fc4189efa96d794',1,'dolfinx::graph']]],
   ['partitioner_6',['partitioner',['../d9/d24/namespacedolfinx_1_1graph_1_1kahip.html#a6e08b7ddd0eef4c5776244c7ddaeee8d',1,'dolfinx::graph::kahip']]],
   ['perm_5fgmsh_7',['perm_gmsh',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#ab6c07bd4b5ff4a2465c16d3b068c7c5a',1,'dolfinx::io::cells']]],

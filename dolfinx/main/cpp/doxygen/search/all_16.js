@@ -29,6 +29,5 @@ var searchData=
   ['_7etopology_26',['~Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7e39e8c23962335c09e2481329bf5b99',1,'dolfinx::mesh::Topology']]],
   ['_7evector_27',['~Vector',['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#aaa9fccd0cb7734271f7a15e5d9dc0d27',1,'dolfinx::la::petsc::Vector']]],
   ['_7evtkfile_28',['~VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac95bc19dfd6ec760429a151e97a902d6',1,'dolfinx::io::VTKFile']]],
-  ['_7evtxwriter_29',['~VTXWriter',['../d1/dee/classdolfinx_1_1io_1_1VTXWriter.html#a572ed9d7b92c3cdb27df3612cb051472',1,'dolfinx::io::VTXWriter']]],
-  ['_7exdmffile_30',['~XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a36e80bb6b3d9e892a3b322b5ef2f2a18',1,'dolfinx::io::XDMFFile']]]
+  ['_7exdmffile_29',['~XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a36e80bb6b3d9e892a3b322b5ef2f2a18',1,'dolfinx::io::XDMFFile']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['mdspan2_5ft_0',['mdspan2_t',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a7e9e96026347ad5a7b51022a55a3a6bd',1,'dolfinx::fem::CoordinateElement']]]
+  ['geometry_5ftype_0',['geometry_type',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#aca50f0ad3e4fe1ad4f0b4b2e7f280f46',1,'dolfinx::mesh::Mesh']]]
 ];
