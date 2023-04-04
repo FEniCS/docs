@@ -20,10 +20,11 @@ var searchData=
   ['exterior_5ffacet_17',['exterior_facet',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962ab8e8c532206d46c91883de739daed213',1,'dolfinx::fem']]],
   ['exterior_5ffacet_5fdomains_18',['exterior_facet_domains',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a4ebd8b5c4c8c25c5aa25e4bb0a661396',1,'dolfinx::fem::Form']]],
   ['exterior_5ffacet_5findices_19',['exterior_facet_indices',['../dd/d7d/namespacedolfinx_1_1mesh.html#abcd805c0f4a1ee1533a6b05417ddcaa1',1,'dolfinx::mesh']]],
-  ['exterior_5ffacets_20',['exterior_facets',['../db/dcc/namespacedolfinx_1_1fem_1_1sparsitybuild.html#aeda66e0eea3fbcc6a5827570118702ed',1,'dolfinx::fem::sparsitybuild::exterior_facets(la::SparsityPattern &amp;pattern, const mesh::Topology &amp;topology, const std::array&lt; const std::reference_wrapper&lt; const DofMap &gt;, 2 &gt; &amp;dofmaps)'],['../db/dcc/namespacedolfinx_1_1fem_1_1sparsitybuild.html#a1d2cedc29f43b5a74f78926aff155766',1,'dolfinx::fem::sparsitybuild::exterior_facets(la::SparsityPattern &amp;pattern, const std::span&lt; const std::int32_t &gt; &amp;facets, const std::array&lt; const std::reference_wrapper&lt; const DofMap &gt;, 2 &gt; &amp;dofmaps)']]],
-  ['extract_5ffunction_5fspaces_21',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
-  ['extract_5fsub_5fdofmap_22',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
-  ['extract_5fsub_5felement_23',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
-  ['extract_5ftopology_24',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
-  ['extract_5fvtk_5fconnectivity_25',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a6faa5c548bbf19d991c35a32115196a5',1,'dolfinx::io']]]
+  ['extract_5fcommon_5fmesh_20',['extract_common_mesh',['../df/d34/ADIOS2Writers_8h.html#ac3ce0a5ed563fc623e2fd8daa4d53a45',1,'dolfinx::io::impl_adios2']]],
+  ['extract_5ffunction_5fnames_21',['extract_function_names',['../df/d34/ADIOS2Writers_8h.html#a084ed3b9281469f59d86fbdb2b7a837c',1,'dolfinx::io::impl_vtx']]],
+  ['extract_5ffunction_5fspaces_22',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
+  ['extract_5fsub_5fdofmap_23',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
+  ['extract_5fsub_5felement_24',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
+  ['extract_5ftopology_25',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
+  ['extract_5fvtk_5fconnectivity_26',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a6faa5c548bbf19d991c35a32115196a5',1,'dolfinx::io']]]
 ];

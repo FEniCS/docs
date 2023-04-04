@@ -2,7 +2,6 @@ var searchData=
 [
   ['ufcx_5fsignature_0',['ufcx_signature',['../d2/dc7/namespacedolfinx.html#a9b60341550559d250203fe3ccc1670a1',1,'dolfinx']]],
   ['unpermute_5fdofs_1',['unpermute_dofs',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#aedf17006185eabfc2da59f5a5375bda6',1,'dolfinx::fem::CoordinateElement::unpermute_dofs()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a48d57d0cf067fa94b0aba2d16f6d001d',1,'dolfinx::fem::FiniteElement::unpermute_dofs()']]],
-  ['update_2',['update',['../d5/d46/classdolfinx_1_1io_1_1FidesWriter.html#a5852c3f28e31c45bb2a2091948923b00a3ac340832f29c11538fbe2d6f75e8bcc',1,'dolfinx::io::FidesWriter']]],
-  ['update_5flogical_5fedgefunction_3',['update_logical_edgefunction',['../d9/dd6/namespacedolfinx_1_1refinement.html#a3fe628c05b9f3ab94c15b68b6857a17d',1,'dolfinx::refinement']]],
-  ['utils_2eh_4',['utils.h',['../d9/dc0/fem_2utils_8h.html',1,'']]]
+  ['update_5flogical_5fedgefunction_2',['update_logical_edgefunction',['../d9/dd6/namespacedolfinx_1_1refinement.html#a3fe628c05b9f3ab94c15b68b6857a17d',1,'dolfinx::refinement']]],
+  ['utils_2eh_3',['utils.h',['../d9/dc0/fem_2utils_8h.html',1,'(Global Namespace)'],['../d0/d47/mesh_2utils_8h.html',1,'(Global Namespace)']]]
 ];

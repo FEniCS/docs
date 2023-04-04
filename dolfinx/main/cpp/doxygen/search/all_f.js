@@ -4,11 +4,11 @@ var searchData=
   ['rank_1',['rank',['../da/dfe/namespacedolfinx_1_1MPI.html#ab6a01b5be2487cb6674b70ce6a89bad0',1,'dolfinx::MPI::rank()'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a290d348ba17e7752621ed7bd3d5e4b3a',1,'dolfinx::fem::Form::rank()']]],
   ['read_5fcell_5ftype_2',['read_cell_type',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a8d01bb02494c74561059c5346f800182',1,'dolfinx::io::XDMFFile']]],
   ['read_5fdataset_3',['read_dataset',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a147f5645b07ba8c1f8beaadb366f7d13',1,'dolfinx::io::HDF5Interface']]],
-  ['read_5fgeometry_5fdata_4',['read_geometry_data',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#aae477c695fe8b75078e0e4735b2ad1cc',1,'dolfinx::io::xdmf_mesh::read_geometry_data()'],['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a65e2c8ff3ff80e5d172f90e51538e9e4',1,'dolfinx::io::XDMFFile::read_geometry_data(std::string name, std::string xpath=&quot;/Xdmf/Domain&quot;) const']]],
+  ['read_5fgeometry_5fdata_4',['read_geometry_data',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a65e2c8ff3ff80e5d172f90e51538e9e4',1,'dolfinx::io::XDMFFile::read_geometry_data()'],['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#aae477c695fe8b75078e0e4735b2ad1cc',1,'dolfinx::io::xdmf_mesh::read_geometry_data()']]],
   ['read_5finformation_5',['read_information',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ad14dfb4100e723442f785d3e91f4995a',1,'dolfinx::io::XDMFFile']]],
   ['read_5fmesh_6',['read_mesh',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ac047026cfeebe7fbd2cba1dfe0b66002',1,'dolfinx::io::XDMFFile']]],
   ['read_5fmeshtags_7',['read_meshtags',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a640ceb6b0ef36318c317298700f0f941',1,'dolfinx::io::XDMFFile']]],
-  ['read_5ftopology_5fdata_8',['read_topology_data',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a8a7081ccfaaf7435dc3b4f32119e45e6',1,'dolfinx::io::XDMFFile::read_topology_data()'],['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#aeb9011d3be038983aa6fcf114d94846d',1,'dolfinx::io::xdmf_mesh::read_topology_data()']]],
+  ['read_5ftopology_5fdata_8',['read_topology_data',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#aeb9011d3be038983aa6fcf114d94846d',1,'dolfinx::io::xdmf_mesh::read_topology_data()'],['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a8a7081ccfaaf7435dc3b4f32119e45e6',1,'dolfinx::io::XDMFFile::read_topology_data()']]],
   ['reduce_9',['reduce',['../db/d97/classdolfinx_1_1Table.html#aec673cb60c49c7e56f303497d244fa31',1,'dolfinx::Table']]],
   ['reduction_10',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a536aaa97b969b0acd31603703012bbff',1,'dolfinx::Table']]],
   ['reference_5fvalue_5fsize_11',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
@@ -23,7 +23,6 @@ var searchData=
   ['residual_20',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['residual0_21',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['resume_22',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['reuse_23',['reuse',['../d5/d46/classdolfinx_1_1io_1_1FidesWriter.html#a5852c3f28e31c45bb2a2091948923b00a62c7d2cb28cdcf65811a70f7a053d8cb',1,'dolfinx::io::FidesWriter']]],
-  ['row_5fptr_24',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad92f6907b8fa134292008e58036fe5d2',1,'dolfinx::la::MatrixCSR']]],
-  ['rtol_25',['rtol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a4587afeee8941ba7c208b3690a3eeaa7',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['row_5fptr_23',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad92f6907b8fa134292008e58036fe5d2',1,'dolfinx::la::MatrixCSR']]],
+  ['rtol_24',['rtol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a4587afeee8941ba7c208b3690a3eeaa7',1,'dolfinx::nls::petsc::NewtonSolver']]]
 ];
