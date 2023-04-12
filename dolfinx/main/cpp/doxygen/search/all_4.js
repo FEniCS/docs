@@ -18,13 +18,12 @@ var searchData=
   ['eval_15',['eval',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a0836f3867733ede0d2750de23744d1af',1,'dolfinx::fem::Expression::eval()'],['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a4b9bd266aabdf3723d40568939b5f9cd',1,'dolfinx::fem::Function::eval()']]],
   ['expression_16',['Expression',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html',1,'Expression&lt; T, U &gt;'],['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#aa348b501068a4313f77fd622869a3d89',1,'dolfinx::fem::Expression::Expression(Expression &amp;&amp;form)=default'],['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a190ebdd5b83a067ebd5f51bb446b80b4',1,'dolfinx::fem::Expression::Expression(const std::vector&lt; std::shared_ptr&lt; const Function&lt; T, U &gt; &gt; &gt; &amp;coefficients, const std::vector&lt; std::shared_ptr&lt; const Constant&lt; T &gt; &gt; &gt; &amp;constants, std::span&lt; const U &gt; X, std::array&lt; std::size_t, 2 &gt; Xshape, const std::function&lt; void(T *, const T *, const T *, const dolfinx::scalar_value_type_t&lt; T &gt; *, const int *, const uint8_t *)&gt; fn, const std::vector&lt; int &gt; &amp;value_shape, std::shared_ptr&lt; const mesh::Mesh&lt; U &gt; &gt; mesh=nullptr, std::shared_ptr&lt; const FunctionSpace&lt; U &gt; &gt; argument_function_space=nullptr)']]],
   ['exterior_5ffacet_17',['exterior_facet',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962ab8e8c532206d46c91883de739daed213',1,'dolfinx::fem']]],
-  ['exterior_5ffacet_5fdomains_18',['exterior_facet_domains',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a4ebd8b5c4c8c25c5aa25e4bb0a661396',1,'dolfinx::fem::Form']]],
-  ['exterior_5ffacet_5findices_19',['exterior_facet_indices',['../dd/d7d/namespacedolfinx_1_1mesh.html#abcd805c0f4a1ee1533a6b05417ddcaa1',1,'dolfinx::mesh']]],
-  ['extract_5fcommon_5fmesh_20',['extract_common_mesh',['../df/d34/ADIOS2Writers_8h.html#ac3ce0a5ed563fc623e2fd8daa4d53a45',1,'dolfinx::io::impl_adios2']]],
-  ['extract_5ffunction_5fnames_21',['extract_function_names',['../df/d34/ADIOS2Writers_8h.html#a084ed3b9281469f59d86fbdb2b7a837c',1,'dolfinx::io::impl_vtx']]],
-  ['extract_5ffunction_5fspaces_22',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
-  ['extract_5fsub_5fdofmap_23',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
-  ['extract_5fsub_5felement_24',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
-  ['extract_5ftopology_25',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
-  ['extract_5fvtk_5fconnectivity_26',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a6faa5c548bbf19d991c35a32115196a5',1,'dolfinx::io']]]
+  ['exterior_5ffacet_5findices_18',['exterior_facet_indices',['../dd/d7d/namespacedolfinx_1_1mesh.html#abcd805c0f4a1ee1533a6b05417ddcaa1',1,'dolfinx::mesh']]],
+  ['extract_5fcommon_5fmesh_19',['extract_common_mesh',['../df/d34/ADIOS2Writers_8h.html#ac3ce0a5ed563fc623e2fd8daa4d53a45',1,'dolfinx::io::impl_adios2']]],
+  ['extract_5ffunction_5fnames_20',['extract_function_names',['../df/d34/ADIOS2Writers_8h.html#a084ed3b9281469f59d86fbdb2b7a837c',1,'dolfinx::io::impl_vtx']]],
+  ['extract_5ffunction_5fspaces_21',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
+  ['extract_5fsub_5fdofmap_22',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
+  ['extract_5fsub_5felement_23',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
+  ['extract_5ftopology_24',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
+  ['extract_5fvtk_5fconnectivity_25',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a6faa5c548bbf19d991c35a32115196a5',1,'dolfinx::io']]]
 ];
