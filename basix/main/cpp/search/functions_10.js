@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['unpermute_5fdofs_273',['unpermute_dofs',['../classbasix_1_1FiniteElement.html#af627afd9aeee8237cf7552b4652c437a',1,'basix::FiniteElement']]]
+  ['unpermute_5fdofs_272',['unpermute_dofs',['../classbasix_1_1FiniteElement.html#a323ebccb2264ebfb381eef9e9d6bae95',1,'basix::FiniteElement']]]
 ];
