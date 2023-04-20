@@ -1,5 +1,5 @@
 var searchData=
 [
   ['l2_5fpiola_238',['l2_piola',['../namespacebasix_1_1maps.html#a13f1ce96ede39475013645566d1ee15e',1,'basix::maps']]],
-  ['lagrange_5fvariant_239',['lagrange_variant',['../classbasix_1_1FiniteElement.html#a277701eea33cb029f3b0b3b3be2b4de2',1,'basix::FiniteElement']]]
+  ['lagrange_5fvariant_239',['lagrange_variant',['../classbasix_1_1FiniteElement.html#a7cc685192a3bcd2ae6e6dca2fbc92901',1,'basix::FiniteElement']]]
 ];
