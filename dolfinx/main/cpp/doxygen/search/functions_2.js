@@ -1,7 +1,7 @@
 var searchData=
 [
   ['cell_5fdim_0',['cell_dim',['../dd/d7d/namespacedolfinx_1_1mesh.html#a6984abad1707caa0c97b4e4b167106b3',1,'dolfinx::mesh']]],
-  ['cell_5fdofs_1',['cell_dofs',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a319c7a014bb6eeef9f072167ede51b79',1,'dolfinx::fem::DofMap']]],
+  ['cell_5fdofs_1',['cell_dofs',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a9ab4eb20550189d22ebdba086e290fd1',1,'dolfinx::fem::DofMap']]],
   ['cell_5fentity_5fclosure_2',['cell_entity_closure',['../dd/d7d/namespacedolfinx_1_1mesh.html#aacd44e8136c15b9593dfdd87cd744c32',1,'dolfinx::mesh']]],
   ['cell_5fentity_5ftype_3',['cell_entity_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#a6abcbdca3e3aae2fe00ad6ea7186cb0c',1,'dolfinx::mesh']]],
   ['cell_5ffacet_5ftype_4',['cell_facet_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#a66c376aedd08ad2dab6f13eba56b6f36',1,'dolfinx::mesh']]],
@@ -45,7 +45,7 @@ var searchData=
   ['compute_5fjacobian_42',['compute_jacobian',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a0ee6e6b7e1ab38fbd77830349ed7c616',1,'dolfinx::fem::CoordinateElement']]],
   ['compute_5fjacobian_5fdeterminant_43',['compute_jacobian_determinant',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ad1ee76129425323769389247a42971c8',1,'dolfinx::fem::CoordinateElement']]],
   ['compute_5fjacobian_5finverse_44',['compute_jacobian_inverse',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a3d48964ab2390ef03e5f141f54b1882f',1,'dolfinx::fem::CoordinateElement']]],
-  ['compute_5flocal_5fto_5fglobal_5flinks_45',['compute_local_to_global_links',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a80479e0d22a8e992037ba419d971c61a',1,'dolfinx::graph::build']]],
+  ['compute_5flocal_5fto_5fglobal_45',['compute_local_to_global',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#abb5b31c983ae23a599fd09383cf003b3',1,'dolfinx::graph::build']]],
   ['compute_5flocal_5fto_5flocal_46',['compute_local_to_local',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#ace15f6925ed85b175a7e32ef2ad46d3a',1,'dolfinx::graph::build']]],
   ['compute_5fmidpoints_47',['compute_midpoints',['../dd/d7d/namespacedolfinx_1_1mesh.html#ad4dbbf93d4d231f00b543bf8cc9fece7',1,'dolfinx::mesh']]],
   ['compute_5fowned_5findices_48',['compute_owned_indices',['../d7/de1/namespacedolfinx_1_1common.html#a53546ac2b5250e045e91411cae1b5724',1,'dolfinx::common']]],
