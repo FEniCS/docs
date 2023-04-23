@@ -1,7 +1,7 @@
 var searchData=
 [
   ['elapsed_0',['elapsed',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#ac08ab25054d926a3298bc7251e3c4762',1,'dolfinx::common::Timer']]],
-  ['element_1',['element',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#ae091d6c6e33d7d8d2c7cc434d09126ce',1,'dolfinx::fem::FunctionSpace']]],
+  ['element_1',['element',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a4a0373091dc27f9f9f96da5174b505ad',1,'dolfinx::fem::FunctionSpace']]],
   ['element_5fdof_5flayout_2',['element_dof_layout',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#aa3ca824226f49b9647e96f3562feb974',1,'dolfinx::fem::DofMap']]],
   ['elementdoflayout_3',['ElementDofLayout',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html',1,'ElementDofLayout'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a57fadc872c3e36ec7d9eceb45de0434c',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(int block_size, const std::vector&lt; std::vector&lt; std::vector&lt; int &gt; &gt; &gt; &amp;entity_dofs, const std::vector&lt; std::vector&lt; std::vector&lt; int &gt; &gt; &gt; &amp;entity_closure_dofs, const std::vector&lt; int &gt; &amp;parent_map, const std::vector&lt; ElementDofLayout &gt; &amp;sub_layouts)'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ac917c4d40511db8eff6ba905c5ab3806',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(const ElementDofLayout &amp;dofmap)=default'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a4625fb8017bad0330fe91d25f69a3f7f',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(ElementDofLayout &amp;&amp;dofmap)=default']]],
   ['encoding_4',['Encoding',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#afb0564821f132bfe74508af8349a0faa',1,'dolfinx::io::XDMFFile']]],
@@ -23,7 +23,7 @@ var searchData=
   ['extract_5ffunction_5fnames_20',['extract_function_names',['../df/d34/ADIOS2Writers_8h.html#a5f37ce8aa1bc81c1d438dfb03bb2c258',1,'dolfinx::io::impl_vtx']]],
   ['extract_5ffunction_5fspaces_21',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
   ['extract_5fsub_5fdofmap_22',['extract_sub_dofmap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a4361048dc9e3186be1c6cc387ab1fb16',1,'dolfinx::fem::DofMap']]],
-  ['extract_5fsub_5felement_23',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a75cbf139e2726fff49c6c22f5eddf499',1,'dolfinx::fem::FiniteElement']]],
+  ['extract_5fsub_5felement_23',['extract_sub_element',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4cbfdcabcaf4ba9f8083ad84cba82717',1,'dolfinx::fem::FiniteElement']]],
   ['extract_5ftopology_24',['extract_topology',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae41357d694f4aa69288c4e9c50d0ad2',1,'dolfinx::mesh']]],
   ['extract_5fvtk_5fconnectivity_25',['extract_vtk_connectivity',['../d6/d7a/namespacedolfinx_1_1io.html#a4bb9b224935b9cef21182b30e284ec8c',1,'dolfinx::io']]]
 ];

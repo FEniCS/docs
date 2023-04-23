@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['geometry_0',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a2ac19454b231641e82cfec036ece0d4a',1,'dolfinx::mesh::Mesh']]],
-  ['geometry_1',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#aa45cc8baba52de6828abd5c81df5e28d',1,'dolfinx::mesh::Geometry::Geometry(std::shared_ptr&lt; const common::IndexMap &gt; index_map, U &amp;&amp;dofmap, const std::vector&lt; fem::CoordinateElement &gt; &amp;elements, V &amp;&amp;x, int dim, W &amp;&amp;input_global_indices)'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8d09a97e889f432c7165b139299947d3',1,'dolfinx::mesh::Geometry::Geometry(const Geometry &amp;)=default'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8ada746cf034501d1f8e557c590281a5',1,'dolfinx::mesh::Geometry::Geometry(Geometry &amp;&amp;)=default']]],
-  ['geometry_2',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a66440f67948f04ee83e4f5a797f08856',1,'dolfinx::mesh::Mesh']]],
+  ['geometry_0',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8d09a97e889f432c7165b139299947d3',1,'dolfinx::mesh::Geometry::Geometry(const Geometry &amp;)=default'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a8ada746cf034501d1f8e557c590281a5',1,'dolfinx::mesh::Geometry::Geometry(Geometry &amp;&amp;)=default']]],
+  ['geometry_1',['geometry',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a66440f67948f04ee83e4f5a797f08856',1,'dolfinx::mesh::Mesh::geometry()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a2ac19454b231641e82cfec036ece0d4a',1,'dolfinx::mesh::Mesh::geometry() const']]],
+  ['geometry_2',['Geometry',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a85ce086f0a3ecf12bf5c3881c85df1fd',1,'dolfinx::mesh::Geometry']]],
   ['get_3',['get',['../db/d97/classdolfinx_1_1Table.html#a68dc49b85daedd62f800503285fba101',1,'dolfinx::Table']]],
   ['get_5fbbox_4',['get_bbox',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a90ef96c0bee7c548995ce9f5d06919f7',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['get_5fcell_5ffacet_5fpairs_5',['get_cell_facet_pairs',['../d9/dc0/fem_2utils_8h.html#a930ae064bb029b572824f5d6acd5d1fe',1,'dolfinx::fem::impl']]],
@@ -12,8 +12,8 @@ var searchData=
   ['get_5fdataset_9',['get_dataset',['../d8/de2/namespacedolfinx_1_1io_1_1xdmf__read.html#aad88468f937302803e31010667bede59',1,'dolfinx::io::xdmf_read']]],
   ['get_5fdataset_5fshape_10',['get_dataset_shape',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a40c7a131e9ff5354b2712b0a816a058b',1,'dolfinx::io::HDF5Interface']]],
   ['get_5fdof_5fpermutation_5ffunction_11',['get_dof_permutation_function',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acf2531ba70822f73258c97f602be84f1',1,'dolfinx::fem::FiniteElement']]],
-  ['get_5fdof_5ftransformation_5ffunction_12',['get_dof_transformation_function',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a38ebba92bf895b2248dfa0a9472ebfd1',1,'dolfinx::fem::FiniteElement']]],
-  ['get_5fdof_5ftransformation_5fto_5ftranspose_5ffunction_13',['get_dof_transformation_to_transpose_function',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a3cc28b6310e625b84ee9eb0fdd9ef62f',1,'dolfinx::fem::FiniteElement']]],
+  ['get_5fdof_5ftransformation_5ffunction_12',['get_dof_transformation_function',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae52c67ba33b7ca9648c1661ae9c6cadb',1,'dolfinx::fem::FiniteElement']]],
+  ['get_5fdof_5ftransformation_5fto_5ftranspose_5ffunction_13',['get_dof_transformation_to_transpose_function',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aa7b52ebbf1c09b406400ca36ba74b6ea',1,'dolfinx::fem::FiniteElement']]],
   ['get_5feigenpair_14',['get_eigenpair',['../d0/d6d/classdolfinx_1_1la_1_1SLEPcEigenSolver.html#aff53d3094945b3a22a24e00bccbcb7c4',1,'dolfinx::la::SLEPcEigenSolver']]],
   ['get_5feigenvalue_15',['get_eigenvalue',['../d0/d6d/classdolfinx_1_1la_1_1SLEPcEigenSolver.html#a91c4e47381a2d4136fa544b6305b30ab',1,'dolfinx::la::SLEPcEigenSolver']]],
   ['get_5fentity_5fvertices_16',['get_entity_vertices',['../dd/d7d/namespacedolfinx_1_1mesh.html#a928c84854cdb3701ae7410d2f2c1a913',1,'dolfinx::mesh']]],
