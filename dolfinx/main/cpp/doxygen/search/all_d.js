@@ -1,7 +1,7 @@
 var searchData=
 [
   ['off_5fdiag_5foffset_0',['off_diag_offset',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a0e4fa2488d7568e011bd4e738861d0ab',1,'dolfinx::la::MatrixCSR']]],
-  ['off_5fdiagonal_5foffset_1',['off_diagonal_offset',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#af7bf90ca51f58a8fff668a0056b87086',1,'dolfinx::la::SparsityPattern']]],
+  ['off_5fdiagonal_5foffsets_1',['off_diagonal_offsets',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a88067c688a3d32686a667f9a55bc4f07',1,'dolfinx::la::SparsityPattern']]],
   ['offsets_2',['offsets',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ae17998d2f942ea395dfdc3f984b463f5',1,'dolfinx::graph::AdjacencyList::offsets() const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a15b8f66504137e3ffbf61372539399f1',1,'dolfinx::graph::AdjacencyList::offsets()']]],
   ['open_5ffile_3',['open_file',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a818f0d556940e0b73ccc8017182b640b',1,'dolfinx::io::HDF5Interface']]],
   ['operator_4',['Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html',1,'Operator'],['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#ab508c49578b9a68be5afedad458cd2bc',1,'dolfinx::la::petsc::Operator::Operator(Operator &amp;&amp;A)'],['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#a96ee7c468c45ee4d2a538bff13042868',1,'dolfinx::la::petsc::Operator::Operator(Mat A, bool inc_ref_count)']]],
