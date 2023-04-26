@@ -8,7 +8,7 @@ var searchData=
   ['nnz_5fdiag_5',['nnz_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a5c76a6f74ef0aec646374dd6716b58e0',1,'dolfinx::la::SparsityPattern']]],
   ['nnz_5foff_5fdiag_6',['nnz_off_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a26aa980b1174e63fc8eb625f647d312e',1,'dolfinx::la::SparsityPattern']]],
   ['none_7',['none',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement::plaza']]],
-  ['norm_8',['norm',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a3096af607f3b72b2a6af400621eb02d2',1,'dolfinx::la::petsc::Matrix::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#ae90e7a06ea76c0e36631e45b40e0636b',1,'dolfinx::la::norm(const Vector&lt; T, Allocator &gt; &amp;a, Norm type=Norm::l2)']]],
+  ['norm_8',['norm',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a3096af607f3b72b2a6af400621eb02d2',1,'dolfinx::la::petsc::Matrix::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#ae64ed844bbb2893562761c91d734627d',1,'dolfinx::la::norm(const V &amp;a, Norm type=Norm::l2)']]],
   ['norm_9',['Norm',['../d6/dfa/namespacedolfinx_1_1la.html#a2e0f25289c14e546b4ba10dd8fc735e5',1,'dolfinx::la']]],
   ['norm_5fsquared_10',['norm_squared',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad880e77a4acc38171b0abc7df27e0066',1,'dolfinx::la::MatrixCSR']]],
   ['num_5fall_5frows_11',['num_all_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#acf00f9c00e0b1fb45f838cccacead71a',1,'dolfinx::la::MatrixCSR']]],

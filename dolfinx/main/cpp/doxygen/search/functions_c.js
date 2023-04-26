@@ -6,7 +6,7 @@ var searchData=
   ['newtonsolver_3',['NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a694ffbfde5de38322954b9ff70ae9a8a',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['nnz_5fdiag_4',['nnz_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a5c76a6f74ef0aec646374dd6716b58e0',1,'dolfinx::la::SparsityPattern']]],
   ['nnz_5foff_5fdiag_5',['nnz_off_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a26aa980b1174e63fc8eb625f647d312e',1,'dolfinx::la::SparsityPattern']]],
-  ['norm_6',['norm',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a3096af607f3b72b2a6af400621eb02d2',1,'dolfinx::la::petsc::Matrix::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#ae90e7a06ea76c0e36631e45b40e0636b',1,'dolfinx::la::norm()']]],
+  ['norm_6',['norm',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a3096af607f3b72b2a6af400621eb02d2',1,'dolfinx::la::petsc::Matrix::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#ae64ed844bbb2893562761c91d734627d',1,'dolfinx::la::norm()']]],
   ['norm_5fsquared_7',['norm_squared',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad880e77a4acc38171b0abc7df27e0066',1,'dolfinx::la::MatrixCSR']]],
   ['num_5fall_5frows_8',['num_all_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#acf00f9c00e0b1fb45f838cccacead71a',1,'dolfinx::la::MatrixCSR']]],
   ['num_5fbboxes_9',['num_bboxes',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1',1,'dolfinx::geometry::BoundingBoxTree']]],

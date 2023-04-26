@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['off_5fdiag_5foffset_0',['off_diag_offset',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#abfff9293dda28454f23871bb9276a518',1,'dolfinx::la::MatrixCSR']]],
+  ['off_5fdiag_5foffset_0',['off_diag_offset',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a0e4fa2488d7568e011bd4e738861d0ab',1,'dolfinx::la::MatrixCSR']]],
   ['off_5fdiagonal_5foffset_1',['off_diagonal_offset',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#af7bf90ca51f58a8fff668a0056b87086',1,'dolfinx::la::SparsityPattern']]],
   ['offsets_2',['offsets',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ae17998d2f942ea395dfdc3f984b463f5',1,'dolfinx::graph::AdjacencyList::offsets() const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a15b8f66504137e3ffbf61372539399f1',1,'dolfinx::graph::AdjacencyList::offsets()']]],
   ['open_5ffile_3',['open_file',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html#a818f0d556940e0b73ccc8017182b640b',1,'dolfinx::io::HDF5Interface']]],
@@ -10,7 +10,7 @@ var searchData=
   ['operator_3d_3d_7',['operator==',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#ace379afdfc559c64b5f0694bc3c8be3d',1,'dolfinx::fem::DofMap::operator==()'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a075350d221fd3538803641b0c1c6d267',1,'dolfinx::graph::AdjacencyList::operator==()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#afa62c95fee8cd0b22a4a272ba67bddbf',1,'dolfinx::fem::FiniteElement::operator==()'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ad81f9bf35e7798a9c80e65d352137878',1,'dolfinx::fem::ElementDofLayout::operator==()']]],
   ['option_8',['Option',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016',1,'dolfinx::refinement::plaza']]],
   ['original_5fcell_5findex_9',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aa499af6cddeb7aeab4c3bee18d0f17d6',1,'dolfinx::mesh::Topology']]],
-  ['orthonormalize_10',['orthonormalize',['../d6/dfa/namespacedolfinx_1_1la.html#aaf592a2994d8ba2081fa77c67131f76d',1,'dolfinx::la']]],
+  ['orthonormalize_10',['orthonormalize',['../d6/dfa/namespacedolfinx_1_1la.html#ae682ff27634fe48ba8baef28c800a4bb',1,'dolfinx::la']]],
   ['overlapped_11',['overlapped',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a0af453c70c14addd6ea34e94094bcc57',1,'dolfinx::common::IndexMap']]],
   ['owners_12',['owners',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a62e6d6b8522dc983602b8d268fe54b5f',1,'dolfinx::common::IndexMap']]]
 ];

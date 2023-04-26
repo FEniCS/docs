@@ -20,5 +20,5 @@ var searchData=
   ['residual_17',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['residual0_18',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['resume_19',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['row_5fptr_20',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad92f6907b8fa134292008e58036fe5d2',1,'dolfinx::la::MatrixCSR']]]
+  ['row_5fptr_20',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
 ];
