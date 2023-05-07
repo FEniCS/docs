@@ -11,7 +11,7 @@ var searchData=
   ['timer_8',['Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html',1,'Timer'],['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a6a8bc5014802d569f6d01c4f36121a81',1,'dolfinx::common::Timer::Timer()'],['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a361f74958b6f26d4fa4b203b1dc26569',1,'dolfinx::common::Timer::Timer(const std::string &amp;task)']]],
   ['timing_9',['timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a1b21c8a81721a61db9a44d50b9767310',1,'dolfinx::common::TimeLogger::timing()'],['../d2/dc7/namespacedolfinx.html#a36ef37917c9bb76098cd8fc0a81f658a',1,'dolfinx::timing()']]],
   ['timings_10',['timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a3a493ef6cdf43f52ea2bdbdbf20b5e9a',1,'dolfinx::common::TimeLogger::timings()'],['../d2/dc7/namespacedolfinx.html#a3a493ef6cdf43f52ea2bdbdbf20b5e9a',1,'dolfinx::timings(std::set&lt; TimingType &gt; type)']]],
-  ['timingtype_11',['TimingType',['../d2/dc7/namespacedolfinx.html#a2b0cbbc58b77ee03bfd51a3a41ddd867',1,'dolfinx']]],
+  ['timingtype_11',['TimingType',['../d2/dc7/namespacedolfinx.html#afbf4a03e9b1c34cc29a7f3cfe6351b30',1,'dolfinx']]],
   ['to_5fdense_12',['to_dense',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a3957be66d50f9a07b0c75016759e181c',1,'dolfinx::la::MatrixCSR']]],
   ['to_5fstring_13',['to_string',['../dd/d7d/namespacedolfinx_1_1mesh.html#ae1f0961be83abe152e146c14c8f8548a',1,'dolfinx::mesh']]],
   ['to_5ftype_14',['to_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#aec82a925447a9da2a086b7c93739ba9c',1,'dolfinx::mesh']]],
