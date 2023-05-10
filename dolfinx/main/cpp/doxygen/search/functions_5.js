@@ -1,7 +1,7 @@
 var searchData=
 [
   ['family_0',['family',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a132ceaf57dee2fe5b8346fdfe608fbd9',1,'dolfinx::fem::FiniteElement']]],
-  ['finalize_1',['finalize',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a32d626626eee0bc4ade146973f6abb1c',1,'dolfinx::la::MatrixCSR']]],
+  ['finalize_1',['finalize',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a32d626626eee0bc4ade146973f6abb1c',1,'dolfinx::la::MatrixCSR::finalize()'],['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a32d626626eee0bc4ade146973f6abb1c',1,'dolfinx::la::SparsityPattern::finalize()']]],
   ['finalize_5fbegin_2',['finalize_begin',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#afc4bb51e89de11041513ca6db1674553',1,'dolfinx::la::MatrixCSR']]],
   ['finalize_5fend_3',['finalize_end',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a6827c4c2178bb6db4467f1e8ec90fe1f',1,'dolfinx::la::MatrixCSR']]],
   ['find_4',['find',['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#ad9578d4477f2516ebbff33e6b24f8d78',1,'dolfinx::mesh::MeshTags']]],
