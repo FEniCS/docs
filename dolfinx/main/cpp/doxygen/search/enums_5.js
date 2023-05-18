@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['integraltype_0',['IntegralType',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962',1,'dolfinx::fem']]]
+  ['ghostmode_0',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#a38d109d131f3180f43267fcf9fe9c4c4',1,'dolfinx::mesh']]]
 ];

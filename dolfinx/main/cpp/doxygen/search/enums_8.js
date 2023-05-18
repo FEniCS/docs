@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['reduction_0',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a536aaa97b969b0acd31603703012bbff',1,'dolfinx::Table']]]
+  ['option_0',['Option',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016',1,'dolfinx::refinement::plaza']]]
 ];

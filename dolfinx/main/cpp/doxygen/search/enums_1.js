@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['celltype_0',['CellType',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac3c2cbbef08f3b7ddc3b06c6bd5a2271',1,'dolfinx::mesh']]]
+  ['blockmode_0',['BlockMode',['../d6/dfa/namespacedolfinx_1_1la.html#a95b1e1b5aab4eb54c39e0977036b7eb3',1,'dolfinx::la']]]
 ];

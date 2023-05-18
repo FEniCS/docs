@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['add_0',['add',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#abf07a527f158c22adb920b8d1dcbe201',1,'dolfinx::la::MatrixCSR']]],
+  ['add_0',['add',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a3a86261e0064d3ed9ff6b96de35d3d90',1,'dolfinx::la::MatrixCSR']]],
   ['add_5ffunction_1',['add_function',['../df/dbd/namespacedolfinx_1_1io_1_1xdmf__function.html#af149bb85b54feeaaceab1813a5244018',1,'dolfinx::io::xdmf_function::add_function(MPI_Comm comm, const fem::Function&lt; std::complex&lt; double &gt;, double &gt; &amp;u, const double t, pugi::xml_node &amp;xml_node, const hid_t h5_id)'],['../df/dbd/namespacedolfinx_1_1io_1_1xdmf__function.html#a092419e651f12f7f534c51673ec5943a',1,'dolfinx::io::xdmf_function::add_function(MPI_Comm comm, const fem::Function&lt; double, double &gt; &amp;u, const double t, pugi::xml_node &amp;xml_node, const hid_t h5_id)']]],
   ['add_5fgeometry_5fdata_2',['add_geometry_data',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#a68c7202942fe10b16565e18a85086b72',1,'dolfinx::io::xdmf_mesh']]],
   ['add_5fmesh_3',['add_mesh',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#a207b68f4177f7dfa0a403e9b59cdcd99',1,'dolfinx::io::xdmf_mesh']]],

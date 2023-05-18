@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['option_0',['Option',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016',1,'dolfinx::refinement::plaza']]]
+  ['norm_0',['Norm',['../d6/dfa/namespacedolfinx_1_1la.html#a2e0f25289c14e546b4ba10dd8fc735e5',1,'dolfinx::la']]]
 ];
