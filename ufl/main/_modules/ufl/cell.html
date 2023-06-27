@@ -30,7 +30,7 @@
           <div class="body" role="main">
             
   <h1>Source code for ufl.cell</h1><div class="highlight"><pre>
-<span></span><span class="s2">&quot;Types for representing a cell.&quot;</span>
+<span></span><span class="sd">&quot;&quot;&quot;Types for representing a cell.&quot;&quot;&quot;</span>
 
 <span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
 <span class="c1">#</span>
@@ -38,293 +38,438 @@
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 <span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">numbers</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">import</span> <span class="nn">weakref</span>
 
-<span class="kn">import</span> <span class="nn">ufl.cell</span>
-<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">attach_operators_from_hash_data</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLObject</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
 
-<span class="c1"># Export list for ufl.classes</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Self</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="c1"># This alternative is needed pre Python 3.11</span>
+    <span class="c1"># Delete this after 04 Oct 2026 (Python 3.10 end of life)</span>
+    <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Self</span>
+
 <span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AbstractCell&quot;</span><span class="p">,</span> <span class="s2">&quot;Cell&quot;</span><span class="p">,</span> <span class="s2">&quot;TensorProductCell&quot;</span><span class="p">]</span>
 
 
-<span class="c1"># --- The most abstract cell class, base class for other cell types</span>
+<div class="viewcode-block" id="AbstractCell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell">[docs]</a><span class="k">class</span> <span class="nc">AbstractCell</span><span class="p">(</span><span class="n">UFLObject</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A base class for all cells.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="AbstractCell.topological_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.topological_dimension">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">topological_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the topology of this cell.&quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="AbstractCell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell">[docs]</a><span class="k">class</span> <span class="nc">AbstractCell</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of an abstract finite element cell with only the</span>
-<span class="sd">    dimensions known.</span>
+<div class="viewcode-block" id="AbstractCell.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.geometric_dimension">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the geometry of this cell.&quot;&quot;&quot;</span></div>
 
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_topological_dimension&quot;</span><span class="p">,</span>
-                 <span class="s2">&quot;_geometric_dimension&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="AbstractCell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.is_simplex">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if this is a simplex cell.&quot;&quot;&quot;</span></div>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topological_dimension</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">):</span>
-        <span class="c1"># Validate dimensions</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geometric_dimension</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer geometric_dimension.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">topological_dimension</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer topological_dimension.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">&gt;</span> <span class="n">geometric_dimension</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Topological dimension cannot be larger than geometric dimension.&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="AbstractCell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.has_simplex_facets">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if all the facets of this cell are simplex cells.&quot;&quot;&quot;</span></div>
 
-        <span class="c1"># Store validated dimensions</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_topological_dimension</span> <span class="o">=</span> <span class="n">topological_dimension</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span> <span class="o">=</span> <span class="n">geometric_dimension</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define an arbitrarily chosen but fixed sort order for all instances of this type with the same dimensions.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="AbstractCell.topological_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.topological_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">topological_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return the dimension of the topology of this cell.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topological_dimension</span></div>
+<div class="viewcode-block" id="AbstractCell.num_sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_sub_entities">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">num_sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of sub-entities of the given dimension.&quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="AbstractCell.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.geometric_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return the dimension of the space this cell is embedded in.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span></div>
+<div class="viewcode-block" id="AbstractCell.sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.sub_entities">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the sub-entities of the given dimension.&quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="AbstractCell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.is_simplex">[docs]</a>    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return True if this is a simplex cell.&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Implement this to allow important checks and optimizations.&quot;</span><span class="p">)</span></div>
+<div class="viewcode-block" id="AbstractCell.sub_entity_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.sub_entity_types">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">sub_entity_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique sub-entity types of the given dimension.&quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="AbstractCell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.has_simplex_facets">[docs]</a>    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return True if all the facets of this cell are simplex cells.&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Implement this to allow important checks and optimizations.&quot;</span><span class="p">)</span></div>
+<div class="viewcode-block" id="AbstractCell.cellname"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.cellname">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">cellname</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the cellname of the cell.&quot;&quot;&quot;</span></div>
 
-    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-        <span class="s2">&quot;Define an arbitrarily chosen but fixed sort order for all cells.&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">AbstractCell</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">NotImplemented</span>
-        <span class="c1"># Sort by gdim first, tdim next, then whatever&#39;s left</span>
-        <span class="c1"># depending on the subclass</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">())</span>
-        <span class="n">o</span> <span class="o">=</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="n">o</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="n">o</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span></div>
+<div class="viewcode-block" id="AbstractCell.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.reconstruct">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Cell</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct this cell, overwriting properties by those in kwargs.&quot;&quot;&quot;</span></div>
+
+    <span class="k">def</span> <span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">AbstractCell</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define an arbitrarily chosen but fixed sort order for all cells.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">())</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="n">o</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">s</span> <span class="o">&lt;</span> <span class="n">o</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lt</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot order cell types with the same name&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">&lt;</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+
+<div class="viewcode-block" id="AbstractCell.num_vertices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_vertices">[docs]</a>    <span class="k">def</span> <span class="nf">num_vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of vertices.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.num_edges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_edges">[docs]</a>    <span class="k">def</span> <span class="nf">num_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of edges.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.num_faces"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_faces">[docs]</a>    <span class="k">def</span> <span class="nf">num_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of faces.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.num_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_facets">[docs]</a>    <span class="k">def</span> <span class="nf">num_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of facets.</span>
+
+<span class="sd">        Facets are entities of dimension tdim-1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.num_ridges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_ridges">[docs]</a>    <span class="k">def</span> <span class="nf">num_ridges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of ridges.</span>
+
+<span class="sd">        Ridges are entities of dimension tdim-2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.num_peaks"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.num_peaks">[docs]</a>    <span class="k">def</span> <span class="nf">num_peaks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of peaks.</span>
+
+<span class="sd">        Peaks are entities of dimension tdim-3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.vertices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.vertices">[docs]</a>    <span class="k">def</span> <span class="nf">vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the vertices.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.edges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.edges">[docs]</a>    <span class="k">def</span> <span class="nf">edges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the edges.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.faces"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.faces">[docs]</a>    <span class="k">def</span> <span class="nf">faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the faces.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.facets">[docs]</a>    <span class="k">def</span> <span class="nf">facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the facets.</span>
+
+<span class="sd">        Facets are entities of dimension tdim-1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.ridges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.ridges">[docs]</a>    <span class="k">def</span> <span class="nf">ridges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the ridges.</span>
+
+<span class="sd">        Ridges are entities of dimension tdim-2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.peaks"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.peaks">[docs]</a>    <span class="k">def</span> <span class="nf">peaks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the peaks.</span>
+
+<span class="sd">        Peaks are entities of dimension tdim-3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entities</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.vertex_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.vertex_types">[docs]</a>    <span class="k">def</span> <span class="nf">vertex_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique vertices types.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.edge_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.edge_types">[docs]</a>    <span class="k">def</span> <span class="nf">edge_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique edge types.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.face_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.face_types">[docs]</a>    <span class="k">def</span> <span class="nf">face_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique face types.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.facet_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.facet_types">[docs]</a>    <span class="k">def</span> <span class="nf">facet_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique facet types.</span>
+
+<span class="sd">        Facets are entities of dimension tdim-1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.ridge_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.ridge_types">[docs]</a>    <span class="k">def</span> <span class="nf">ridge_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique ridge types.</span>
+
+<span class="sd">        Ridges are entities of dimension tdim-2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractCell.peak_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.AbstractCell.peak_types">[docs]</a>    <span class="k">def</span> <span class="nf">peak_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique peak types.</span>
+
+<span class="sd">        Peaks are entities of dimension tdim-3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_entity_types</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span></div></div>
 
 
-<span class="c1"># --- Basic topological properties of known basic cells</span>
+<span class="n">_sub_entity_celltypes</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;interval&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)),</span> <span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;triangle&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)),</span> <span class="p">(</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;quadrilateral&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span> <span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;tetrahedron&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span>
+                    <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;triangle&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span> <span class="p">(</span><span class="s2">&quot;tetrahedron&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;hexahedron&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">12</span><span class="p">)),</span>
+                   <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)),</span> <span class="p">(</span><span class="s2">&quot;hexahedron&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;prism&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">)),</span>
+              <span class="p">(</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;prism&quot;</span><span class="p">,</span> <span class="p">)],</span>
+    <span class="s2">&quot;pyramid&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)),</span> <span class="nb">tuple</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;pyramid&quot;</span><span class="p">,</span> <span class="p">)],</span>
+<span class="p">}</span>
 
-<span class="c1"># Mapping from cell name to number of cell entities of each</span>
-<span class="c1"># topological dimension</span>
-<span class="n">num_cell_entities</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
-                     <span class="s2">&quot;interval&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;triangle&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;quadrilateral&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;tetrahedron&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;prism&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;pyramid&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-                     <span class="s2">&quot;hexahedron&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">)}</span>
 
-<span class="c1"># Mapping from cell name to topological dimension</span>
-<span class="n">cellname2dim</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">num_cell_entities</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+<div class="viewcode-block" id="Cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell">[docs]</a><span class="k">class</span> <span class="nc">Cell</span><span class="p">(</span><span class="n">AbstractCell</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of a named finite element cell with known structure.&quot;&quot;&quot;</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_cellname&quot;</span><span class="p">,</span> <span class="s2">&quot;_tdim&quot;</span><span class="p">,</span> <span class="s2">&quot;_gdim&quot;</span><span class="p">,</span> <span class="s2">&quot;_num_cell_entities&quot;</span><span class="p">,</span> <span class="s2">&quot;_sub_entity_types&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;_sub_entities&quot;</span><span class="p">,</span> <span class="s2">&quot;_sub_entity_types&quot;</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cellname</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">cellname</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_sub_entity_celltypes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported cell type: </span><span class="si">{</span><span class="n">cellname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-<span class="c1"># --- Basic cell representation classes</span>
-
-<div class="viewcode-block" id="Cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell">[docs]</a><span class="nd">@attach_operators_from_hash_data</span>
-<span class="k">class</span> <span class="nc">Cell</span><span class="p">(</span><span class="n">AbstractCell</span><span class="p">):</span>
-    <span class="s2">&quot;Representation of a named finite element cell with known structure.&quot;</span>
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_cellname&quot;</span><span class="p">,)</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cellname</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="s2">&quot;Initialize basic cell description.&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_celltypes</span> <span class="o">=</span> <span class="n">_sub_entity_celltypes</span><span class="p">[</span><span class="n">cellname</span><span class="p">]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span> <span class="o">=</span> <span class="n">cellname</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_celltypes</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="k">if</span> <span class="n">geometric_dimension</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">geometric_dimension</span>
 
-        <span class="c1"># The topological dimension is defined by the cell type, so</span>
-        <span class="c1"># the cellname must be among the known ones, so we can find</span>
-        <span class="c1"># the known dimension, unless we have a product cell, in which</span>
-        <span class="c1"># the given dimension is used</span>
-        <span class="n">topological_dimension</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">num_cell_entities</span><span class="p">[</span><span class="n">cellname</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_cell_entities</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_celltypes</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entities</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">Cell</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">se_types</span><span class="p">)</span> <span class="k">for</span> <span class="n">se_types</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_celltypes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_types</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">Cell</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">se_types</span><span class="p">))</span> <span class="k">for</span> <span class="n">se_types</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_celltypes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entities</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">weakref</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_types</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">weakref</span><span class="o">.</span><span class="n">proxy</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="p">))</span>
 
-        <span class="c1"># The geometric dimension defaults to equal the topological</span>
-        <span class="c1"># dimension unless overridden for embedded cells</span>
-        <span class="k">if</span> <span class="n">geometric_dimension</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">geometric_dimension</span> <span class="o">=</span> <span class="n">topological_dimension</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer geometric_dimension.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer topological_dimension.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Topological dimension cannot be larger than geometric dimension.&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Initialize and validate dimensions</span>
-        <span class="n">AbstractCell</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topological_dimension</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+<div class="viewcode-block" id="Cell.topological_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.topological_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">topological_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the topology of this cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span></div>
 
-    <span class="c1"># --- Overrides of AbstractCell methods ---</span>
+<div class="viewcode-block" id="Cell.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.geometric_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the geometry of this cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span></div>
 
-<div class="viewcode-block" id="Cell.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">geometric_dimension</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">geometric_dimension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span>
-        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="n">geometric_dimension</span><span class="p">)</span></div>
+<div class="viewcode-block" id="Cell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.is_simplex">[docs]</a>    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if this is a simplex cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;tetrahedron&quot;</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Cell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.is_simplex">[docs]</a>    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;    Return True if this is a simplex cell.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_vertices</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span></div>
+<div class="viewcode-block" id="Cell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.has_simplex_facets">[docs]</a>    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if all the facets of this cell are simplex cells.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;tetrahedron&quot;</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Cell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.has_simplex_facets">[docs]</a>    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return True if all the facets of this cell are simplex cells.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_simplex</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;quadrilateral&quot;</span></div>
+<div class="viewcode-block" id="Cell.num_sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.num_sub_entities">[docs]</a>    <span class="k">def</span> <span class="nf">num_sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of sub-entities of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_cell_entities</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span></div>
 
-    <span class="c1"># --- Specific cell properties ---</span>
+<div class="viewcode-block" id="Cell.sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.sub_entities">[docs]</a>    <span class="k">def</span> <span class="nf">sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the sub-entities of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entities</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">()</span></div>
 
-<div class="viewcode-block" id="Cell.cellname"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.cellname">[docs]</a>    <span class="k">def</span> <span class="nf">cellname</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return the cellname of the cell.&quot;</span>
+<div class="viewcode-block" id="Cell.sub_entity_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.sub_entity_types">[docs]</a>    <span class="k">def</span> <span class="nf">sub_entity_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique sub-entity types of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_entity_types</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">_lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">_cellname</span>
+
+<div class="viewcode-block" id="Cell.cellname"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.cellname">[docs]</a>    <span class="k">def</span> <span class="nf">cellname</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the cellname of the cell.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span></div>
 
-<div class="viewcode-block" id="Cell.num_vertices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.num_vertices">[docs]</a>    <span class="k">def</span> <span class="nf">num_vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell vertices.&quot;</span>
-        <span class="k">return</span> <span class="n">num_cell_entities</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()][</span><span class="mi">0</span><span class="p">]</span></div>
-
-<div class="viewcode-block" id="Cell.num_edges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.num_edges">[docs]</a>    <span class="k">def</span> <span class="nf">num_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell edges.&quot;</span>
-        <span class="k">return</span> <span class="n">num_cell_entities</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()][</span><span class="mi">1</span><span class="p">]</span></div>
-
-<div class="viewcode-block" id="Cell.num_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.num_facets">[docs]</a>    <span class="k">def</span> <span class="nf">num_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell facets.&quot;</span>
-        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">num_cell_entities</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()][</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span></div>
-
-    <span class="c1"># --- Facet properties ---</span>
-
-<div class="viewcode-block" id="Cell.facet_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.facet_types">[docs]</a>    <span class="k">def</span> <span class="nf">facet_types</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;A tuple of ufl.Cell representing the facets of self.&quot;</span>
-        <span class="c1"># TODO Move outside method?</span>
-        <span class="n">facet_type_names</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;interval&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,),</span>
-                            <span class="s2">&quot;triangle&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,),</span>
-                            <span class="s2">&quot;quadrilateral&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,),</span>
-                            <span class="s2">&quot;tetrahedron&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;triangle&quot;</span><span class="p">,),</span>
-                            <span class="s2">&quot;hexahedron&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,),</span>
-                            <span class="s2">&quot;prism&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">)}</span>
-        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="n">facet_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">())</span>
-                     <span class="k">for</span> <span class="n">facet_name</span> <span class="ow">in</span> <span class="n">facet_type_names</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()])</span></div>
-
-    <span class="c1"># --- Special functions for proper object behaviour ---</span>
-
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
-        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">gdim</span> <span class="o">&gt;</span> <span class="n">tdim</span><span class="p">:</span>
-            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="si">%d</span><span class="s2">D&quot;</span> <span class="o">%</span> <span class="n">gdim</span>
-        <span class="k">return</span> <span class="n">s</span>
-
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># For standard cells, return name of builtin cell object if</span>
-        <span class="c1"># possible.  This reduces the size of the repr strings for</span>
-        <span class="c1"># domains, elements, etc. as well</span>
-        <span class="n">gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
-        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
-        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">gdim</span> <span class="o">==</span> <span class="n">tdim</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cellname2dim</span><span class="p">:</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;Cell(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="n">gdim</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">r</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="si">}</span><span class="s2">D&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topological_dimension</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="p">)</span></div>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Cell(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Hashable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Cell.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.Cell.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Cell</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct this cell, overwriting properties by those in kwargs.&quot;&quot;&quot;</span>
+        <span class="n">gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;geometric_dimension&quot;</span><span class="p">:</span>
+                <span class="n">gdim</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reconstruct() got unexpected keyword argument &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="n">gdim</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="TensorProductCell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell">[docs]</a><span class="nd">@attach_operators_from_hash_data</span>
-<span class="k">class</span> <span class="nc">TensorProductCell</span><span class="p">(</span><span class="n">AbstractCell</span><span class="p">):</span>
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_cells&quot;</span><span class="p">,)</span>
+<div class="viewcode-block" id="TensorProductCell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell">[docs]</a><span class="k">class</span> <span class="nc">TensorProductCell</span><span class="p">(</span><span class="n">AbstractCell</span><span class="p">):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_cells&quot;</span><span class="p">,</span> <span class="s2">&quot;_tdim&quot;</span><span class="p">,</span> <span class="s2">&quot;_gdim&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">cells</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">keywords</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">keywords</span> <span class="ow">and</span> <span class="n">keywords</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">&quot;geometric_dimension&quot;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;TensorProductCell got an unexpected keyword argument &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span>
-                <span class="n">keywords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">cells</span><span class="p">:</span> <span class="n">Cell</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">as_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">)</span>
 
-        <span class="n">tdim</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
-            <span class="n">gdim</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;geometric_dimension&quot;</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">gdim</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="k">if</span> <span class="n">geometric_dimension</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">geometric_dimension</span>
 
-        <span class="n">AbstractCell</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tdim</span><span class="p">,</span> <span class="n">gdim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer geometric_dimension.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer topological_dimension.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Topological dimension cannot be larger than geometric dimension.&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="TensorProductCell.cellname"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.cellname">[docs]</a>    <span class="k">def</span> <span class="nf">cellname</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return the cellname of the cell.&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot; * &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">_cellname</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span></div>
+<div class="viewcode-block" id="TensorProductCell.sub_cells"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.sub_cells">[docs]</a>    <span class="k">def</span> <span class="nf">sub_cells</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return list of cell factors.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">geometric_dimension</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">geometric_dimension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span>
-        <span class="k">return</span> <span class="n">TensorProductCell</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">),</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="n">geometric_dimension</span><span class="p">)</span></div>
+<div class="viewcode-block" id="TensorProductCell.topological_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.topological_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">topological_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the topology of this cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.is_simplex">[docs]</a>    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return True if this is a simplex cell.&quot;</span>
+<div class="viewcode-block" id="TensorProductCell.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.geometric_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the geometry of this cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span></div>
+
+<div class="viewcode-block" id="TensorProductCell.is_simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.is_simplex">[docs]</a>    <span class="k">def</span> <span class="nf">is_simplex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if this is a simplex cell.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">is_simplex</span><span class="p">()</span>
         <span class="k">return</span> <span class="kc">False</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.has_simplex_facets">[docs]</a>    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return True if all the facets of this cell are simplex cells.&quot;</span>
+<div class="viewcode-block" id="TensorProductCell.has_simplex_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.has_simplex_facets">[docs]</a>    <span class="k">def</span> <span class="nf">has_simplex_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if all the facets of this cell are simplex cells.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">has_simplex_facets</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="kc">False</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.num_vertices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.num_vertices">[docs]</a>    <span class="k">def</span> <span class="nf">num_vertices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell vertices.&quot;</span>
-        <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">num_vertices</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span></div>
+<div class="viewcode-block" id="TensorProductCell.num_sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.num_sub_entities">[docs]</a>    <span class="k">def</span> <span class="nf">num_sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the number of sub-entities of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">dim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">num_vertices</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Note: This is not the number of facets that the cell has, but I&#39;m leaving it here for now</span>
+            <span class="c1"># to not change past behaviour</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">num_facets</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TensorProductCell.num_sub_entities(</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">) is not implemented.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.num_edges"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.num_edges">[docs]</a>    <span class="k">def</span> <span class="nf">num_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell edges.&quot;</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not defined for TensorProductCell.&quot;</span><span class="p">)</span></div>
+<div class="viewcode-block" id="TensorProductCell.sub_entities"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.sub_entities">[docs]</a>    <span class="k">def</span> <span class="nf">sub_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the sub-entities of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">dim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sub_entities</span><span class="p">(</span><span class="mi">0</span><span class="p">))]</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TensorProductCell.sub_entities(</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">) is not implemented.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.num_facets"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.num_facets">[docs]</a>    <span class="k">def</span> <span class="nf">num_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;The number of cell facets.&quot;</span>
-        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">num_facets</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span></div>
+<div class="viewcode-block" id="TensorProductCell.sub_entity_types"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.sub_entity_types">[docs]</a>    <span class="k">def</span> <span class="nf">sub_entity_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the unique sub-entity types of the given dimension.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">dim</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TensorProductCell.sub_entities(</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">) is not implemented.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="TensorProductCell.sub_cells"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.sub_cells">[docs]</a>    <span class="k">def</span> <span class="nf">sub_cells</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="s2">&quot;Return list of cell factors.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span></div>
+    <span class="k">def</span> <span class="nf">_lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
-        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
-        <span class="n">reprs</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">gdim</span> <span class="o">==</span> <span class="n">tdim</span><span class="p">:</span>
-            <span class="n">gdimstr</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">gdimstr</span> <span class="o">=</span> <span class="s2">&quot;, geometric_dimension=</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">gdim</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;TensorProductCell(</span><span class="si">%s%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">reprs</span><span class="p">,</span> <span class="n">gdimstr</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">r</span>
+<div class="viewcode-block" id="TensorProductCell.cellname"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.cellname">[docs]</a>    <span class="k">def</span> <span class="nf">cellname</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the cellname of the cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot; * &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">cell</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">])</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;TensorProductCell(&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">!r}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tdim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;, geometric_dimension=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;)&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span><span class="p">,)</span></div>
+    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Hashable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="TensorProductCell.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.TensorProductCell.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Cell</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct this cell, overwriting properties by those in kwargs.&quot;&quot;&quot;</span>
+        <span class="n">gdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gdim</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;geometric_dimension&quot;</span><span class="p">:</span>
+                <span class="n">gdim</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reconstruct() got unexpected keyword argument &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">TensorProductCell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cellname</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="n">gdim</span><span class="p">)</span></div></div>
 
 
-<span class="c1"># --- Utility conversion functions</span>
-
-<span class="c1"># Mapping from topological dimension to reference cell name for</span>
-<span class="c1"># simplices</span>
-<span class="n">_simplex_dim2cellname</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;vertex&quot;</span><span class="p">,</span>
-                         <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;interval&quot;</span><span class="p">,</span>
-                         <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
-                         <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;tetrahedron&quot;</span><span class="p">}</span>
-
-<span class="c1"># Mapping from topological dimension to reference cell name for</span>
-<span class="c1"># hypercubes</span>
-<span class="n">_hypercube_dim2cellname</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;vertex&quot;</span><span class="p">,</span>
-                           <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;interval&quot;</span><span class="p">,</span>
-                           <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span>
-                           <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;hexahedron&quot;</span><span class="p">}</span>
-
-
-<div class="viewcode-block" id="simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.simplex">[docs]</a><span class="k">def</span> <span class="nf">simplex</span><span class="p">(</span><span class="n">topological_dimension</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="s2">&quot;Return a simplex cell of given dimension.&quot;</span>
-    <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="n">_simplex_dim2cellname</span><span class="p">[</span><span class="n">topological_dimension</span><span class="p">],</span>
-                <span class="n">geometric_dimension</span><span class="p">)</span></div>
+<div class="viewcode-block" id="simplex"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.simplex">[docs]</a><span class="k">def</span> <span class="nf">simplex</span><span class="p">(</span><span class="n">topological_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a simplex cell of the given dimension.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;tetrahedron&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported topological dimension for simplex: </span><span class="si">{</span><span class="n">topological_dimension</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="hypercube"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.hypercube">[docs]</a><span class="k">def</span> <span class="nf">hypercube</span><span class="p">(</span><span class="n">topological_dimension</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="s2">&quot;Return a hypercube cell of given dimension.&quot;</span>
-    <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="n">_hypercube_dim2cellname</span><span class="p">[</span><span class="n">topological_dimension</span><span class="p">],</span>
-                <span class="n">geometric_dimension</span><span class="p">)</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a hypercube cell of the given dimension.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Cell</span><span class="p">(</span><span class="s2">&quot;hexahedron&quot;</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported topological dimension for hypercube: </span><span class="si">{</span><span class="n">topological_dimension</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="as_cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.as_cell">[docs]</a><span class="k">def</span> <span class="nf">as_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">):</span>
+<div class="viewcode-block" id="as_cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.cell.as_cell">[docs]</a><span class="k">def</span> <span class="nf">as_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Tuple</span><span class="p">[</span><span class="n">AbstractCell</span><span class="p">,</span> <span class="o">...</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">AbstractCell</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert any valid object to a Cell or return cell if it is already a Cell.</span>
 
 <span class="sd">    Allows an already valid cell, a known cellname string, or a tuple of cells for a product cell.</span>
