@@ -12,6 +12,6 @@ var searchData=
   ['perm_5fvtk_9',['perm_vtk',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2a7e3b8833e2e82fa43b9f6ca7f57a9b',1,'dolfinx::io::cells']]],
   ['permute_5fdofs_10',['permute_dofs',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a18b84d6ee384f823d7e57eba1d07d504',1,'dolfinx::fem::FiniteElement::permute_dofs()'],['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#addf1ba65f668a49f7697392eb6c8fbe0',1,'dolfinx::fem::CoordinateElement::permute_dofs(const std::span&lt; std::int32_t &gt; &amp;dofs, std::uint32_t cell_perm) const']]],
   ['pull_5fback_5faffine_11',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fnonaffine_12',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ad53070fba4daffa37015f0a685a8926b',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fnonaffine_12',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
   ['push_5fforward_13',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];

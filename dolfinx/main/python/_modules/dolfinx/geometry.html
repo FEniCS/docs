@@ -80,7 +80,7 @@
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
-<span class="sd">&quot;&quot;&quot;Methods for geometric searches and operations&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Methods for geometric searches and operations.&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
@@ -93,62 +93,147 @@
     <span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">Mesh</span>
     <span class="kn">from</span> <span class="nn">dolfinx.cpp.graph</span> <span class="kn">import</span> <span class="n">AdjacencyList_int32</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span>
 
 <span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
-<span class="kn">from</span> <span class="nn">dolfinx.cpp.geometry</span> <span class="kn">import</span> <span class="n">compute_collisions</span><span class="p">,</span> <span class="n">compute_distance_gjk</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;compute_colliding_cells&quot;</span><span class="p">,</span> <span class="s2">&quot;squared_distance&quot;</span><span class="p">,</span> <span class="s2">&quot;compute_closest_entity&quot;</span><span class="p">,</span> <span class="s2">&quot;compute_collisions&quot;</span><span class="p">,</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;BoundingBoxTree&quot;</span><span class="p">,</span> <span class="s2">&quot;bb_tree&quot;</span><span class="p">,</span> <span class="s2">&quot;compute_colliding_cells&quot;</span><span class="p">,</span> <span class="s2">&quot;squared_distance&quot;</span><span class="p">,</span>
+           <span class="s2">&quot;compute_closest_entity&quot;</span><span class="p">,</span> <span class="s2">&quot;compute_collisions_trees&quot;</span><span class="p">,</span> <span class="s2">&quot;compute_collisions_points&quot;</span><span class="p">,</span>
            <span class="s2">&quot;compute_distance_gjk&quot;</span><span class="p">,</span> <span class="s2">&quot;create_midpoint_tree&quot;</span><span class="p">]</span>
 
 
-<span class="k">class</span> <span class="nc">BoundingBoxTree</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">BoundingBoxTree</span><span class="p">):</span>
+<div class="viewcode-block" id="BoundingBoxTree"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.BoundingBoxTree">[docs]</a><span class="k">class</span> <span class="nc">BoundingBoxTree</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Bounding box trees used in collision detection.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a bounding box tree for entities of a mesh.</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap a C++ BoundingBoxTree</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            mesh: The mesh</span>
-<span class="sd">            dim: The dimension of the mesh entities</span>
-<span class="sd">            entities: List of entity indices (local to process). If not supplied,</span>
-<span class="sd">                all owned and ghosted entities are used.</span>
-<span class="sd">            padding: Padding for each bounding box</span>
+<span class="sd">        Note:</span>
+<span class="sd">            This initializer should not be used in user code. Use</span>
+<span class="sd">                ``bb_tree``.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">map</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">map</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mesh entities of dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> have not been created.&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">entities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">entities</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">map</span><span class="o">.</span><span class="n">size_local</span> <span class="o">+</span> <span class="nb">map</span><span class="o">.</span><span class="n">num_ghosts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">tree</span>
 
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">padding</span><span class="p">)</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_bboxes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of bounding boxes&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_bboxes</span>
+
+<div class="viewcode-block" id="BoundingBoxTree.get_bbox"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.BoundingBoxTree.get_bbox">[docs]</a>    <span class="k">def</span> <span class="nf">get_bbox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get lower and upper corners of the ith bounding box.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            i: Index of the box</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The &#39;lower&#39; and &#39;upper&#39; points of the bounding box.</span>
+<span class="sd">            Shape is ``(2, 3)``,</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">get_bbox</span><span class="p">(</span><span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BoundingBoxTree.create_global_tree"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.BoundingBoxTree.create_global_tree">[docs]</a>    <span class="k">def</span> <span class="nf">create_global_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">comm</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundingBoxTree</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoundingBoxTree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_global_tree</span><span class="p">(</span><span class="n">comm</span><span class="p">))</span></div></div>
+
+
+<div class="viewcode-block" id="bb_tree"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.bb_tree">[docs]</a><span class="k">def</span> <span class="nf">bb_tree</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundingBoxTree</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a bounding box tree for use in collision detection.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mesh: The mesh</span>
+<span class="sd">        dim: The dimension of the mesh entities</span>
+<span class="sd">        entities: List of entity indices (local to process). If not supplied,</span>
+<span class="sd">            all owned and ghosted entities are used.</span>
+<span class="sd">        padding: Padding for each bounding box</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Bounding box tree.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">map</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">map</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mesh entities of dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> have not been created.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">entities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">map</span><span class="o">.</span><span class="n">size_local</span> <span class="o">+</span> <span class="nb">map</span><span class="o">.</span><span class="n">num_ghosts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoundingBoxTree</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">BoundingBoxTree_float32</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">padding</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoundingBoxTree</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">BoundingBoxTree_float64</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">padding</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_collisions_trees"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_collisions_trees">[docs]</a><span class="k">def</span> <span class="nf">compute_collisions_trees</span><span class="p">(</span><span class="n">tree0</span><span class="p">:</span> <span class="n">BoundingBoxTree</span><span class="p">,</span> <span class="n">tree1</span><span class="p">:</span> <span class="n">BoundingBoxTree</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute all collisions between two bounding box trees.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tree0: First bounding box tree</span>
+<span class="sd">        tree1: Second bounding box tree</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of pairs of intersecting box indices from each tree. Shape</span>
+<span class="sd">        is ``(num_collisions, 2)``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_collisions_trees</span><span class="p">(</span><span class="n">tree0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">tree1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_collisions_points"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_collisions_points">[docs]</a><span class="k">def</span> <span class="nf">compute_collisions_points</span><span class="p">(</span><span class="n">tree</span><span class="p">:</span> <span class="n">BoundingBoxTree</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute collisions between points and leaf bounding boxes.</span>
+
+<span class="sd">    Bounding boxes can overlap, therefore points can collide with more</span>
+<span class="sd">    than one box.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tree: Bounding box tree</span>
+<span class="sd">        x: Points (`shape=(num_points, 3)`)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">       For each point, the bounding box leaves that collide with the</span>
+<span class="sd">       point.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_collisions_points</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="compute_closest_entity"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_closest_entity">[docs]</a><span class="k">def</span> <span class="nf">compute_closest_entity</span><span class="p">(</span><span class="n">tree</span><span class="p">:</span> <span class="n">BoundingBoxTree</span><span class="p">,</span> <span class="n">midpoint_tree</span><span class="p">:</span> <span class="n">BoundingBoxTree</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
-                           <span class="n">points</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+                           <span class="n">points</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute closest mesh entity to a point.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            tree: bounding box tree for the entities</span>
-<span class="sd">            midpoint_tree: A bounding box tree with the midpoints of all</span>
-<span class="sd">                the mesh entities. This is used to accelerate the search.</span>
-<span class="sd">            mesh: The mesh</span>
-<span class="sd">            points: The points to check for collision, shape=(num_points, 3)</span>
+<span class="sd">    Args:</span>
+<span class="sd">        tree: bounding box tree for the entities</span>
+<span class="sd">        midpoint_tree: A bounding box tree with the midpoints of all</span>
+<span class="sd">            the mesh entities. This is used to accelerate the search.</span>
+<span class="sd">        mesh: The mesh</span>
+<span class="sd">        points: The points to check for collision, shape=(num_points, 3)</span>
 
-<span class="sd">        Returns:</span>
-<span class="sd">            Mesh entity index for each point in `points`. Returns -1 for</span>
-<span class="sd">            a point if the bounding box tree is empty.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Mesh entity index for each point in `points`. Returns -1 for a</span>
+<span class="sd">        point if the bounding box tree is empty.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_closest_entity</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">midpoint_tree</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_closest_entity</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">midpoint_tree</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="create_midpoint_tree"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.create_midpoint_tree">[docs]</a><span class="k">def</span> <span class="nf">create_midpoint_tree</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">create_midpoint_tree</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">)</span></div>
+<div class="viewcode-block" id="create_midpoint_tree"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.create_midpoint_tree">[docs]</a><span class="k">def</span> <span class="nf">create_midpoint_tree</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BoundingBoxTree</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a bounding box tree for the midpoints of a subset of entities.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        mesh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the entities.</span>
+<span class="sd">        entities: Indices of mesh entities to include.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Bounding box tree for midpoints of cell entities.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">BoundingBoxTree</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">create_midpoint_tree</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="compute_colliding_cells"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_colliding_cells">[docs]</a><span class="k">def</span> <span class="nf">compute_colliding_cells</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="n">AdjacencyList_int32</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<div class="viewcode-block" id="compute_colliding_cells"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_colliding_cells">[docs]</a><span class="k">def</span> <span class="nf">compute_colliding_cells</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="n">AdjacencyList_int32</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;From a mesh, find which cells collide with a set of points.</span>
 
 <span class="sd">    Args:</span>
@@ -164,7 +249,7 @@
     <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_colliding_cells</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="squared_distance"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.squared_distance">[docs]</a><span class="k">def</span> <span class="nf">squared_distance</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">points</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<div class="viewcode-block" id="squared_distance"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.squared_distance">[docs]</a><span class="k">def</span> <span class="nf">squared_distance</span><span class="p">(</span><span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">points</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the squared distance between a point and a mesh entity.</span>
 
 <span class="sd">    The distance is computed between the ith input points and the ith</span>
@@ -172,9 +257,9 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        mesh: Mesh containing the entities</span>
-<span class="sd">        dim: The topological dimension of the mesh entities</span>
+<span class="sd">        dim: Topological dimension of the mesh entities</span>
 <span class="sd">        entities: Indices of the mesh entities (local to process)</span>
-<span class="sd">        points: Set points from which to computed the shortest distance</span>
+<span class="sd">        points: Points to compute the shortest distance from</span>
 <span class="sd">            (``shape=(num_points, 3)``)</span>
 
 <span class="sd">    Returns:</span>
@@ -182,6 +267,22 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">squared_distance</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_distance_gjk"><a class="viewcode-back" href="../../generated/dolfinx.geometry.html#dolfinx.geometry.compute_distance_gjk">[docs]</a><span class="k">def</span> <span class="nf">compute_distance_gjk</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">q</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the distance between two convex bodies p and q, each defined by a set of points.</span>
+
+<span class="sd">    Uses the Gilbert–Johnson–Keerthi (GJK) distance algorithm.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        p: Body 1 list of points (``shape=(num_points, gdim)``)</span>
+<span class="sd">        q: Body 2 list of points (``shape=(num_points, gdim)``)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Shortest vector between the two bodies.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">compute_distance_gjk</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
