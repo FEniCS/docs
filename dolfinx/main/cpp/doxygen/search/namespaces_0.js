@@ -19,6 +19,5 @@ var searchData=
   ['refinement_16',['refinement',['../d9/dd6/namespacedolfinx_1_1refinement.html',1,'dolfinx']]],
   ['sparsitybuild_17',['sparsitybuild',['../db/dcc/namespacedolfinx_1_1fem_1_1sparsitybuild.html',1,'dolfinx::fem']]],
   ['xdmf_5ffunction_18',['xdmf_function',['../df/dbd/namespacedolfinx_1_1io_1_1xdmf__function.html',1,'dolfinx::io']]],
-  ['xdmf_5fmesh_19',['xdmf_mesh',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html',1,'dolfinx::io']]],
-  ['xdmf_5fread_20',['xdmf_read',['../d8/de2/namespacedolfinx_1_1io_1_1xdmf__read.html',1,'dolfinx::io']]]
+  ['xdmf_5fmesh_19',['xdmf_mesh',['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html',1,'dolfinx::io']]]
 ];

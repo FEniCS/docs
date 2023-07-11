@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['hdf5interface_0',['HDF5Interface',['../d2/d72/classdolfinx_1_1io_1_1HDF5Interface.html',1,'dolfinx::io']]]
+  ['indexmap_0',['IndexMap',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html',1,'dolfinx::common']]]
 ];

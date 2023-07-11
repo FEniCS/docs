@@ -16,13 +16,12 @@ var searchData=
   ['to_5fstring_13',['to_string',['../dd/d7d/namespacedolfinx_1_1mesh.html#ae1f0961be83abe152e146c14c8f8548a',1,'dolfinx::mesh']]],
   ['to_5ftype_14',['to_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#aec82a925447a9da2a086b7c93739ba9c',1,'dolfinx::mesh']]],
   ['todo_20list_15',['Todo List',['../dd/da0/todo.html',1,'']]],
-  ['topology_16',['Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html',1,'dolfinx::mesh']]],
-  ['topology_17',['topology',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a2bbad0fc0865a08f09a59ac125a07a5a',1,'dolfinx::mesh::Mesh::topology()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ad8296e987ca22235c0238ff82e2ec153',1,'dolfinx::mesh::Mesh::topology() const'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#ad8296e987ca22235c0238ff82e2ec153',1,'dolfinx::mesh::MeshTags::topology()']]],
-  ['topology_18',['Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aab96be7cfde447689c76f356dcee7e3f',1,'dolfinx::mesh::Topology::Topology(Topology &amp;&amp;topology)=default'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7b30aa57c5c17cb0e6b55811a4019f56',1,'dolfinx::mesh::Topology::Topology(const Topology &amp;topology)=default'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a31feee77cbb124120c2e1e1b38c6661f',1,'dolfinx::mesh::Topology::Topology(MPI_Comm comm, std::vector&lt; CellType &gt; type)']]],
-  ['topology_5fmutable_19',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0a2cf2ebf198cd471ba4bffdad8d58a4',1,'dolfinx::mesh::Mesh']]],
-  ['transfer_5fcell_5fmeshtag_20',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
-  ['transfer_5ffacet_5fmeshtag_21',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
-  ['transpose_22',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2901b91b537bd6cb88dbcee4c3ba23e7',1,'dolfinx::io::cells']]],
-  ['transpose_5fdofmap_23',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a24381b636a1e6c0aee8c730e61ed47cc',1,'dolfinx::fem']]],
-  ['type_24',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
+  ['topology_16',['Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html',1,'Topology'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a31feee77cbb124120c2e1e1b38c6661f',1,'dolfinx::mesh::Topology::Topology(MPI_Comm comm, std::vector&lt; CellType &gt; type)'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7b30aa57c5c17cb0e6b55811a4019f56',1,'dolfinx::mesh::Topology::Topology(const Topology &amp;topology)=default'],['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#aab96be7cfde447689c76f356dcee7e3f',1,'dolfinx::mesh::Topology::Topology(Topology &amp;&amp;topology)=default']]],
+  ['topology_17',['topology',['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#ad8296e987ca22235c0238ff82e2ec153',1,'dolfinx::mesh::MeshTags::topology()'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#ad8296e987ca22235c0238ff82e2ec153',1,'dolfinx::mesh::Mesh::topology() const'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a2bbad0fc0865a08f09a59ac125a07a5a',1,'dolfinx::mesh::Mesh::topology()']]],
+  ['topology_5fmutable_18',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0a2cf2ebf198cd471ba4bffdad8d58a4',1,'dolfinx::mesh::Mesh']]],
+  ['transfer_5fcell_5fmeshtag_19',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
+  ['transfer_5ffacet_5fmeshtag_20',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
+  ['transpose_21',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2901b91b537bd6cb88dbcee4c3ba23e7',1,'dolfinx::io::cells']]],
+  ['transpose_5fdofmap_22',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a24381b636a1e6c0aee8c730e61ed47cc',1,'dolfinx::fem']]],
+  ['type_23',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
 ];
