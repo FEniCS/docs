@@ -43,16 +43,9 @@
 <span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
 <span class="kn">from</span> <span class="nn">ufl.corealg.map_dag</span> <span class="kn">import</span> <span class="n">map_expr_dag</span>
 
-<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">FormArgument</span><span class="p">,</span> <span class="n">GeometricQuantity</span><span class="p">,</span>
-                         <span class="n">Terminal</span><span class="p">,</span> <span class="n">ReferenceGrad</span><span class="p">,</span> <span class="n">Grad</span><span class="p">,</span> <span class="n">Restricted</span><span class="p">,</span> <span class="n">ReferenceValue</span><span class="p">,</span>
-                         <span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">,</span>
-                         <span class="n">Indexed</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">ReferenceGrad</span><span class="p">,</span> <span class="n">Grad</span><span class="p">,</span> <span class="n">Restricted</span><span class="p">,</span> <span class="n">ReferenceValue</span><span class="p">,</span> <span class="n">JacobianInverse</span>
 
-<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">as_ufl</span>
 <span class="kn">from</span> <span class="nn">ufl.tensors</span> <span class="kn">import</span> <span class="n">as_tensor</span>
-<span class="kn">from</span> <span class="nn">ufl.permutation</span> <span class="kn">import</span> <span class="n">compute_indices</span>
-
-<span class="kn">from</span> <span class="nn">ufl.finiteelement</span> <span class="kn">import</span> <span class="n">MixedElement</span>
 
 <span class="kn">from</span> <span class="nn">ufl.algorithms.apply_function_pullbacks</span> <span class="kn">import</span> <span class="n">apply_function_pullbacks</span>
 <span class="kn">from</span> <span class="nn">ufl.algorithms.apply_geometry_lowering</span> <span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
@@ -83,7 +76,8 @@
 
 <span class="sd">e2 = || J[:,0] . &lt; 1, 0&gt; || = || J[:,0] || = || dx/dX0 || = edge length of edge 2 (v0-v1)</span>
 <span class="sd">e1 = || J[:,1] . &lt; 0, 1&gt; || = || J[:,1] || = || dx/dX1 || = edge length of edge 1 (v0-v2)</span>
-<span class="sd">e0 = || J[:,:] . &lt;-1, 1&gt; || = || &lt; J[0,1]-J[0,0], J[1,1]-J[1,0] &gt; || = || dx/dX &lt;-1,1&gt; || = edge length of edge 0 (v1-v2)</span>
+<span class="sd">e0 = || J[:,:] . &lt;-1, 1&gt; || = || &lt; J[0,1]-J[0,0], J[1,1]-J[1,0] &gt; || = || dx/dX &lt;-1,1&gt; ||</span>
+<span class="sd">    = edge length of edge 0 (v1-v2)</span>
 
 <span class="sd">trev = triangle_reference_edge_vector</span>
 <span class="sd">evec0 = J00 * trev[edge][0] + J01 * trev[edge][1]  =  J*trev[edge]</span>
@@ -145,254 +139,16 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<span class="c1"># FIXME: This implementation semeed to work last year but lead to performance problems. Look through and test again now.</span>
-<div class="viewcode-block" id="NEWChangeToReferenceGrad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad">[docs]</a><span class="k">class</span> <span class="nc">NEWChangeToReferenceGrad</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ngrads</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.expr"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.expr">[docs]</a>    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">ops</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">o</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.coefficient_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.coefficient_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coefficient derivatives should be expanded before applying change to reference grad.&quot;</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.reference_grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.reference_grad">[docs]</a>    <span class="k">def</span> <span class="nf">reference_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting reference grad while applying change to reference grad.&quot;</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.restricted"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.restricted">[docs]</a>    <span class="k">def</span> <span class="nf">restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="s2">&quot;Store modifier state.&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting nested restrictions.&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">side</span><span class="p">()</span>
-        <span class="n">f</span><span class="p">,</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
-        <span class="k">return</span> <span class="n">r</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="s2">&quot;Store modifier state.&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ngrads</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">f</span><span class="p">,</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_ngrads</span> <span class="o">-=</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="n">r</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.facet_avg"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.facet_avg">[docs]</a>    <span class="k">def</span> <span class="nf">facet_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting nested averages.&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">=</span> <span class="s2">&quot;facet&quot;</span>
-        <span class="n">f</span><span class="p">,</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">r</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.cell_avg"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.cell_avg">[docs]</a>    <span class="k">def</span> <span class="nf">cell_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">dummy_ops</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting nested averages.&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">=</span> <span class="s2">&quot;cell&quot;</span>
-        <span class="n">f</span><span class="p">,</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">r</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.form_argument"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.form_argument">[docs]</a>    <span class="k">def</span> <span class="nf">form_argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapped</span><span class="p">(</span><span class="n">t</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="NEWChangeToReferenceGrad.geometric_quantity"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.NEWChangeToReferenceGrad.geometric_quantity">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_quantity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ngrads</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mapped</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">t</span></div>
-
-    <span class="k">def</span> <span class="nf">_mapped</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-        <span class="c1"># Check that we have a valid input object</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Terminal</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting a Terminal.&quot;</span><span class="p">)</span>
-
-        <span class="c1"># Get modifiers accumulated by previous handler calls</span>
-        <span class="n">ngrads</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ngrads</span>
-        <span class="n">restricted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restricted</span>
-        <span class="n">avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span>
-        <span class="k">if</span> <span class="n">avg</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Averaging not implemented.&quot;</span><span class="p">)</span>  <span class="c1"># FIXME</span>
-
-        <span class="c1"># These are the global (g) and reference (r) values</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">FormArgument</span><span class="p">):</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="n">t</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">ReferenceValue</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">GeometricQuantity</span><span class="p">):</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="n">t</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">g</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-
-        <span class="c1"># Some geometry mapping objects we may need multiple times below</span>
-        <span class="n">domain</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
-        <span class="n">J</span> <span class="o">=</span> <span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">detJ</span> <span class="o">=</span> <span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-
-        <span class="c1"># Restrict geometry objects if applicable</span>
-        <span class="k">if</span> <span class="n">restricted</span><span class="p">:</span>
-            <span class="n">J</span> <span class="o">=</span> <span class="n">J</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
-            <span class="n">detJ</span> <span class="o">=</span> <span class="n">detJ</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
-            <span class="n">K</span> <span class="o">=</span> <span class="n">K</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
-
-        <span class="c1"># Create Hdiv mapping from possibly restricted geometry objects</span>
-        <span class="n">Mdiv</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">detJ</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span>
-
-        <span class="c1"># Get component indices of global and reference terminal objects</span>
-        <span class="n">gtsh</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">ufl_shape</span>
-        <span class="c1"># rtsh = r.ufl_shape</span>
-        <span class="n">gtcomponents</span> <span class="o">=</span> <span class="n">compute_indices</span><span class="p">(</span><span class="n">gtsh</span><span class="p">)</span>
-        <span class="c1"># rtcomponents = compute_indices(rtsh)</span>
-
-        <span class="c1"># Create core modified terminal, with eventual</span>
-        <span class="c1"># layers of grad applied directly to the terminal,</span>
-        <span class="c1"># then eventual restriction applied last</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ngrads</span><span class="p">):</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="n">Grad</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">restricted</span><span class="p">:</span>
-            <span class="n">g</span> <span class="o">=</span> <span class="n">g</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
-
-        <span class="c1"># Get component indices of global and reference objects with</span>
-        <span class="c1"># grads applied</span>
-        <span class="n">gsh</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">ufl_shape</span>
-        <span class="c1"># rsh = r.ufl_shape</span>
-        <span class="c1"># gcomponents = compute_indices(gsh)</span>
-        <span class="c1"># rcomponents = compute_indices(rsh)</span>
-
-        <span class="c1"># Get derivative component indices</span>
-        <span class="n">dsh</span> <span class="o">=</span> <span class="n">gsh</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">gtsh</span><span class="p">):]</span>
-        <span class="n">dcomponents</span> <span class="o">=</span> <span class="n">compute_indices</span><span class="p">(</span><span class="n">dsh</span><span class="p">)</span>
-
-        <span class="c1"># Create nested array to hold expressions for global</span>
-        <span class="c1"># components mapped from reference values</span>
-        <span class="k">def</span> <span class="nf">ndarray</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="p">[</span><span class="n">ndarray</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
-        <span class="n">global_components</span> <span class="o">=</span> <span class="n">ndarray</span><span class="p">(</span><span class="n">gsh</span><span class="p">)</span>
-
-        <span class="c1"># Compute mapping from reference values for each global component</span>
-        <span class="k">for</span> <span class="n">gtc</span> <span class="ow">in</span> <span class="n">gtcomponents</span><span class="p">:</span>
-
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">FormArgument</span><span class="p">):</span>
-
-                <span class="c1"># Find basic subelement and element-local component</span>
-                <span class="c1"># ec, element, eoffset = t.ufl_element().extract_component2(gtc) # FIXME: Translate this correctly</span>
-                <span class="n">eoffset</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">ec</span><span class="p">,</span> <span class="n">element</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">extract_reference_component</span><span class="p">(</span><span class="n">gtc</span><span class="p">)</span>
-
-                <span class="c1"># Select mapping M from element, pick row emapping =</span>
-                <span class="c1"># M[ec,:], or emapping = [] if no mapping</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">MixedElement</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting a basic element here.&quot;</span><span class="p">)</span>
-                <span class="n">mapping</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span>
-                <span class="k">if</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;contravariant Piola&quot;</span><span class="p">:</span>  <span class="c1"># S == HDiv:</span>
-                    <span class="c1"># Handle HDiv elements with contravariant piola</span>
-                    <span class="c1"># mapping contravariant_hdiv_mapping = (1/det J) *</span>
-                    <span class="c1"># J * PullbackOf(o)</span>
-                    <span class="n">ec</span><span class="p">,</span> <span class="o">=</span> <span class="n">ec</span>
-                    <span class="n">emapping</span> <span class="o">=</span> <span class="n">Mdiv</span><span class="p">[</span><span class="n">ec</span><span class="p">,</span> <span class="p">:]</span>
-                <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;covariant Piola&quot;</span><span class="p">:</span>  <span class="c1"># S == HCurl:</span>
-                    <span class="c1"># Handle HCurl elements with covariant piola mapping</span>
-                    <span class="c1"># covariant_hcurl_mapping = JinvT * PullbackOf(o)</span>
-                    <span class="n">ec</span><span class="p">,</span> <span class="o">=</span> <span class="n">ec</span>
-                    <span class="n">emapping</span> <span class="o">=</span> <span class="n">K</span><span class="p">[:,</span> <span class="n">ec</span><span class="p">]</span>  <span class="c1"># Column of K is row of K.T</span>
-                <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;identity&quot;</span> <span class="ow">or</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;custom&quot;</span><span class="p">:</span>
-                    <span class="n">emapping</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown mapping: </span><span class="si">{</span><span class="n">mapping</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">GeometricQuantity</span><span class="p">):</span>
-                <span class="n">eoffset</span> <span class="o">=</span> <span class="mi">0</span>
-                <span class="n">emapping</span> <span class="o">=</span> <span class="kc">None</span>
-
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Create indices</span>
-            <span class="c1"># if rtsh:</span>
-            <span class="c1">#     i = Index()</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dsh</span><span class="p">)</span> <span class="o">!=</span> <span class="n">ngrads</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mismatch between derivative shape and ngrads.&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">ngrads</span><span class="p">:</span>
-                <span class="n">ii</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="n">ngrads</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">ii</span> <span class="o">=</span> <span class="p">()</span>
-
-            <span class="c1"># Apply mapping row to reference object</span>
-            <span class="k">if</span> <span class="n">emapping</span><span class="p">:</span>  <span class="c1"># Mapped, always nonscalar terminal Not</span>
-                <span class="c1"># using IndexSum for the mapping row dot product to</span>
-                <span class="c1"># keep it simple, because we don&#39;t have a slice type</span>
-                <span class="n">emapped_ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">emapping</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">*</span> <span class="n">Indexed</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">((</span><span class="n">FixedIndex</span><span class="p">(</span><span class="n">eoffset</span> <span class="o">+</span> <span class="n">s</span><span class="p">),)</span> <span class="o">+</span> <span class="n">ii</span><span class="p">))</span>
-                               <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">emapping</span><span class="p">))]</span>
-                <span class="n">emapped</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">emapped_ops</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">emapped_ops</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="k">elif</span> <span class="n">gtc</span><span class="p">:</span>  <span class="c1"># Nonscalar terminal, unmapped</span>
-                <span class="n">emapped</span> <span class="o">=</span> <span class="n">Indexed</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">((</span><span class="n">FixedIndex</span><span class="p">(</span><span class="n">eoffset</span><span class="p">),)</span> <span class="o">+</span> <span class="n">ii</span><span class="p">))</span>
-            <span class="k">elif</span> <span class="n">ngrads</span><span class="p">:</span>  <span class="c1"># Scalar terminal, unmapped, with derivatives</span>
-                <span class="n">emapped</span> <span class="o">=</span> <span class="n">Indexed</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">(</span><span class="n">ii</span><span class="p">))</span>
-            <span class="k">else</span><span class="p">:</span>  <span class="c1"># Scalar terminal, unmapped, no derivatives</span>
-                <span class="n">emapped</span> <span class="o">=</span> <span class="n">r</span>
-
-            <span class="k">for</span> <span class="n">di</span> <span class="ow">in</span> <span class="n">dcomponents</span><span class="p">:</span>
-                <span class="c1"># Multiply derivative mapping rows, parameterized by</span>
-                <span class="c1"># free column indices</span>
-                <span class="n">dmapping</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ngrads</span><span class="p">):</span>
-                    <span class="n">dmapping</span> <span class="o">*=</span> <span class="n">K</span><span class="p">[</span><span class="n">ii</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">di</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span>  <span class="c1"># Row of K is column of JinvT</span>
-
-                <span class="c1"># Compute mapping from reference values for this</span>
-                <span class="c1"># particular global component</span>
-                <span class="n">global_value</span> <span class="o">=</span> <span class="n">dmapping</span> <span class="o">*</span> <span class="n">emapped</span>
-
-                <span class="c1"># Apply index sums</span>
-                <span class="c1"># if rtsh:</span>
-                <span class="c1">#     global_value = IndexSum(global_value, MultiIndex((i,)))</span>
-                <span class="c1"># for j in range(ngrads): # Applied implicitly in the dmapping * emapped above</span>
-                <span class="c1">#     global_value = IndexSum(global_value, MultiIndex((ii[j],)))</span>
-
-                <span class="c1"># This is the component index into the full object</span>
-                <span class="c1"># with grads applied</span>
-                <span class="n">gc</span> <span class="o">=</span> <span class="n">gtc</span> <span class="o">+</span> <span class="n">di</span>
-
-                <span class="c1"># Insert in nested list</span>
-                <span class="n">comp</span> <span class="o">=</span> <span class="n">global_components</span>
-                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">gc</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">comp</span> <span class="o">=</span> <span class="n">comp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">comp</span><span class="p">[</span><span class="mi">0</span> <span class="k">if</span> <span class="n">gc</span> <span class="o">==</span> <span class="p">()</span> <span class="k">else</span> <span class="n">gc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">global_value</span>
-
-        <span class="c1"># Wrap nested list in as_tensor unless we have a scalar</span>
-        <span class="c1"># expression</span>
-        <span class="k">if</span> <span class="n">gsh</span><span class="p">:</span>
-            <span class="n">tensor</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">global_components</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">tensor</span><span class="p">,</span> <span class="o">=</span> <span class="n">global_components</span>
-        <span class="k">return</span> <span class="n">tensor</span></div>
-
-
-<div class="viewcode-block" id="OLDChangeToReferenceGrad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.OLDChangeToReferenceGrad">[docs]</a><span class="k">class</span> <span class="nc">OLDChangeToReferenceGrad</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<div class="viewcode-block" id="ChangeToReferenceGrad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad">[docs]</a><span class="k">class</span> <span class="nc">ChangeToReferenceGrad</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
 
-<div class="viewcode-block" id="OLDChangeToReferenceGrad.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.OLDChangeToReferenceGrad.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<div class="viewcode-block" id="ChangeToReferenceGrad.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">o</span></div>
 
-<div class="viewcode-block" id="OLDChangeToReferenceGrad.grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.OLDChangeToReferenceGrad.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<div class="viewcode-block" id="ChangeToReferenceGrad.grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
         <span class="c1"># Peel off the Grads and count them, and get restriction if</span>
         <span class="c1"># it&#39;s between the grad and the terminal</span>
         <span class="n">ngrads</span> <span class="o">=</span> <span class="mi">0</span>
@@ -468,10 +224,10 @@
 
         <span class="k">return</span> <span class="n">jinv_lgrad_f</span></div>
 
-<div class="viewcode-block" id="OLDChangeToReferenceGrad.reference_grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.OLDChangeToReferenceGrad.reference_grad">[docs]</a>    <span class="k">def</span> <span class="nf">reference_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<div class="viewcode-block" id="ChangeToReferenceGrad.reference_grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.reference_grad">[docs]</a>    <span class="k">def</span> <span class="nf">reference_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting reference grad while applying change to reference grad.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="OLDChangeToReferenceGrad.coefficient_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.OLDChangeToReferenceGrad.coefficient_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<div class="viewcode-block" id="ChangeToReferenceGrad.coefficient_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.coefficient_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coefficient derivatives should be expanded before applying change to reference grad.&quot;</span><span class="p">)</span></div></div>
 
 
@@ -483,8 +239,7 @@
 <span class="sd">    @param e:</span>
 <span class="sd">        An Expr or Form.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mf</span> <span class="o">=</span> <span class="n">OLDChangeToReferenceGrad</span><span class="p">()</span>
-    <span class="c1"># mf = NEWChangeToReferenceGrad()</span>
+    <span class="n">mf</span> <span class="o">=</span> <span class="n">ChangeToReferenceGrad</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></div>
 
 
