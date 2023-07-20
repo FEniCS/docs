@@ -15,7 +15,7 @@ var searchData=
   ['num_5fentity_5fdofs_12',['num_entity_dofs',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a223879434fa520d73703c8eefc35d1b8',1,'dolfinx::fem::ElementDofLayout']]],
   ['num_5fghosts_13',['num_ghosts',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a35ec5d2c9fe2f2295ffc4677a01ba227',1,'dolfinx::common::IndexMap']]],
   ['num_5fintegrals_14',['num_integrals',['../df/d02/classdolfinx_1_1fem_1_1Form.html#ae81f3b402ccf3d910dfa5bfe944d5024',1,'dolfinx::fem::Form']]],
-  ['num_5flinks_15',['num_links',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a3784f84fa3618a1577357f7a92c9d059',1,'dolfinx::graph::AdjacencyList']]],
+  ['num_5flinks_15',['num_links',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a007e8b35b549a9a2ad143262f98392ff',1,'dolfinx::graph::AdjacencyList']]],
   ['num_5fnodes_16',['num_nodes',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#aa4ac382c064efdb8446805135773b734',1,'dolfinx::graph::AdjacencyList']]],
   ['num_5fnonzeros_17',['num_nonzeros',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a7ad58551156ab501aa9bee7580dc2a93',1,'dolfinx::la::SparsityPattern']]],
   ['num_5fowned_5frows_18',['num_owned_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a44eabebe62656b3b8d9252477e5f61a0',1,'dolfinx::la::MatrixCSR']]],

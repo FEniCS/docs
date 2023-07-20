@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['links_0',['links',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#adc41a9d8050840975b96ead100c634c8',1,'dolfinx::graph::AdjacencyList::links(int node) const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a016429c1d4c861f2524b22d75ce620dd',1,'dolfinx::graph::AdjacencyList::links(int node)']]],
+  ['links_0',['links',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a3e6f43c2cea1fc983cf9a35c90d6ab64',1,'dolfinx::graph::AdjacencyList::links(std::size_t node) const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a023258d9c5c470ae52a1418f82ae4554',1,'dolfinx::graph::AdjacencyList::links(std::size_t node)']]],
   ['list_5ftimings_1',['list_timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a1fb6f599245cf17356d265381fc2f99a',1,'dolfinx::common::TimeLogger::list_timings()'],['../d2/dc7/namespacedolfinx.html#a14bccf7b96d4b085946644c3a7251fcd',1,'dolfinx::list_timings()']]],
   ['local_5fbuffer_5fsize_2',['local_buffer_size',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a3585fed2915ee674c53ffc033dff13ea',1,'dolfinx::common::Scatterer']]],
   ['local_5findices_3',['local_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#ab2e23c4ccbb7c301affc602c91694b4a',1,'dolfinx::common::Scatterer']]],
