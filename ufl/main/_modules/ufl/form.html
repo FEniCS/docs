@@ -48,12 +48,15 @@
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
 
 <span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_scalar_constant_expression</span>
+<span class="kn">from</span> <span class="nn">ufl.constant</span> <span class="kn">import</span> <span class="n">Constant</span>
 <span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
 <span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ufl_err_str</span>
 <span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLType</span><span class="p">,</span> <span class="n">ufl_type</span>
 <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span><span class="p">,</span> <span class="n">sort_domains</span>
 <span class="kn">from</span> <span class="nn">ufl.equation</span> <span class="kn">import</span> <span class="n">Equation</span>
 <span class="kn">from</span> <span class="nn">ufl.integral</span> <span class="kn">import</span> <span class="n">Integral</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.counted</span> <span class="kn">import</span> <span class="n">Counted</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span>
 
 <span class="c1"># Export list for ufl.classes</span>
 <span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Form&quot;</span><span class="p">,</span> <span class="s2">&quot;BaseForm&quot;</span><span class="p">,</span> <span class="s2">&quot;ZeroBaseForm&quot;</span><span class="p">]</span>
@@ -289,8 +292,9 @@
         <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_coefficient_numbering&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;_constant_numbering&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_constants&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_constant_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_terminal_numbering&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_signature&quot;</span><span class="p">,</span>
         <span class="c1"># --- Dict that external frameworks can place framework-specific</span>
@@ -321,11 +325,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_constants</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span> <span class="o">=</span> <span class="n">extract_constants</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constants</span><span class="p">))</span>
 
         <span class="c1"># Internal variables for caching of hash and signature after</span>
         <span class="c1"># first request</span>
@@ -438,8 +441,15 @@
 <div class="viewcode-block" id="Form.coefficient_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.coefficient_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering of coefficients in a mapping</span>
 <span class="sd">        ``{coefficient:number}``.&quot;&quot;&quot;</span>
+        <span class="c1"># cyclic import</span>
+        <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_form_arguments</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">expr</span><span class="p">:</span> <span class="n">num</span>
+                <span class="k">for</span> <span class="n">expr</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span></div>
 
 <div class="viewcode-block" id="Form.constants"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.constants">[docs]</a>    <span class="k">def</span> <span class="nf">constants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -448,7 +458,37 @@
 <div class="viewcode-block" id="Form.constant_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.constant_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">constant_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering of constants in a mapping</span>
 <span class="sd">        ``{constant:number}``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">expr</span><span class="p">:</span> <span class="n">num</span>
+                <span class="k">for</span> <span class="n">expr</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Constant</span><span class="p">)</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span></div>
+
+<div class="viewcode-block" id="Form.terminal_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.terminal_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">terminal_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering for all counted objects in the form.</span>
+
+<span class="sd">        The returned object is mapping from terminal to its number (an integer).</span>
+
+<span class="sd">        The numbering is computed per type so :class:`Coefficient`s,</span>
+<span class="sd">        :class:`Constant`s, etc will each be numbered from zero.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># cyclic import</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_type</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">exprs_by_type</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">counted_expr</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Counted</span><span class="p">):</span>
+                <span class="n">exprs_by_type</span><span class="p">[</span><span class="n">counted_expr</span><span class="o">.</span><span class="n">_counted_class</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">counted_expr</span><span class="p">)</span>
+
+            <span class="n">numbering</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">exprs</span> <span class="ow">in</span> <span class="n">exprs_by_type</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">expr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_by_count</span><span class="p">(</span><span class="n">exprs</span><span class="p">)):</span>
+                    <span class="n">numbering</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="o">=</span> <span class="n">numbering</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span></div>
 
 <div class="viewcode-block" id="Form.signature"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.signature">[docs]</a>    <span class="k">def</span> <span class="nf">signature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="s2">&quot;Signature for use with jit cache (independent of incidental numbering of indices etc.)&quot;</span>
@@ -657,23 +697,19 @@
             <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">()))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
             <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">coefficients</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">_compute_renumbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Include integration domains and coefficients in renumbering</span>
         <span class="n">dn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_numbering</span><span class="p">()</span>
-        <span class="n">cn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_numbering</span><span class="p">()</span>
-        <span class="n">cnstn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constant_numbering</span><span class="p">()</span>
+        <span class="n">tn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span>
         <span class="n">renumbering</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
-        <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">cn</span><span class="p">)</span>
-        <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">cnstn</span><span class="p">)</span>
+        <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tn</span><span class="p">)</span>
 
         <span class="c1"># Add domains of coefficients, these may include domains not</span>
         <span class="c1"># among integration domains</span>
         <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cn</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficients</span><span class="p">():</span>
             <span class="n">d</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
                 <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
