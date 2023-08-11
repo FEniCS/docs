@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['x_277',['x',['../classbasix_1_1FiniteElement.html#ad4160dd1b8ec0223b7a8d997a13775d6',1,'basix::FiniteElement']]]
+  ['wcoeffs_284',['wcoeffs',['../classbasix_1_1FiniteElement.html#a1d09752dd03b15e15fdfb50a38ba9814',1,'basix::FiniteElement']]]
 ];

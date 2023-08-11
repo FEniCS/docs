@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['warp_143',['warp',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97aa6caec68da0de01267cb9a3540543136',1,'basix::lattice']]],
-  ['wcoeffs_144',['wcoeffs',['../classbasix_1_1FiniteElement.html#a1d09752dd03b15e15fdfb50a38ba9814',1,'basix::FiniteElement']]]
+  ['value_5fshape_144',['value_shape',['../classbasix_1_1FiniteElement.html#a8b157bb6a943f276989823dac4dd9884',1,'basix::FiniteElement']]],
+  ['version_145',['version',['../namespacebasix.html#a828a385b5588edfe926899536339327e',1,'basix']]],
+  ['volume_146',['volume',['../namespacebasix_1_1cell.html#ad48a58df6bf6a3dd3091d918b145cf87',1,'basix::cell']]]
 ];
