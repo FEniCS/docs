@@ -5,7 +5,7 @@ var searchData=
   ['chebyshev_31',['chebyshev',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1a172e4ecb02a864e1e4aa51dcce9d8a47',1,'basix::lattice']]],
   ['chebyshev_5fplus_5fendpoints_32',['chebyshev_plus_endpoints',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1a37624ebc4d1e784594a503bb7873b2e1',1,'basix::lattice']]],
   ['coefficient_5fmatrix_33',['coefficient_matrix',['../classbasix_1_1FiniteElement.html#a23f0c90d8010da4cde445b719fed0fb7',1,'basix::FiniteElement']]],
-  ['compute_5fentity_5ftransformations_34',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#af2a14418ed291ca499c23fbf9f82383e',1,'basix::doftransforms']]],
+  ['compute_5fentity_5ftransformations_34',['compute_entity_transformations',['../namespacebasix_1_1doftransforms.html#a4fe0d981f08ed174a15c544604f4df78',1,'basix::doftransforms']]],
   ['compute_5finterpolation_5foperator_35',['compute_interpolation_operator',['../namespacebasix.html#afc25ddae02dce71fea854a58a366fea0',1,'basix']]],
   ['contravariant_5fpiola_36',['contravariant_piola',['../namespacebasix_1_1maps.html#a544e6c8e661458dcb505b1fe7eef16bd',1,'basix::maps']]],
   ['covariant_5fpiola_37',['covariant_piola',['../namespacebasix_1_1maps.html#a4cd024956b7df5e3bad0fd0bdf11cbef',1,'basix::maps']]],
