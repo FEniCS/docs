@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['restriction_125',['restriction',['../namespacebasix_1_1polyset.html#aee7ca976b30b64e6d8ba45fa92f60ad2',1,'basix::polyset']]]
+  ['restriction_126',['restriction',['../namespacebasix_1_1polyset.html#aee7ca976b30b64e6d8ba45fa92f60ad2',1,'basix::polyset']]]
 ];
