@@ -41,6 +41,7 @@
 <span class="c1"># Modified by Nacime Bouziani, 2021-2022.</span>
 
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Coargument</span>
 <span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
 <span class="c1"># --- The Adjoint class represents the adjoint of a numerical object that</span>
 <span class="c1">#     needs to be computed at assembly time ---</span>
@@ -59,6 +60,8 @@
         <span class="s2">&quot;_form&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domains&quot;</span><span class="p">,</span>
         <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_hash&quot;</span><span class="p">)</span>
 
@@ -75,6 +78,14 @@
             <span class="c1"># Adjoint distributes over sums</span>
             <span class="k">return</span> <span class="n">FormSum</span><span class="p">(</span><span class="o">*</span><span class="p">[(</span><span class="n">Adjoint</span><span class="p">(</span><span class="n">component</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
                              <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">components</span><span class="p">()])</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">):</span>
+            <span class="c1"># The adjoint of a coargument `c: V* -&gt; V*` is the identity matrix mapping from V to V (i.e. V x V* -&gt; R).</span>
+            <span class="c1"># Equivalently, the adjoint of `c` is its first argument, which is a ufl.Argument defined on the</span>
+            <span class="c1"># primal space of `c`.</span>
+            <span class="n">primal_arg</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+            <span class="c1"># Returning the primal argument avoids explicit argument reconstruction, making it</span>
+            <span class="c1"># a robust strategy for handling subclasses of `ufl.Coargument`.</span>
+            <span class="k">return</span> <span class="n">primal_arg</span>
 
         <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">Adjoint</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
 
@@ -86,6 +97,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_form</span> <span class="o">=</span> <span class="n">form</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_form</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span> <span class="o">=</span> <span class="s2">&quot;Adjoint(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_form</span><span class="p">)</span>
 
@@ -99,13 +111,22 @@
     <span class="k">def</span> <span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The arguments of adjoint are the reverse of the form arguments.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_form</span><span class="o">.</span><span class="n">coefficients</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which domains can be found in Adjoint.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">join_domains</span>
+        <span class="c1"># Collect unique domains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">])</span>
 
 <div class="viewcode-block" id="Adjoint.equals"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.adjoint.Adjoint.equals">[docs]</a>    <span class="k">def</span> <span class="nf">equals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Adjoint</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_form</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_form</span></div>
+        <span class="c1"># Make sure we are returning a boolean as the equality can result in a `ufl.Equation`</span>
+        <span class="c1"># if the underlying objects are `ufl.BaseForm`.</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_form</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_form</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Adjoint(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_form</span><span class="si">}</span><span class="s2">)&quot;</span>

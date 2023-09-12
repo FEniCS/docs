@@ -43,7 +43,8 @@
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
 <span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
 <span class="kn">from</span> <span class="nn">ufl.algebra</span> <span class="kn">import</span> <span class="n">Sum</span>
-<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span>
 <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">BaseCoefficient</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">,</span> <span class="n">Cofunction</span>
 <span class="kn">from</span> <span class="nn">ufl.differentiation</span> <span class="kn">import</span> <span class="n">CoefficientDerivative</span>
 <span class="kn">from</span> <span class="nn">ufl.matrix</span> <span class="kn">import</span> <span class="n">Matrix</span>
@@ -71,6 +72,8 @@
         <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domains&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_hash&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
@@ -78,11 +81,16 @@
 
         <span class="c1"># Check trivial case</span>
         <span class="k">if</span> <span class="n">left</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">right</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Check compatibility of function spaces</span>
-            <span class="n">_check_function_spaces</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
             <span class="c1"># Still need to work out the ZeroBaseForm arguments.</span>
-            <span class="n">new_arguments</span> <span class="o">=</span> <span class="n">_get_action_form_arguments</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+            <span class="n">new_arguments</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_action_form_arguments</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(</span><span class="n">new_arguments</span><span class="p">)</span>
+
+        <span class="c1"># Coarguments (resp. Argument) from V* to V* (resp. from V to V) are identity matrices,</span>
+        <span class="c1"># i.e. we have: V* x V -&gt; R (resp. V x V* -&gt; R).</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="p">(</span><span class="n">Coargument</span><span class="p">,</span> <span class="n">Argument</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">right</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">Coargument</span><span class="p">,</span> <span class="n">Argument</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">left</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="p">(</span><span class="n">FormSum</span><span class="p">,</span> <span class="n">Sum</span><span class="p">)):</span>
             <span class="c1"># Action distributes over sums on the LHS</span>
@@ -101,6 +109,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_left</span> <span class="o">=</span> <span class="n">left</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_right</span> <span class="o">=</span> <span class="n">right</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Check compatibility of function spaces</span>
         <span class="n">_check_function_spaces</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
@@ -128,14 +137,22 @@
 <span class="sd">        The highest number Argument of the left operand and the lowest number</span>
 <span class="sd">        Argument of the right operand are consumed by the action.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="n">_get_action_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="n">_get_action_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which domains can be found in Action.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">join_domains</span>
+        <span class="c1"># Collect unique domains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">([</span><span class="n">e</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">])</span>
 
 <div class="viewcode-block" id="Action.equals"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.action.Action.equals">[docs]</a>    <span class="k">def</span> <span class="nf">equals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Action</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">True</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_left</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_left</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_right</span></div>
+        <span class="c1"># Make sure we are returning a boolean as left and right equalities can be `ufl.Equation`s</span>
+        <span class="c1"># if the underlying objects are `ufl.BaseForm`.</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_left</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_right</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_right</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Action(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="si">}</span><span class="s2">)&quot;</span>
@@ -158,32 +175,54 @@
         <span class="c1"># right as a consequence of Leibniz formula.</span>
         <span class="n">right</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_operands</span>
 
+    <span class="c1"># `left` can also be a Coefficient in V (= V**), e.g. `action(Coefficient(V), Cofunction(V.dual()))`.</span>
+    <span class="n">left_arg</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span> <span class="k">else</span> <span class="n">left</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">Form</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">left_arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible function spaces in Action&quot;</span><span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">Coefficient</span><span class="p">,</span> <span class="n">Cofunction</span><span class="p">,</span> <span class="n">Argument</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">left_arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible function spaces in Action&quot;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="c1"># `Zero` doesn&#39;t contain any information about the function space.</span>
+    <span class="c1"># -&gt; Not a problem since Action will get simplified with a `ZeroBaseForm`</span>
+    <span class="c1">#    which won&#39;t take into account the arguments on the right because of argument contraction.</span>
+    <span class="c1"># This occurs for:</span>
+    <span class="c1"># `derivative(Action(A, B), u)` with B is an `Expr` such that dB/du == 0</span>
+    <span class="c1"># -&gt; `derivative(B, u)` becomes `Zero` when expanding derivatives since B is an Expr.</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible argument in Action: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">right</span><span class="p">))</span>
 
 
 <span class="k">def</span> <span class="nf">_get_action_form_arguments</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform argument contraction to work out the arguments of Action&quot;&quot;&quot;</span>
 
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">CoefficientDerivative</span><span class="p">):</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="c1"># `left` can also be a Coefficient in V (= V**), e.g. `action(Coefficient(V), Cofunction(V.dual()))`.</span>
+    <span class="n">left_args</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span> <span class="k">else</span> <span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">left_args</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="n">right</span><span class="o">.</span><span class="n">coefficients</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">CoefficientDerivative</span><span class="p">):</span>
         <span class="c1"># Action differentiation pushes differentiation through</span>
         <span class="c1"># right as a consequence of Leibniz formula.</span>
-        <span class="n">right</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_operands</span>
-
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">BaseCoefficient</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_arguments_and_coefficients</span>
+        <span class="n">right_args</span><span class="p">,</span> <span class="n">right_coeffs</span> <span class="o">=</span> <span class="n">extract_arguments_and_coefficients</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">left_args</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">right_args</span><span class="p">)</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">right_coeffs</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">BaseCoefficient</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)):</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">left_args</span>
+        <span class="c1"># When right is ufl.Zero, Action gets simplified so updating</span>
+        <span class="c1"># coefficients here doesn&#39;t matter</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="p">(</span><span class="n">right</span><span class="p">,)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Argument</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">right</span><span class="p">,)</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">left_args</span> <span class="o">+</span> <span class="p">(</span><span class="n">right</span><span class="p">,)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+        <span class="n">coefficients</span> <span class="o">+=</span> <span class="n">left</span><span class="o">.</span><span class="n">coefficients</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span>
 </pre></div>
 
           </div>
