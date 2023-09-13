@@ -46,7 +46,8 @@
 <span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span><span class="p">,</span> <span class="n">topological_sorting</span>
 
 <span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span>
-<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">BaseArgument</span>
+<span class="kn">from</span> <span class="nn">ufl.core.base_form_operator</span> <span class="kn">import</span> <span class="n">BaseFormOperator</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">BaseArgument</span><span class="p">,</span> <span class="n">Coargument</span>
 <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">BaseCoefficient</span>
 <span class="kn">from</span> <span class="nn">ufl.constant</span> <span class="kn">import</span> <span class="n">Constant</span>
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span>
@@ -81,8 +82,15 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ufl_types</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="n">ufl_types</span> <span class="o">=</span> <span class="p">(</span><span class="n">ufl_types</span><span class="p">,)</span>
 
-    <span class="c1"># BaseForms that aren&#39;t forms only contain arguments &amp; coefficients</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">t</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">BaseFormOperator</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">):</span>
+        <span class="n">remove_base_form_ops</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">ufl_types</span> <span class="o">+=</span> <span class="p">(</span><span class="n">BaseFormOperator</span><span class="p">,)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">remove_base_form_ops</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># BaseForms that aren&#39;t forms or base form operators</span>
+    <span class="c1"># only contain arguments &amp; coefficients</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">Form</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">)):</span>
         <span class="n">objects</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">arg_types</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span> <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">BaseArgument</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">arg_types</span><span class="p">:</span>
@@ -94,13 +102,42 @@
 
     <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">issubclass</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Terminal</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">):</span>
         <span class="c1"># Optimization</span>
-        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-                   <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                   <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">))</span>
+        <span class="n">objects</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                      <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-                   <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">unique_pre_traversal</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                   <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">))</span></div>
+        <span class="n">objects</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">o</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">unique_pre_traversal</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                      <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">))</span>
+
+    <span class="c1"># Need to extract objects contained in base form operators whose type is in ufl_types</span>
+    <span class="n">base_form_ops</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">objects</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">))</span>
+    <span class="n">ufl_types_no_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">BaseArgument</span><span class="p">))</span>
+    <span class="n">base_form_objects</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">base_form_ops</span><span class="p">:</span>
+        <span class="c1"># This accounts for having BaseFormOperator in Forms: if N is a BaseFormOperator</span>
+        <span class="c1"># `N(u; v*) * v * dx` &lt;=&gt; `action(v1 * v * dx, N(...; v*))`</span>
+        <span class="c1"># where `v`, `v1` are `Argument`s and `v*` a `Coargument`.</span>
+        <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">arg</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Form</span><span class="p">))):</span>
+            <span class="c1"># Extracting BaseArguments of an object of which a Coargument is an argument,</span>
+            <span class="c1"># then we just return the dual argument of the Coargument and not its primal argument.</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ai</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">):</span>
+                <span class="n">new_types</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Coargument</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">is</span> <span class="n">BaseArgument</span> <span class="k">else</span> <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ufl_types</span><span class="p">)</span>
+                <span class="n">base_form_objects</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">ai</span><span class="p">,</span> <span class="n">new_types</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">base_form_objects</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">ai</span><span class="p">,</span> <span class="n">ufl_types</span><span class="p">))</span>
+        <span class="c1"># Look for BaseArguments in BaseFormOperator&#39;s argument slots only since that&#39;s where they are by definition.</span>
+        <span class="c1"># Don&#39;t look into operands, which is convenient for external operator composition, e.g. N1(N2; v*)</span>
+        <span class="c1"># where N2 is seen as an operator and not a form.</span>
+        <span class="n">slots</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">for</span> <span class="n">ai</span> <span class="ow">in</span> <span class="n">slots</span><span class="p">:</span>
+            <span class="n">base_form_objects</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">ai</span><span class="p">,</span> <span class="n">ufl_types_no_args</span><span class="p">))</span>
+    <span class="n">objects</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">base_form_objects</span><span class="p">)</span>
+
+    <span class="c1"># `Remove BaseFormOperator` objects if there were initially not in `ufl_types`</span>
+    <span class="k">if</span> <span class="n">remove_base_form_ops</span><span class="p">:</span>
+        <span class="n">objects</span> <span class="o">-=</span> <span class="n">base_form_ops</span>
+    <span class="k">return</span> <span class="n">objects</span></div>
 
 
 <div class="viewcode-block" id="has_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.has_type">[docs]</a><span class="k">def</span> <span class="nf">has_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ufl_type</span><span class="p">):</span>
@@ -141,6 +178,12 @@
 <div class="viewcode-block" id="extract_constants"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_constants">[docs]</a><span class="k">def</span> <span class="nf">extract_constants</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a sorted list of all constants in a&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">sorted_by_count</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Constant</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="extract_base_form_operators"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_base_form_operators">[docs]</a><span class="k">def</span> <span class="nf">extract_base_form_operators</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a sorted list of all base form operators (e.g. Interpolate or ExternalOperator)in a,</span>
+<span class="sd">    which can be a Form, Integral or Expr.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">sorted_by_count</span><span class="p">(</span><span class="n">extract_type</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="extract_arguments_and_coefficients"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_arguments_and_coefficients">[docs]</a><span class="k">def</span> <span class="nf">extract_arguments_and_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
