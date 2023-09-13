@@ -41,6 +41,7 @@
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
 
+<span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_arguments</span>
 <span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
 <span class="kn">from</span> <span class="nn">ufl.algorithms.replace_derivative_nodes</span> <span class="kn">import</span> <span class="n">replace_derivative_nodes</span>
 <span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_cellwise_constant</span>
@@ -1142,7 +1143,31 @@
             <span class="c1">#  -&gt; It also covers the Hessian case since Interpolate is linear,</span>
             <span class="c1">#     e.g. D_w[v](D_w[v](i_op(w, v*))) = D_w[v](i_op(v, v*)) = 0 (since w not found).</span>
             <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(</span><span class="n">i_op</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">i_op</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="n">expr</span><span class="o">=</span><span class="n">dw</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">i_op</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="n">expr</span><span class="o">=</span><span class="n">dw</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseFormOperatorDerivativeRuleset.external_operator"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.BaseFormOperatorDerivativeRuleset.external_operator">[docs]</a>    <span class="nd">@pending_operations_recording</span>
+    <span class="k">def</span> <span class="nf">external_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dfs</span><span class="p">):</span>
+            <span class="n">derivatives</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dj</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">dj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">N</span><span class="o">.</span><span class="n">derivatives</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extract_arguments</span><span class="p">(</span><span class="n">df</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Handle the symbolic differentiation of external operators.</span>
+                <span class="c1"># This bit returns:</span>
+                <span class="c1">#</span>
+                <span class="c1">#   `\sum_{i} dNdOi(..., Oi, ...; DOi(u)[v], ..., v*)`</span>
+                <span class="c1">#</span>
+                <span class="c1"># where we differentate wrt u, Oi is the i-th operand, N(..., Oi, ...; ..., v*) an ExternalOperator</span>
+                <span class="c1"># and v the direction (Argument). dNdOi(..., Oi, ...; DOi(u)[v]) is an ExternalOperator</span>
+                <span class="c1"># representing the Gateaux-derivative of N. For example:</span>
+                <span class="c1">#  -&gt; From N(u) = u**2, we get `dNdu(u; uhat, v*) = 2 * u * uhat`.</span>
+                <span class="n">new_args</span> <span class="o">=</span> <span class="n">N</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span> <span class="o">+</span> <span class="p">(</span><span class="n">df</span><span class="p">,)</span>
+                <span class="n">extop</span> <span class="o">=</span> <span class="n">N</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">N</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">,</span> <span class="n">derivatives</span><span class="o">=</span><span class="n">derivatives</span><span class="p">,</span> <span class="n">argument_slots</span><span class="o">=</span><span class="n">new_args</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">df</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">extop</span> <span class="o">=</span> <span class="n">Zero</span><span class="p">(</span><span class="n">N</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Frechet derivative of external operators need to be provided!&#39;</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">+=</span> <span class="p">(</span><span class="n">extop</span><span class="p">,)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="DerivativeRuleDispatcher"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.DerivativeRuleDispatcher">[docs]</a><span class="k">class</span> <span class="nc">DerivativeRuleDispatcher</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
