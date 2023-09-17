@@ -20,7 +20,7 @@ var searchData=
   ['distribute_5fto_5fpostoffice_17',['distribute_to_postoffice',['../da/dfe/namespacedolfinx_1_1MPI.html#a2b53e6f2df7ead0416721b08b5b57b37',1,'dolfinx::MPI']]],
   ['dof_5findices_18',['dof_indices',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a88d4c54405fafc0077a69a41c9126b11',1,'dolfinx::fem::DirichletBC']]],
   ['dof_5fvalues_19',['dof_values',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a104ae7a0d033bf199b5956f7f111b0b4',1,'dolfinx::fem::DirichletBC']]],
-  ['dofmap_20',['dofmap',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a3a3f88a4307223a5c634f16c92c1b045',1,'dolfinx::fem::FunctionSpace::dofmap()'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a0952eba9e72f656e9449e199e522cd3f',1,'dolfinx::mesh::Geometry::dofmap()']]],
+  ['dofmap_20',['dofmap',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a3a3f88a4307223a5c634f16c92c1b045',1,'dolfinx::fem::FunctionSpace::dofmap()'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a27af7e6d4a49aa1afc287d1b473e0496',1,'dolfinx::mesh::Geometry::dofmap()']]],
   ['dofmap_21',['DofMap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a9e0e28e28b23cc4b1f468bb3bd9f50c6',1,'dolfinx::fem::DofMap::DofMap(E &amp;&amp;element, std::shared_ptr&lt; const common::IndexMap &gt; index_map, int index_map_bs, U &amp;&amp;dofmap, int bs)'],['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a0e614e2682ad35f4f637b96b06581c01',1,'dolfinx::fem::DofMap::DofMap(DofMap &amp;&amp;dofmap)=default'],['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html',1,'DofMap']]],
   ['dofmap_2eh_22',['DofMap.h',['../da/ded/DofMap_8h.html',1,'']]],
   ['dolfinx_23',['dolfinx',['../d2/dc7/namespacedolfinx.html',1,'']]],

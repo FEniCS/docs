@@ -19,5 +19,5 @@ var searchData=
   ['transfer_5fcell_5fmeshtag_16',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
   ['transfer_5ffacet_5fmeshtag_17',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
   ['transpose_18',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2901b91b537bd6cb88dbcee4c3ba23e7',1,'dolfinx::io::cells']]],
-  ['transpose_5fdofmap_19',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a24381b636a1e6c0aee8c730e61ed47cc',1,'dolfinx::fem']]]
+  ['transpose_5fdofmap_19',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a159a5de80bc0e6652ddeb3e95969e8eb',1,'dolfinx::fem']]]
 ];
