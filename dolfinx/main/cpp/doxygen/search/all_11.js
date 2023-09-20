@@ -22,6 +22,6 @@ var searchData=
   ['transfer_5fcell_5fmeshtag_19',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
   ['transfer_5ffacet_5fmeshtag_20',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
   ['transpose_21',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a2901b91b537bd6cb88dbcee4c3ba23e7',1,'dolfinx::io::cells']]],
-  ['transpose_5fdofmap_22',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a159a5de80bc0e6652ddeb3e95969e8eb',1,'dolfinx::fem']]],
+  ['transpose_5fdofmap_22',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#ab1b1a83c0dc42f3b9c182a6411cf80a0',1,'dolfinx::fem']]],
   ['type_23',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
 ];

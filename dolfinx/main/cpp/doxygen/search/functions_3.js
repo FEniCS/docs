@@ -15,6 +15,6 @@ var searchData=
   ['dof_5findices_12',['dof_indices',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a88d4c54405fafc0077a69a41c9126b11',1,'dolfinx::fem::DirichletBC']]],
   ['dof_5fvalues_13',['dof_values',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a104ae7a0d033bf199b5956f7f111b0b4',1,'dolfinx::fem::DirichletBC']]],
   ['dofmap_14',['DofMap',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a0e614e2682ad35f4f637b96b06581c01',1,'dolfinx::fem::DofMap::DofMap(DofMap &amp;&amp;dofmap)=default'],['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a9e0e28e28b23cc4b1f468bb3bd9f50c6',1,'dolfinx::fem::DofMap::DofMap(E &amp;&amp;element, std::shared_ptr&lt; const common::IndexMap &gt; index_map, int index_map_bs, U &amp;&amp;dofmap, int bs)']]],
-  ['dofmap_15',['dofmap',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a27af7e6d4a49aa1afc287d1b473e0496',1,'dolfinx::mesh::Geometry::dofmap()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a3a3f88a4307223a5c634f16c92c1b045',1,'dolfinx::fem::FunctionSpace::dofmap()']]],
+  ['dofmap_15',['dofmap',['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#acf43e2f984078d0c64965052e7e5ff45',1,'dolfinx::mesh::Geometry::dofmap()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a3a3f88a4307223a5c634f16c92c1b045',1,'dolfinx::fem::FunctionSpace::dofmap()']]],
   ['domain_16',['domain',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a6c9d7585bf78dd14a654538f94ee4e85',1,'dolfinx::fem::Form']]]
 ];
