@@ -397,99 +397,103 @@ $(document).ready(function() { init_codefold(1); });
 <div class="line"><a id="l00328" name="l00328"></a><span class="lineno">  328</span>    <span class="keyword">const</span> <span class="keywordtype">int</span> mpi_size = <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#aa5036b153ca256f285b70638805fd6f3">dolfinx::MPI::size</a>(comm);</div>
 <div class="line"><a id="l00329" name="l00329"></a><span class="lineno">  329</span> </div>
 <div class="line"><a id="l00330" name="l00330"></a><span class="lineno">  330</span>    <span class="comment">// Send root node coordinates to all processes</span></div>
-<div class="line"><a id="l00331" name="l00331"></a><span class="lineno">  331</span>    std::array&lt;T, 6&gt; send_bbox = {0, 0, 0, 0, 0, 0};</div>
-<div class="line"><a id="l00332" name="l00332"></a><span class="lineno">  332</span>    <span class="keywordflow">if</span> (<a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>() &gt; 0)</div>
-<div class="line"><a id="l00333" name="l00333"></a><span class="lineno">  333</span>      std::copy_n(std::prev(_bbox_coordinates.end(), 6), 6, send_bbox.begin());</div>
-<div class="line"><a id="l00334" name="l00334"></a><span class="lineno">  334</span>    std::vector&lt;T&gt; recv_bbox(mpi_size * 6);</div>
-<div class="line"><a id="l00335" name="l00335"></a><span class="lineno">  335</span>    MPI_Allgather(send_bbox.data(), 6, dolfinx::MPI::mpi_type&lt;T&gt;(),</div>
-<div class="line"><a id="l00336" name="l00336"></a><span class="lineno">  336</span>                  recv_bbox.data(), 6, dolfinx::MPI::mpi_type&lt;T&gt;(), comm);</div>
-<div class="line"><a id="l00337" name="l00337"></a><span class="lineno">  337</span> </div>
-<div class="line"><a id="l00338" name="l00338"></a><span class="lineno">  338</span>    std::vector&lt;std::pair&lt;std::array&lt;T, 6&gt;, std::int32_t&gt;&gt; _recv_bbox(mpi_size);</div>
-<div class="line"><a id="l00339" name="l00339"></a><span class="lineno">  339</span>    <span class="keywordflow">for</span> (std::size_t i = 0; i &lt; _recv_bbox.size(); ++i)</div>
-<div class="line"><a id="l00340" name="l00340"></a><span class="lineno">  340</span>    {</div>
-<div class="line"><a id="l00341" name="l00341"></a><span class="lineno">  341</span>      std::copy_n(std::next(recv_bbox.begin(), 6 * i), 6,</div>
-<div class="line"><a id="l00342" name="l00342"></a><span class="lineno">  342</span>                  _recv_bbox[i].first.begin());</div>
-<div class="line"><a id="l00343" name="l00343"></a><span class="lineno">  343</span>      _recv_bbox[i].second = i;</div>
-<div class="line"><a id="l00344" name="l00344"></a><span class="lineno">  344</span>    }</div>
-<div class="line"><a id="l00345" name="l00345"></a><span class="lineno">  345</span> </div>
-<div class="line"><a id="l00346" name="l00346"></a><span class="lineno">  346</span>    <span class="keyword">auto</span> [global_bboxes, global_coords] = impl_bb::build_from_leaf(_recv_bbox);</div>
-<div class="line"><a id="l00347" name="l00347"></a><span class="lineno">  347</span>    <a class="code hl_class" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html">BoundingBoxTree</a> global_tree(std::move(global_bboxes),</div>
-<div class="line"><a id="l00348" name="l00348"></a><span class="lineno">  348</span>                                std::move(global_coords));</div>
+<div class="line"><a id="l00331" name="l00331"></a><span class="lineno">  331</span>    <span class="comment">// This is to counteract the fact that a process might have 0 bounding box</span></div>
+<div class="line"><a id="l00332" name="l00332"></a><span class="lineno">  332</span>    <span class="comment">// causing false positives on process collisions around (0,0,0)</span></div>
+<div class="line"><a id="l00333" name="l00333"></a><span class="lineno">  333</span>    <span class="keyword">constexpr</span> T max_val = std::numeric_limits&lt;T&gt;::max();</div>
+<div class="line"><a id="l00334" name="l00334"></a><span class="lineno">  334</span>    std::array&lt;T, 6&gt; send_bbox</div>
+<div class="line"><a id="l00335" name="l00335"></a><span class="lineno">  335</span>        = {max_val, max_val, max_val, max_val, max_val, max_val};</div>
+<div class="line"><a id="l00336" name="l00336"></a><span class="lineno">  336</span>    <span class="keywordflow">if</span> (<a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>() &gt; 0)</div>
+<div class="line"><a id="l00337" name="l00337"></a><span class="lineno">  337</span>      std::copy_n(std::prev(_bbox_coordinates.end(), 6), 6, send_bbox.begin());</div>
+<div class="line"><a id="l00338" name="l00338"></a><span class="lineno">  338</span>    std::vector&lt;T&gt; recv_bbox(mpi_size * 6);</div>
+<div class="line"><a id="l00339" name="l00339"></a><span class="lineno">  339</span>    MPI_Allgather(send_bbox.data(), 6, dolfinx::MPI::mpi_type&lt;T&gt;(),</div>
+<div class="line"><a id="l00340" name="l00340"></a><span class="lineno">  340</span>                  recv_bbox.data(), 6, dolfinx::MPI::mpi_type&lt;T&gt;(), comm);</div>
+<div class="line"><a id="l00341" name="l00341"></a><span class="lineno">  341</span> </div>
+<div class="line"><a id="l00342" name="l00342"></a><span class="lineno">  342</span>    std::vector&lt;std::pair&lt;std::array&lt;T, 6&gt;, std::int32_t&gt;&gt; _recv_bbox(mpi_size);</div>
+<div class="line"><a id="l00343" name="l00343"></a><span class="lineno">  343</span>    <span class="keywordflow">for</span> (std::size_t i = 0; i &lt; _recv_bbox.size(); ++i)</div>
+<div class="line"><a id="l00344" name="l00344"></a><span class="lineno">  344</span>    {</div>
+<div class="line"><a id="l00345" name="l00345"></a><span class="lineno">  345</span>      std::copy_n(std::next(recv_bbox.begin(), 6 * i), 6,</div>
+<div class="line"><a id="l00346" name="l00346"></a><span class="lineno">  346</span>                  _recv_bbox[i].first.begin());</div>
+<div class="line"><a id="l00347" name="l00347"></a><span class="lineno">  347</span>      _recv_bbox[i].second = i;</div>
+<div class="line"><a id="l00348" name="l00348"></a><span class="lineno">  348</span>    }</div>
 <div class="line"><a id="l00349" name="l00349"></a><span class="lineno">  349</span> </div>
-<div class="line"><a id="l00350" name="l00350"></a><span class="lineno">  350</span>    LOG(INFO) &lt;&lt; <span class="stringliteral">&quot;Computed global bounding box tree with &quot;</span></div>
-<div class="line"><a id="l00351" name="l00351"></a><span class="lineno">  351</span>              &lt;&lt; global_tree.<a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>() &lt;&lt; <span class="stringliteral">&quot; boxes.&quot;</span>;</div>
-<div class="line"><a id="l00352" name="l00352"></a><span class="lineno">  352</span> </div>
-<div class="line"><a id="l00353" name="l00353"></a><span class="lineno">  353</span>    <span class="keywordflow">return</span> global_tree;</div>
-<div class="line"><a id="l00354" name="l00354"></a><span class="lineno">  354</span>  }</div>
+<div class="line"><a id="l00350" name="l00350"></a><span class="lineno">  350</span>    <span class="keyword">auto</span> [global_bboxes, global_coords] = impl_bb::build_from_leaf(_recv_bbox);</div>
+<div class="line"><a id="l00351" name="l00351"></a><span class="lineno">  351</span>    <a class="code hl_class" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html">BoundingBoxTree</a> global_tree(std::move(global_bboxes),</div>
+<div class="line"><a id="l00352" name="l00352"></a><span class="lineno">  352</span>                                std::move(global_coords));</div>
+<div class="line"><a id="l00353" name="l00353"></a><span class="lineno">  353</span> </div>
+<div class="line"><a id="l00354" name="l00354"></a><span class="lineno">  354</span>    LOG(INFO) &lt;&lt; <span class="stringliteral">&quot;Computed global bounding box tree with &quot;</span></div>
+<div class="line"><a id="l00355" name="l00355"></a><span class="lineno">  355</span>              &lt;&lt; global_tree.<a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>() &lt;&lt; <span class="stringliteral">&quot; boxes.&quot;</span>;</div>
+<div class="line"><a id="l00356" name="l00356"></a><span class="lineno">  356</span> </div>
+<div class="line"><a id="l00357" name="l00357"></a><span class="lineno">  357</span>    <span class="keywordflow">return</span> global_tree;</div>
+<div class="line"><a id="l00358" name="l00358"></a><span class="lineno">  358</span>  }</div>
 </div>
-<div class="line"><a id="l00355" name="l00355"></a><span class="lineno">  355</span> </div>
-<div class="line"><a id="l00357" name="l00357"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">  357</a></span>  std::int32_t <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> _bboxes.size() / 2; }</div>
-<div class="line"><a id="l00358" name="l00358"></a><span class="lineno">  358</span> </div>
-<div class="line"><a id="l00360" name="l00360"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">  360</a></span>  <span class="keywordtype">int</span> <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">tdim</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> _tdim; }</div>
-<div class="line"><a id="l00361" name="l00361"></a><span class="lineno">  361</span> </div>
-<div class="foldopen" id="foldopen00363" data-start="{" data-end="}">
-<div class="line"><a id="l00363" name="l00363"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">  363</a></span>  std::string <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">str</a>()<span class="keyword"> const</span></div>
-<div class="line"><a id="l00364" name="l00364"></a><span class="lineno">  364</span><span class="keyword">  </span>{</div>
-<div class="line"><a id="l00365" name="l00365"></a><span class="lineno">  365</span>    std::stringstream s;</div>
-<div class="line"><a id="l00366" name="l00366"></a><span class="lineno">  366</span>    tree_print(s, _bboxes.size() / 2 - 1);</div>
-<div class="line"><a id="l00367" name="l00367"></a><span class="lineno">  367</span>    <span class="keywordflow">return</span> s.str();</div>
-<div class="line"><a id="l00368" name="l00368"></a><span class="lineno">  368</span>  }</div>
+<div class="line"><a id="l00359" name="l00359"></a><span class="lineno">  359</span> </div>
+<div class="line"><a id="l00361" name="l00361"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">  361</a></span>  std::int32_t <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">num_bboxes</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> _bboxes.size() / 2; }</div>
+<div class="line"><a id="l00362" name="l00362"></a><span class="lineno">  362</span> </div>
+<div class="line"><a id="l00364" name="l00364"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">  364</a></span>  <span class="keywordtype">int</span> <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">tdim</a>()<span class="keyword"> const </span>{ <span class="keywordflow">return</span> _tdim; }</div>
+<div class="line"><a id="l00365" name="l00365"></a><span class="lineno">  365</span> </div>
+<div class="foldopen" id="foldopen00367" data-start="{" data-end="}">
+<div class="line"><a id="l00367" name="l00367"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">  367</a></span>  std::string <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">str</a>()<span class="keyword"> const</span></div>
+<div class="line"><a id="l00368" name="l00368"></a><span class="lineno">  368</span><span class="keyword">  </span>{</div>
+<div class="line"><a id="l00369" name="l00369"></a><span class="lineno">  369</span>    std::stringstream s;</div>
+<div class="line"><a id="l00370" name="l00370"></a><span class="lineno">  370</span>    tree_print(s, _bboxes.size() / 2 - 1);</div>
+<div class="line"><a id="l00371" name="l00371"></a><span class="lineno">  371</span>    <span class="keywordflow">return</span> s.str();</div>
+<div class="line"><a id="l00372" name="l00372"></a><span class="lineno">  372</span>  }</div>
 </div>
-<div class="line"><a id="l00369" name="l00369"></a><span class="lineno">  369</span> </div>
-<div class="foldopen" id="foldopen00377" data-start="{" data-end="}">
-<div class="line"><a id="l00377" name="l00377"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">  377</a></span>  std::array&lt;std::int32_t, 2&gt; <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">bbox</a>(std::size_t node)<span class="keyword"> const</span></div>
-<div class="line"><a id="l00378" name="l00378"></a><span class="lineno">  378</span><span class="keyword">  </span>{</div>
-<div class="line"><a id="l00379" name="l00379"></a><span class="lineno">  379</span>    assert(2 * node + 1 &lt; _bboxes.size());</div>
-<div class="line"><a id="l00380" name="l00380"></a><span class="lineno">  380</span>    <span class="keywordflow">return</span> {_bboxes[2 * node], _bboxes[2 * node + 1]};</div>
-<div class="line"><a id="l00381" name="l00381"></a><span class="lineno">  381</span>  }</div>
+<div class="line"><a id="l00373" name="l00373"></a><span class="lineno">  373</span> </div>
+<div class="foldopen" id="foldopen00381" data-start="{" data-end="}">
+<div class="line"><a id="l00381" name="l00381"></a><span class="lineno"><a class="line" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">  381</a></span>  std::array&lt;std::int32_t, 2&gt; <a class="code hl_function" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">bbox</a>(std::size_t node)<span class="keyword"> const</span></div>
+<div class="line"><a id="l00382" name="l00382"></a><span class="lineno">  382</span><span class="keyword">  </span>{</div>
+<div class="line"><a id="l00383" name="l00383"></a><span class="lineno">  383</span>    assert(2 * node + 1 &lt; _bboxes.size());</div>
+<div class="line"><a id="l00384" name="l00384"></a><span class="lineno">  384</span>    <span class="keywordflow">return</span> {_bboxes[2 * node], _bboxes[2 * node + 1]};</div>
+<div class="line"><a id="l00385" name="l00385"></a><span class="lineno">  385</span>  }</div>
 </div>
-<div class="line"><a id="l00382" name="l00382"></a><span class="lineno">  382</span> </div>
-<div class="line"><a id="l00383" name="l00383"></a><span class="lineno">  383</span><span class="keyword">private</span>:</div>
-<div class="line"><a id="l00384" name="l00384"></a><span class="lineno">  384</span>  <span class="comment">// Constructor</span></div>
-<div class="line"><a id="l00385" name="l00385"></a><span class="lineno">  385</span>  <a class="code hl_class" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html">BoundingBoxTree</a>(std::vector&lt;std::int32_t&gt;&amp;&amp; bboxes,</div>
-<div class="line"><a id="l00386" name="l00386"></a><span class="lineno">  386</span>                  std::vector&lt;T&gt;&amp;&amp; bbox_coords)</div>
-<div class="line"><a id="l00387" name="l00387"></a><span class="lineno">  387</span>      : _tdim(0), _bboxes(bboxes), _bbox_coordinates(bbox_coords)</div>
-<div class="line"><a id="l00388" name="l00388"></a><span class="lineno">  388</span>  {</div>
-<div class="line"><a id="l00389" name="l00389"></a><span class="lineno">  389</span>    <span class="comment">// Do nothing</span></div>
-<div class="line"><a id="l00390" name="l00390"></a><span class="lineno">  390</span>  }</div>
-<div class="line"><a id="l00391" name="l00391"></a><span class="lineno">  391</span> </div>
-<div class="line"><a id="l00392" name="l00392"></a><span class="lineno">  392</span>  <span class="comment">// Topological dimension of leaf entities</span></div>
-<div class="line"><a id="l00393" name="l00393"></a><span class="lineno">  393</span>  <span class="keywordtype">int</span> _tdim;</div>
-<div class="line"><a id="l00394" name="l00394"></a><span class="lineno">  394</span> </div>
-<div class="line"><a id="l00395" name="l00395"></a><span class="lineno">  395</span>  <span class="comment">// Print out recursively, for debugging</span></div>
-<div class="line"><a id="l00396" name="l00396"></a><span class="lineno">  396</span>  <span class="keywordtype">void</span> tree_print(std::stringstream&amp; s, std::int32_t i)<span class="keyword"> const</span></div>
-<div class="line"><a id="l00397" name="l00397"></a><span class="lineno">  397</span><span class="keyword">  </span>{</div>
-<div class="line"><a id="l00398" name="l00398"></a><span class="lineno">  398</span>    s &lt;&lt; <span class="stringliteral">&quot;[&quot;</span>;</div>
-<div class="line"><a id="l00399" name="l00399"></a><span class="lineno">  399</span>    <span class="keywordflow">for</span> (std::size_t j = 0; j &lt; 2; ++j)</div>
-<div class="line"><a id="l00400" name="l00400"></a><span class="lineno">  400</span>    {</div>
-<div class="line"><a id="l00401" name="l00401"></a><span class="lineno">  401</span>      <span class="keywordflow">for</span> (std::size_t k = 0; k &lt; 3; ++k)</div>
-<div class="line"><a id="l00402" name="l00402"></a><span class="lineno">  402</span>        s &lt;&lt; _bbox_coordinates[6 * i + j * 3 + k] &lt;&lt; <span class="stringliteral">&quot; &quot;</span>;</div>
-<div class="line"><a id="l00403" name="l00403"></a><span class="lineno">  403</span>      <span class="keywordflow">if</span> (j == 0)</div>
-<div class="line"><a id="l00404" name="l00404"></a><span class="lineno">  404</span>        s &lt;&lt; <span class="stringliteral">&quot;]-&gt;&quot;</span></div>
-<div class="line"><a id="l00405" name="l00405"></a><span class="lineno">  405</span>          &lt;&lt; <span class="stringliteral">&quot;[&quot;</span>;</div>
-<div class="line"><a id="l00406" name="l00406"></a><span class="lineno">  406</span>    }</div>
-<div class="line"><a id="l00407" name="l00407"></a><span class="lineno">  407</span>    s &lt;&lt; <span class="stringliteral">&quot;]\n&quot;</span>;</div>
-<div class="line"><a id="l00408" name="l00408"></a><span class="lineno">  408</span> </div>
-<div class="line"><a id="l00409" name="l00409"></a><span class="lineno">  409</span>    <span class="keywordflow">if</span> (_bboxes[2 * i] == _bboxes[2 * i + 1])</div>
-<div class="line"><a id="l00410" name="l00410"></a><span class="lineno">  410</span>      s &lt;&lt; <span class="stringliteral">&quot;leaf containing entity (&quot;</span> &lt;&lt; _bboxes[2 * i + 1] &lt;&lt; <span class="stringliteral">&quot;)&quot;</span>;</div>
-<div class="line"><a id="l00411" name="l00411"></a><span class="lineno">  411</span>    <span class="keywordflow">else</span></div>
-<div class="line"><a id="l00412" name="l00412"></a><span class="lineno">  412</span>    {</div>
-<div class="line"><a id="l00413" name="l00413"></a><span class="lineno">  413</span>      s &lt;&lt; <span class="stringliteral">&quot;{&quot;</span>;</div>
-<div class="line"><a id="l00414" name="l00414"></a><span class="lineno">  414</span>      tree_print(s, _bboxes[2 * i]);</div>
-<div class="line"><a id="l00415" name="l00415"></a><span class="lineno">  415</span>      s &lt;&lt; <span class="stringliteral">&quot;, \n&quot;</span>;</div>
-<div class="line"><a id="l00416" name="l00416"></a><span class="lineno">  416</span>      tree_print(s, _bboxes[2 * i + 1]);</div>
-<div class="line"><a id="l00417" name="l00417"></a><span class="lineno">  417</span>      s &lt;&lt; <span class="stringliteral">&quot;}\n&quot;</span>;</div>
-<div class="line"><a id="l00418" name="l00418"></a><span class="lineno">  418</span>    }</div>
-<div class="line"><a id="l00419" name="l00419"></a><span class="lineno">  419</span>  }</div>
-<div class="line"><a id="l00420" name="l00420"></a><span class="lineno">  420</span> </div>
-<div class="line"><a id="l00421" name="l00421"></a><span class="lineno">  421</span>  <span class="comment">// List of bounding boxes (parent-child-entity relations)</span></div>
-<div class="line"><a id="l00422" name="l00422"></a><span class="lineno">  422</span>  std::vector&lt;std::int32_t&gt; _bboxes;</div>
-<div class="line"><a id="l00423" name="l00423"></a><span class="lineno">  423</span> </div>
-<div class="line"><a id="l00424" name="l00424"></a><span class="lineno">  424</span>  <span class="comment">// List of bounding box coordinates</span></div>
-<div class="line"><a id="l00425" name="l00425"></a><span class="lineno">  425</span>  std::vector&lt;T&gt; _bbox_coordinates;</div>
-<div class="line"><a id="l00426" name="l00426"></a><span class="lineno">  426</span>};</div>
+<div class="line"><a id="l00386" name="l00386"></a><span class="lineno">  386</span> </div>
+<div class="line"><a id="l00387" name="l00387"></a><span class="lineno">  387</span><span class="keyword">private</span>:</div>
+<div class="line"><a id="l00388" name="l00388"></a><span class="lineno">  388</span>  <span class="comment">// Constructor</span></div>
+<div class="line"><a id="l00389" name="l00389"></a><span class="lineno">  389</span>  <a class="code hl_class" href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html">BoundingBoxTree</a>(std::vector&lt;std::int32_t&gt;&amp;&amp; bboxes,</div>
+<div class="line"><a id="l00390" name="l00390"></a><span class="lineno">  390</span>                  std::vector&lt;T&gt;&amp;&amp; bbox_coords)</div>
+<div class="line"><a id="l00391" name="l00391"></a><span class="lineno">  391</span>      : _tdim(0), _bboxes(bboxes), _bbox_coordinates(bbox_coords)</div>
+<div class="line"><a id="l00392" name="l00392"></a><span class="lineno">  392</span>  {</div>
+<div class="line"><a id="l00393" name="l00393"></a><span class="lineno">  393</span>    <span class="comment">// Do nothing</span></div>
+<div class="line"><a id="l00394" name="l00394"></a><span class="lineno">  394</span>  }</div>
+<div class="line"><a id="l00395" name="l00395"></a><span class="lineno">  395</span> </div>
+<div class="line"><a id="l00396" name="l00396"></a><span class="lineno">  396</span>  <span class="comment">// Topological dimension of leaf entities</span></div>
+<div class="line"><a id="l00397" name="l00397"></a><span class="lineno">  397</span>  <span class="keywordtype">int</span> _tdim;</div>
+<div class="line"><a id="l00398" name="l00398"></a><span class="lineno">  398</span> </div>
+<div class="line"><a id="l00399" name="l00399"></a><span class="lineno">  399</span>  <span class="comment">// Print out recursively, for debugging</span></div>
+<div class="line"><a id="l00400" name="l00400"></a><span class="lineno">  400</span>  <span class="keywordtype">void</span> tree_print(std::stringstream&amp; s, std::int32_t i)<span class="keyword"> const</span></div>
+<div class="line"><a id="l00401" name="l00401"></a><span class="lineno">  401</span><span class="keyword">  </span>{</div>
+<div class="line"><a id="l00402" name="l00402"></a><span class="lineno">  402</span>    s &lt;&lt; <span class="stringliteral">&quot;[&quot;</span>;</div>
+<div class="line"><a id="l00403" name="l00403"></a><span class="lineno">  403</span>    <span class="keywordflow">for</span> (std::size_t j = 0; j &lt; 2; ++j)</div>
+<div class="line"><a id="l00404" name="l00404"></a><span class="lineno">  404</span>    {</div>
+<div class="line"><a id="l00405" name="l00405"></a><span class="lineno">  405</span>      <span class="keywordflow">for</span> (std::size_t k = 0; k &lt; 3; ++k)</div>
+<div class="line"><a id="l00406" name="l00406"></a><span class="lineno">  406</span>        s &lt;&lt; _bbox_coordinates[6 * i + j * 3 + k] &lt;&lt; <span class="stringliteral">&quot; &quot;</span>;</div>
+<div class="line"><a id="l00407" name="l00407"></a><span class="lineno">  407</span>      <span class="keywordflow">if</span> (j == 0)</div>
+<div class="line"><a id="l00408" name="l00408"></a><span class="lineno">  408</span>        s &lt;&lt; <span class="stringliteral">&quot;]-&gt;&quot;</span></div>
+<div class="line"><a id="l00409" name="l00409"></a><span class="lineno">  409</span>          &lt;&lt; <span class="stringliteral">&quot;[&quot;</span>;</div>
+<div class="line"><a id="l00410" name="l00410"></a><span class="lineno">  410</span>    }</div>
+<div class="line"><a id="l00411" name="l00411"></a><span class="lineno">  411</span>    s &lt;&lt; <span class="stringliteral">&quot;]\n&quot;</span>;</div>
+<div class="line"><a id="l00412" name="l00412"></a><span class="lineno">  412</span> </div>
+<div class="line"><a id="l00413" name="l00413"></a><span class="lineno">  413</span>    <span class="keywordflow">if</span> (_bboxes[2 * i] == _bboxes[2 * i + 1])</div>
+<div class="line"><a id="l00414" name="l00414"></a><span class="lineno">  414</span>      s &lt;&lt; <span class="stringliteral">&quot;leaf containing entity (&quot;</span> &lt;&lt; _bboxes[2 * i + 1] &lt;&lt; <span class="stringliteral">&quot;)&quot;</span>;</div>
+<div class="line"><a id="l00415" name="l00415"></a><span class="lineno">  415</span>    <span class="keywordflow">else</span></div>
+<div class="line"><a id="l00416" name="l00416"></a><span class="lineno">  416</span>    {</div>
+<div class="line"><a id="l00417" name="l00417"></a><span class="lineno">  417</span>      s &lt;&lt; <span class="stringliteral">&quot;{&quot;</span>;</div>
+<div class="line"><a id="l00418" name="l00418"></a><span class="lineno">  418</span>      tree_print(s, _bboxes[2 * i]);</div>
+<div class="line"><a id="l00419" name="l00419"></a><span class="lineno">  419</span>      s &lt;&lt; <span class="stringliteral">&quot;, \n&quot;</span>;</div>
+<div class="line"><a id="l00420" name="l00420"></a><span class="lineno">  420</span>      tree_print(s, _bboxes[2 * i + 1]);</div>
+<div class="line"><a id="l00421" name="l00421"></a><span class="lineno">  421</span>      s &lt;&lt; <span class="stringliteral">&quot;}\n&quot;</span>;</div>
+<div class="line"><a id="l00422" name="l00422"></a><span class="lineno">  422</span>    }</div>
+<div class="line"><a id="l00423" name="l00423"></a><span class="lineno">  423</span>  }</div>
+<div class="line"><a id="l00424" name="l00424"></a><span class="lineno">  424</span> </div>
+<div class="line"><a id="l00425" name="l00425"></a><span class="lineno">  425</span>  <span class="comment">// List of bounding boxes (parent-child-entity relations)</span></div>
+<div class="line"><a id="l00426" name="l00426"></a><span class="lineno">  426</span>  std::vector&lt;std::int32_t&gt; _bboxes;</div>
+<div class="line"><a id="l00427" name="l00427"></a><span class="lineno">  427</span> </div>
+<div class="line"><a id="l00428" name="l00428"></a><span class="lineno">  428</span>  <span class="comment">// List of bounding box coordinates</span></div>
+<div class="line"><a id="l00429" name="l00429"></a><span class="lineno">  429</span>  std::vector&lt;T&gt; _bbox_coordinates;</div>
+<div class="line"><a id="l00430" name="l00430"></a><span class="lineno">  430</span>};</div>
 </div>
-<div class="line"><a id="l00427" name="l00427"></a><span class="lineno">  427</span>} <span class="comment">// namespace dolfinx::geometry</span></div>
+<div class="line"><a id="l00431" name="l00431"></a><span class="lineno">  431</span>} <span class="comment">// namespace dolfinx::geometry</span></div>
 </div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html">dolfinx::geometry::BoundingBoxTree</a></div><div class="ttdoc">Axis-Aligned bounding box binary tree. It is used to find entities in a collection (often a mesh::Mes...</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:205</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a0a05c20259936bdfaec4f6ac06515357"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a0a05c20259936bdfaec4f6ac06515357">dolfinx::geometry::BoundingBoxTree::BoundingBoxTree</a></div><div class="ttdeci">BoundingBoxTree(const mesh::Mesh&lt; T &gt; &amp;mesh, int tdim, T padding=0)</div><div class="ttdoc">Constructor.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:270</div></div>
@@ -498,14 +502,14 @@ $(document).ready(function() { init_codefold(1); });
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a2f0cf3d6825e1a202ce5396527dc66d8"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a2f0cf3d6825e1a202ce5396527dc66d8">dolfinx::geometry::BoundingBoxTree::operator=</a></div><div class="ttdeci">BoundingBoxTree &amp; operator=(const BoundingBoxTree &amp;other)=default</div><div class="ttdoc">Copy assignment.</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a3c78a872403af68a538fd882d806478f"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a3c78a872403af68a538fd882d806478f">dolfinx::geometry::BoundingBoxTree::operator=</a></div><div class="ttdeci">BoundingBoxTree &amp; operator=(BoundingBoxTree &amp;&amp;other)=default</div><div class="ttdoc">Move assignment.</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a404d29d6af058a9bfd63eab4efc2f024"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a404d29d6af058a9bfd63eab4efc2f024">dolfinx::geometry::BoundingBoxTree::create_global_tree</a></div><div class="ttdeci">BoundingBoxTree create_global_tree(MPI_Comm comm) const</div><div class="ttdoc">Compute a global bounding tree (collective on comm) This can be used to find which process a point mi...</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:325</div></div>
-<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a7a12ff25a11a9501590322bf1a603430"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">dolfinx::geometry::BoundingBoxTree::tdim</a></div><div class="ttdeci">int tdim() const</div><div class="ttdoc">Topological dimension of leaf entities.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:360</div></div>
+<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a7a12ff25a11a9501590322bf1a603430"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430">dolfinx::geometry::BoundingBoxTree::tdim</a></div><div class="ttdeci">int tdim() const</div><div class="ttdoc">Topological dimension of leaf entities.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:364</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a7a69b6196ef2ecd35f0ae925e60d3608"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a69b6196ef2ecd35f0ae925e60d3608">dolfinx::geometry::BoundingBoxTree::BoundingBoxTree</a></div><div class="ttdeci">BoundingBoxTree(BoundingBoxTree &amp;&amp;tree)=default</div><div class="ttdoc">Move constructor.</div></div>
-<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a8859f027de3eaaa8b0edea75094d32f1"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">dolfinx::geometry::BoundingBoxTree::num_bboxes</a></div><div class="ttdeci">std::int32_t num_bboxes() const</div><div class="ttdoc">Return number of bounding boxes.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:357</div></div>
+<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a8859f027de3eaaa8b0edea75094d32f1"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1">dolfinx::geometry::BoundingBoxTree::num_bboxes</a></div><div class="ttdeci">std::int32_t num_bboxes() const</div><div class="ttdoc">Return number of bounding boxes.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:361</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_a90ef96c0bee7c548995ce9f5d06919f7"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a90ef96c0bee7c548995ce9f5d06919f7">dolfinx::geometry::BoundingBoxTree::get_bbox</a></div><div class="ttdeci">std::array&lt; T, 6 &gt; get_bbox(std::size_t node) const</div><div class="ttdoc">Return bounding box coordinates for a given node in the tree,.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:313</div></div>
-<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_aa957be709bdb5a8b149662168a47c44b"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">dolfinx::geometry::BoundingBoxTree::bbox</a></div><div class="ttdeci">std::array&lt; std::int32_t, 2 &gt; bbox(std::size_t node) const</div><div class="ttdoc">Get bounding box child nodes.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:377</div></div>
+<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_aa957be709bdb5a8b149662168a47c44b"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa957be709bdb5a8b149662168a47c44b">dolfinx::geometry::BoundingBoxTree::bbox</a></div><div class="ttdeci">std::array&lt; std::int32_t, 2 &gt; bbox(std::size_t node) const</div><div class="ttdoc">Get bounding box child nodes.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:381</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_aa999c805b5f024f9ad0b443ef69d9a32"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#aa999c805b5f024f9ad0b443ef69d9a32">dolfinx::geometry::BoundingBoxTree::BoundingBoxTree</a></div><div class="ttdeci">BoundingBoxTree(const BoundingBoxTree &amp;tree)=delete</div><div class="ttdoc">Copy constructor.</div></div>
 <div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_ab6b8a601ccc4edb01e73f747be6b3a28"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ab6b8a601ccc4edb01e73f747be6b3a28">dolfinx::geometry::BoundingBoxTree::~BoundingBoxTree</a></div><div class="ttdeci">~BoundingBoxTree()=default</div><div class="ttdoc">Destructor.</div></div>
-<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_ae9b08fca99a89639cd78a91152a64d5f"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">dolfinx::geometry::BoundingBoxTree::str</a></div><div class="ttdeci">std::string str() const</div><div class="ttdoc">Print out for debugging.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:363</div></div>
+<div class="ttc" id="aclassdolfinx_1_1geometry_1_1BoundingBoxTree_html_ae9b08fca99a89639cd78a91152a64d5f"><div class="ttname"><a href="../../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f">dolfinx::geometry::BoundingBoxTree::str</a></div><div class="ttdeci">std::string str() const</div><div class="ttdoc">Print out for debugging.</div><div class="ttdef"><b>Definition</b> BoundingBoxTree.h:367</div></div>
 <div class="ttc" id="aclassdolfinx_1_1mesh_1_1Mesh_html"><div class="ttname"><a href="../../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html">dolfinx::mesh::Mesh</a></div><div class="ttdoc">A Mesh consists of a set of connected and numbered mesh topological entities, and geometry data.</div><div class="ttdef"><b>Definition</b> Mesh.h:23</div></div>
 <div class="ttc" id="aclassdolfinx_1_1mesh_1_1Mesh_html_a0a2cf2ebf198cd471ba4bffdad8d58a4"><div class="ttname"><a href="../../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0a2cf2ebf198cd471ba4bffdad8d58a4">dolfinx::mesh::Mesh::topology_mutable</a></div><div class="ttdeci">std::shared_ptr&lt; Topology &gt; topology_mutable() const</div><div class="ttdoc">Get mesh topology if one really needs the mutable version.</div><div class="ttdef"><b>Definition</b> Mesh.h:72</div></div>
 <div class="ttc" id="aclassdolfinx_1_1mesh_1_1Mesh_html_a2bbad0fc0865a08f09a59ac125a07a5a"><div class="ttname"><a href="../../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a2bbad0fc0865a08f09a59ac125a07a5a">dolfinx::mesh::Mesh::topology</a></div><div class="ttdeci">std::shared_ptr&lt; Topology &gt; topology()</div><div class="ttdoc">Get mesh topology.</div><div class="ttdef"><b>Definition</b> Mesh.h:64</div></div>
