@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algebra &#8212; Unified Form Language (UFL) 2023.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=8c00a699"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algebra</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Basic algebra operations.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span> <span class="nn">ufl.core.operator</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span><span class="p">,</span> <span class="n">zero</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">,</span> <span class="n">IntValue</span><span class="p">,</span> <span class="n">ComplexValue</span><span class="p">,</span> <span class="n">as_ufl</span>
+<span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_ufl_scalar</span><span class="p">,</span> <span class="n">is_true_ufl_scalar</span>
+<span class="kn">from</span> <span class="nn">ufl.index_combination_utils</span> <span class="kn">import</span> <span class="n">merge_unique_indices</span>
+<span class="kn">from</span> <span class="nn">ufl.sorting</span> <span class="kn">import</span> <span class="n">sorted_expr</span>
+<span class="kn">from</span> <span class="nn">ufl.precedence</span> <span class="kn">import</span> <span class="n">parstr</span>
+
+<span class="c1"># --- Algebraic operators ---</span>
+
+
+<div class="viewcode-block" id="Sum"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Sum">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+          <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">binop</span><span class="o">=</span><span class="s2">&quot;__add__&quot;</span><span class="p">,</span> <span class="n">rbinop</span><span class="o">=</span><span class="s2">&quot;__radd__&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sum.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Sum.&quot;&quot;&quot;</span>
+        <span class="c1"># Make sure everything is an Expr</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Assert consistent tensor properties</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">fi</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+        <span class="n">fid</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
+        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can&#39;t add expressions with different shapes.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">!=</span> <span class="n">fi</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can&#39;t add expressions with different free indices.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">!=</span> <span class="n">fid</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can&#39;t add expressions with different index dimensions.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Skip adding zero</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">b</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span>
+
+        <span class="c1"># Handle scalars specially and sort operands</span>
+        <span class="n">sa</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span>
+        <span class="n">sb</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sa</span> <span class="ow">and</span> <span class="n">sb</span><span class="p">:</span>
+            <span class="c1"># Apply constant propagation</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span> <span class="o">+</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sa</span><span class="p">:</span>
+            <span class="c1"># Place scalar first</span>
+            <span class="c1"># operands = (a, b)</span>
+            <span class="k">pass</span>  <span class="c1"># a, b = a, b</span>
+        <span class="k">elif</span> <span class="n">sb</span><span class="p">:</span>
+            <span class="c1"># Place scalar first</span>
+            <span class="c1"># operands = (b, a)</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span>
+        <span class="c1"># elif a == b:</span>
+        <span class="c1">#    # Replace a+b with 2*foo</span>
+        <span class="c1">#    return 2*a</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Otherwise sort operands in a canonical order</span>
+            <span class="c1"># operands = (b, a)</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">sorted_expr</span><span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+
+        <span class="c1"># construct and initialize a new Sum object</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Sum.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Sum.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span>
+                              <span class="n">index_values</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">parstr</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="Product"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Product">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+          <span class="n">binop</span><span class="o">=</span><span class="s2">&quot;__mul__&quot;</span><span class="p">,</span> <span class="n">rbinop</span><span class="o">=</span><span class="s2">&quot;__rmul__&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Product</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The product of two or more UFL objects.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new product.&quot;&quot;&quot;</span>
+        <span class="c1"># Conversion</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Type checking</span>
+        <span class="c1"># Make sure everything is scalar</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">or</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Product can only represent products of scalars, &quot;</span>
+                             <span class="sa">f</span><span class="s2">&quot;got</span><span class="se">\n</span><span class="s2">    </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">and</span><span class="se">\n</span><span class="s2">    </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="c1"># Got any zeros? Return zero.</span>
+            <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_unique_indices</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                                           <span class="n">a</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">,</span>
+                                           <span class="n">b</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                                           <span class="n">b</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((),</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
+        <span class="n">sa</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span>
+        <span class="n">sb</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sa</span> <span class="ow">and</span> <span class="n">sb</span><span class="p">:</span>  <span class="c1"># const * const = const</span>
+            <span class="c1"># FIXME: Handle free indices like with zero? I think</span>
+            <span class="c1"># IntValue may be index annotated now?</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">sa</span><span class="p">:</span>  <span class="c1"># 1 * b = b</span>
+            <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">_value</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">b</span>
+            <span class="c1"># a, b = a, b</span>
+        <span class="k">elif</span> <span class="n">sb</span><span class="p">:</span>  <span class="c1"># a * 1 = a</span>
+            <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">a</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span>
+        <span class="c1"># elif a == b: # a * a = a**2 # TODO: Why? Maybe just remove this?</span>
+        <span class="c1">#    if not a.ufl_free_indices:</span>
+        <span class="c1">#        return a**2</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># a * b = b * a</span>
+            <span class="c1"># Sort operands in a semi-canonical order</span>
+            <span class="c1"># (NB! This is fragile! Small changes here can have large effects.)</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">sorted_expr</span><span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+
+        <span class="c1"># Construction</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructor, called by __new__ with already checked arguments.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Extract indices</span>
+        <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_unique_indices</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                                       <span class="n">a</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">,</span>
+                                       <span class="n">b</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                                       <span class="n">b</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>
+
+<div class="viewcode-block" id="Product.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Product.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">sh</span> <span class="o">!=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting nonscalar product operand to be the last by convention.&quot;</span><span class="p">)</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+            <span class="n">ops</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+            <span class="n">tmp</span> <span class="o">*=</span> <span class="n">o</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="p">(),</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">tmp</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="s2">&quot; * &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="p">),</span> <span class="n">parstr</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="Division"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Division">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+          <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">binop</span><span class="o">=</span><span class="s2">&quot;__div__&quot;</span><span class="p">,</span> <span class="n">rbinop</span><span class="o">=</span><span class="s2">&quot;__rdiv__&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Division</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Division.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Division.&quot;&quot;&quot;</span>
+        <span class="c1"># Conversion</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Type checking</span>
+        <span class="c1"># TODO: Enabled workaround for nonscalar division in __div__,</span>
+        <span class="c1"># so maybe we can keep this assertion. Some algorithms may</span>
+        <span class="c1"># need updating.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_ufl_scalar</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting scalar nominator in Division.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Division by non-scalar is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Division by zero!&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="c1"># Simplification a/b -&gt; a</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span> <span class="ow">and</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="c1"># Simplification &quot;literal a / literal b&quot; -&gt; &quot;literal value of</span>
+        <span class="c1"># a/b&quot;. Avoiding integer division by casting to float</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">_value</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="nb">complex</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span> <span class="o">/</span> <span class="nb">complex</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">_value</span><span class="p">))</span>
+        <span class="c1"># Simplification &quot;a / a&quot; -&gt; &quot;1&quot;</span>
+        <span class="c1"># if not a.ufl_free_indices and not a.ufl_shape and a == b:</span>
+        <span class="c1">#    return as_ufl(1)</span>
+
+        <span class="c1"># Construction</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>  <span class="c1"># self.ufl_operands[0].ufl_shape</span>
+
+<div class="viewcode-block" id="Division.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Division.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="c1"># Avoiding integer division by casting to float</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="nb">complex</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">e</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="Power"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Power">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+          <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">binop</span><span class="o">=</span><span class="s2">&quot;__pow__&quot;</span><span class="p">,</span> <span class="n">rbinop</span><span class="o">=</span><span class="s2">&quot;__rpow__&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Power</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Power.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Power.&quot;&quot;&quot;</span>
+        <span class="c1"># Conversion</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Type checking</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot take the power of a non-scalar expression </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot raise an expression to a non-scalar power </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span> <span class="o">**</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">IntValue</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ComplexValue</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot raise zero to a complex power.&quot;</span><span class="p">)</span>
+            <span class="n">bf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">bf</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Division by zero, cannot raise 0 to a negative power.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">zero</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">)</span> <span class="ow">and</span> <span class="n">b</span><span class="o">.</span><span class="n">_value</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">a</span>
+
+        <span class="c1"># Construction</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_init</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>
+
+<div class="viewcode-block" id="Power.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Power.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evalute.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">**</span><span class="n">b</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> ** </span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="Abs"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Abs">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+          <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+          <span class="n">unop</span><span class="o">=</span><span class="s2">&quot;__abs__&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Abs</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Absolute value.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Abs.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">Zero</span><span class="p">,</span> <span class="n">Abs</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Conj</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,))</span>
+
+<div class="viewcode-block" id="Abs.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Abs.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;|</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">|&quot;</span></div>
+
+
+<div class="viewcode-block" id="Conj"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Conj">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+          <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Conj</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex conjugate.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creatr a new Conj.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">Abs</span><span class="p">,</span> <span class="n">Real</span><span class="p">,</span> <span class="n">Imag</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Conj</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_value</span><span class="o">.</span><span class="n">conjugate</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,))</span>
+
+<div class="viewcode-block" id="Conj.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Conj.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">conjugate</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;conj(</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+
+
+<div class="viewcode-block" id="Real"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Real">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+          <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Real</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Real part.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Real.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Conj</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">real</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Real</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,))</span>
+
+<div class="viewcode-block" id="Real.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Real.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">real</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Re[</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span></div>
+
+
+<div class="viewcode-block" id="Imag"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Imag">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+          <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Imag</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Imaginary part.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new Imag.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">Real</span><span class="p">,</span> <span class="n">Imag</span><span class="p">,</span> <span class="n">Abs</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">ScalarValue</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">imag</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,))</span>
+
+<div class="viewcode-block" id="Imag.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.algebra.Imag.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">imag</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Im[</span><span class="si">{</span><span class="n">parstr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

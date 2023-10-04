@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.core.interpolate &#8212; Unified Form Language (UFL) 2023.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=8c00a699"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.core.interpolate</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;This module defines the Interpolate class.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2021 Nacime Bouziani</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Nacime Bouziani, 2021-2022</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">as_ufl</span>
+<span class="kn">from</span> <span class="nn">ufl.functionspace</span> <span class="kn">import</span> <span class="n">AbstractFunctionSpace</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Coargument</span><span class="p">,</span> <span class="n">Argument</span>
+<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Cofunction</span>
+<span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span> <span class="nn">ufl.core.base_form_operator</span> <span class="kn">import</span> <span class="n">BaseFormOperator</span>
+<span class="kn">from</span> <span class="nn">ufl.duals</span> <span class="kn">import</span> <span class="n">is_dual</span>
+
+
+<div class="viewcode-block" id="Interpolate"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Interpolate">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="s2">&quot;varying&quot;</span><span class="p">,</span> <span class="n">is_differential</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Interpolate</span><span class="p">(</span><span class="n">BaseFormOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symbolic representation of the interpolation operator.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Slots are disabled here because they cause trouble in PyDOLFIN</span>
+    <span class="c1"># multiple inheritance pattern:</span>
+    <span class="n">_ufl_noslots_</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            expr: a UFL expression to interpolate.</span>
+<span class="sd">            v: the FunctionSpace to interpolate into or the Coargument</span>
+<span class="sd">                defined on the dual of the FunctionSpace to interpolate into.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># This check could be more rigorous.</span>
+        <span class="n">dual_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">Coargument</span><span class="p">,</span> <span class="n">Cofunction</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">AbstractFunctionSpace</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">is_dual</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Expecting a primal function space.&#39;</span><span class="p">)</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">dual</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dual_args</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting the second argument to be FunctionSpace, FiniteElement or dual.&quot;</span><span class="p">)</span>
+
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">dual_args</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting the first argument to be primal.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Reversed order convention</span>
+        <span class="n">argument_slots</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">expr</span><span class="p">)</span>
+        <span class="c1"># Get the primal space (V** = V)</span>
+        <span class="n">vv</span> <span class="o">=</span> <span class="n">v</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">function_space</span> <span class="o">=</span> <span class="n">vv</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span>
+        <span class="c1"># Set the operand as `expr` for DAG traversal purpose.</span>
+        <span class="n">operand</span> <span class="o">=</span> <span class="n">expr</span>
+        <span class="n">BaseFormOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operand</span><span class="p">,</span> <span class="n">function_space</span><span class="o">=</span><span class="n">function_space</span><span class="p">,</span>
+                                  <span class="n">argument_slots</span><span class="o">=</span><span class="n">argument_slots</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">add_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new object of the same type with new operands.&quot;&quot;&quot;</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="n">expr</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">add_kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Default repr string construction for Interpolate.&quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;Interpolate(&quot;</span>
+        <span class="n">r</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()))</span>
+        <span class="n">r</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Default str string construction for Interpolate.&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Interpolate(&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()))</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check for equality.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">_argument_slots</span><span class="p">))</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span></div>
+
+
+<span class="c1"># Helper function</span>
+<div class="viewcode-block" id="interpolate"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.interpolate">[docs]</a><span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create symbolic representation of the interpolation operator.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        expr: a UFL expression to interpolate.</span>
+<span class="sd">        v: the FunctionSpace to interpolate into or the Coargument</span>
+<span class="sd">            defined on the dual of the FunctionSpace to interpolate into.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Interpolate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

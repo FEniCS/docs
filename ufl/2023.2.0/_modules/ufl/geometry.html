@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.geometry &#8212; Unified Form Language (UFL) 2023.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=8c00a699"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.geometry</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Types for representing symbolic expressions for geometric quantities.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">as_domain</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Possible coordinate bootstrapping:</span>
+
+<span class="sd">Xf = Xf[q]</span>
+<span class="sd">    FacetCoordinate = quadrature point on facet (ds,dS)</span>
+
+<span class="sd">X = X[q]</span>
+<span class="sd">    CellCoordinate = quadrature point on cell (dx)</span>
+
+<span class="sd">x = x[q]</span>
+<span class="sd">    SpatialCoordinate = quadrature point from input array (dc)</span>
+
+
+<span class="sd">Jacobians of mappings between coordinates:</span>
+
+<span class="sd">Jcf = dX/dXf = grad_Xf X(Xf)</span>
+<span class="sd">    CellFacetJacobian</span>
+
+<span class="sd">Jxc = dx/dX = grad_X x(X)</span>
+<span class="sd">    Jacobian</span>
+
+<span class="sd">Jxf = dx/dXf = grad_Xf x(Xf)  =  Jxc Jcf = dx/dX dX/dXf = grad_X x(X) grad_Xf X(Xf)</span>
+<span class="sd">    FacetJacobian = Jacobian * CellFacetJacobian</span>
+
+
+<span class="sd">Possible computation of X from Xf:</span>
+
+<span class="sd">X = Jcf Xf + X0f</span>
+<span class="sd">    CellCoordinate = CellFacetJacobian * FacetCoordinate + CellFacetOrigin</span>
+
+
+<span class="sd">Possible computation of x from X:</span>
+
+<span class="sd">x = f(X)</span>
+<span class="sd">    SpatialCoordinate = sum_k xdofs_k * xphi_k(X)</span>
+
+<span class="sd">x = Jxc X + x0</span>
+<span class="sd">    SpatialCoordinate = Jacobian * CellCoordinate + CellOrigin</span>
+
+
+<span class="sd">Possible computation of x from Xf:</span>
+
+<span class="sd">x = x(X(Xf))</span>
+
+<span class="sd">x = Jxf Xf + x0f</span>
+<span class="sd">    SpatialCoordinate = FacetJacobian * FacetCoordinate + FacetOrigin</span>
+
+
+<span class="sd">Inverse relations:</span>
+
+<span class="sd">X = K * (x - x0)</span>
+<span class="sd">    CellCoordinate = JacobianInverse * (SpatialCoordinate - CellOrigin)</span>
+
+<span class="sd">Xf = FK * (x - x0f)</span>
+<span class="sd">    FacetCoordinate = FacetJacobianInverse * (SpatialCoordinate - FacetOrigin)</span>
+
+<span class="sd">Xf = CFK * (X - X0f)</span>
+<span class="sd">    FacetCoordinate = CellFacetJacobianInverse * (CellCoordinate - CellFacetOrigin)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="c1"># --- Expression node types</span>
+
+<div class="viewcode-block" id="GeometricQuantity"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.GeometricQuantity">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GeometricQuantity</span><span class="p">(</span><span class="n">Terminal</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometric quantity.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_domain&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Terminal</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="o">=</span> <span class="n">as_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GeometricQuantity.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.GeometricQuantity.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL domains.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="p">,)</span></div>
+
+<div class="viewcode-block" id="GeometricQuantity.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.GeometricQuantity.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># NB! Geometric quantities are piecewise constant by</span>
+        <span class="c1"># default. Override if needed.</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+    <span class="c1"># NB! Geometric quantities are scalar by default. Override if</span>
+    <span class="c1"># needed.</span>
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Signature data of geometric quantities depend on the domain numbering.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">_ufl_signature_data_</span><span class="p">(</span><span class="n">renumbering</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation.&quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_compute_hash_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL compute hash.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check equality.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">_domain</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span></div>
+
+
+<div class="viewcode-block" id="GeometricCellQuantity"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.GeometricCellQuantity">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GeometricCellQuantity</span><span class="p">(</span><span class="n">GeometricQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometric cell quantity.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="GeometricFacetQuantity"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.GeometricFacetQuantity">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">GeometricFacetQuantity</span><span class="p">(</span><span class="n">GeometricQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Geometric facet quantity.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span></div>
+
+
+<span class="c1"># --- Coordinate represented in different coordinate systems</span>
+
+<div class="viewcode-block" id="SpatialCoordinate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.SpatialCoordinate">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">SpatialCoordinate</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The coordinate in a domain.</span>
+
+<span class="sd">    In the context of expression integration,</span>
+<span class="sd">    represents the domain coordinate of each quadrature point.</span>
+
+<span class="sd">    In the context of expression evaluation in a point,</span>
+<span class="sd">    represents the value of that point.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;x&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of coordinates defined (i.e. the geometric dimension of the domain).&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="SpatialCoordinate.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.SpatialCoordinate.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only case this is true is if the domain is a vertex cell.</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">t</span> <span class="o">==</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="SpatialCoordinate.evaluate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.SpatialCoordinate.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of the coordinate.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">component</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">component</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span></div>
+
+<div class="viewcode-block" id="SpatialCoordinate.count"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.SpatialCoordinate.count">[docs]</a>    <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Count.&quot;&quot;&quot;</span>
+        <span class="c1"># FIXME: Hack to make SpatialCoordinate behave like a coefficient.</span>
+        <span class="c1"># When calling `derivative`, the count is used to sort over.</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div></div>
+
+
+<div class="viewcode-block" id="CellCoordinate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellCoordinate">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellCoordinate</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The coordinate in a reference cell.</span>
+
+<span class="sd">    In the context of expression integration,</span>
+<span class="sd">    represents the reference cell coordinate of each quadrature point.</span>
+
+<span class="sd">    In the context of expression evaluation in a point in a cell,</span>
+<span class="sd">    represents that point in the reference coordinate system of the cell.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;X&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="CellCoordinate.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellCoordinate.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only case this is true is if the domain is a vertex cell.</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">t</span> <span class="o">==</span> <span class="mi">0</span></div></div>
+
+
+<div class="viewcode-block" id="FacetCoordinate"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetCoordinate">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetCoordinate</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The coordinate in a reference cell of a facet.</span>
+
+<span class="sd">    In the context of expression integration over a facet,</span>
+<span class="sd">    represents the reference facet coordinate of each quadrature point.</span>
+
+<span class="sd">    In the context of expression evaluation in a point on a facet,</span>
+<span class="sd">    represents that point in the reference coordinate system of the facet.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Xf&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FacetCoordinate is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="FacetCoordinate.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetCoordinate.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only case this is true is if the domain is an interval cell</span>
+        <span class="c1"># (with a vertex facet).</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="mi">1</span></div></div>
+
+
+<span class="c1"># --- Origin of coordinate systems in larger coordinate systems</span>
+
+<div class="viewcode-block" id="CellOrigin"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellOrigin">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellOrigin</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The spatial coordinate corresponding to origin of a reference cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;x0&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="CellOrigin.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellOrigin.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="FacetOrigin"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetOrigin">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetOrigin</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The spatial coordinate corresponding to origin of a reference facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;x0f&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,)</span></div>
+
+
+<div class="viewcode-block" id="CellFacetOrigin"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetOrigin">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellFacetOrigin</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The reference cell coordinate corresponding to origin of a reference facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;X0f&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span><span class="p">,)</span></div>
+
+
+<span class="c1"># --- Jacobians of mappings between coordinate systems</span>
+
+<div class="viewcode-block" id="Jacobian"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Jacobian">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">Jacobian</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;The Jacobian of the mapping from reference cell to spatial coordinates.</span>
+
+<span class="sd">    .. math:: J_{ij} = \\frac{dx_i}{dX_j}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;J&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of coordinates defined (i.e. the geometric dimension of the domain).&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Jacobian.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Jacobian.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="FacetJacobian"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobian">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetJacobian</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Jacobian of the mapping from reference facet to spatial coordinates.</span>
+
+<span class="sd">      FJ_ij = dx_i/dXf_j</span>
+
+<span class="sd">    The FacetJacobian is the product of the Jacobian and CellFacetJacobian:</span>
+
+<span class="sd">      FJ = dx/dXf = dx/dX dX/dXf = J * CFJ</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;FJ&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FacetJacobian is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FacetJacobian.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobian.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex</span>
+        <span class="c1"># cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CellFacetJacobian"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobian">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellFacetJacobian</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>  <span class="c1"># dX/dXf</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The Jacobian of the mapping from reference facet to reference cell coordinates.</span>
+
+<span class="sd">    CFJ_ij = dX_i/dXf_j</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CFJ&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CellFacetJacobian is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CellFacetJacobian.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobian.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always a constant mapping between two reference</span>
+        <span class="c1"># coordinate systems.</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="ReferenceCellEdgeVectors"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceCellEdgeVectors">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ReferenceCellEdgeVectors</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The vectors between reference cell vertices for each edge in cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;RCEV&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricCellQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CellEdgeVectors is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
+        <span class="n">ne</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">num_edges</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ne</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ReferenceCellEdgeVectors.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceCellEdgeVectors.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always constant for a given cell type</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="ReferenceFacetEdgeVectors"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceFacetEdgeVectors">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ReferenceFacetEdgeVectors</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The vectors between reference cell vertices for each edge in current facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;RFEV&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FacetEdgeVectors is only defined for topological dimensions &gt;= 3.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
+        <span class="n">facet_types</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">facet_types</span><span class="p">()</span>
+
+        <span class="c1"># Raise exception for cells with more than one facet type e.g. prisms</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">facet_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cell type </span><span class="si">{</span><span class="n">cell</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+        <span class="n">nfe</span> <span class="o">=</span> <span class="n">facet_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_edges</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">nfe</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ReferenceFacetEdgeVectors.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceFacetEdgeVectors.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always constant for a given cell type</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="CellVertices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellVertices">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellVertices</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Physical cell vertices.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CV&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricCellQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">num_vertices</span><span class="p">()</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CellVertices.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellVertices.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always constant for a given cell type</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="CellEdgeVectors"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellEdgeVectors">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellEdgeVectors</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The vectors between physical cell vertices for each edge in cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CEV&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricCellQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CellEdgeVectors is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
+        <span class="n">ne</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">num_edges</span><span class="p">()</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">ne</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CellEdgeVectors.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellEdgeVectors.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always constant for a given cell type</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<div class="viewcode-block" id="FacetEdgeVectors"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetEdgeVectors">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetEdgeVectors</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The vectors between physical cell vertices for each edge in current facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;FEV&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FacetEdgeVectors is only defined for topological dimensions &gt;= 3.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
+        <span class="n">facet_types</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">facet_types</span><span class="p">()</span>
+
+        <span class="c1"># Raise exception for cells with more than one facet type e.g. prisms</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">facet_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cell type </span><span class="si">{</span><span class="n">cell</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+        <span class="n">nfe</span> <span class="o">=</span> <span class="n">facet_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_edges</span><span class="p">()</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">nfe</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FacetEdgeVectors.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetEdgeVectors.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># This is always constant for a given cell type</span>
+        <span class="k">return</span> <span class="kc">True</span></div></div>
+
+
+<span class="c1"># --- Determinants (signed or pseudo) of geometry mapping Jacobians</span>
+
+<div class="viewcode-block" id="JacobianDeterminant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.JacobianDeterminant">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">JacobianDeterminant</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The determinant of the Jacobian.</span>
+
+<span class="sd">    Represents the signed determinant of a square Jacobian or the pseudo-determinant of a non-square Jacobian.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;detJ&quot;</span>
+
+<div class="viewcode-block" id="JacobianDeterminant.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.JacobianDeterminant.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex</span>
+        <span class="c1"># cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="FacetJacobianDeterminant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobianDeterminant">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetJacobianDeterminant</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The pseudo-determinant of the FacetJacobian.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;detFJ&quot;</span>
+
+<div class="viewcode-block" id="FacetJacobianDeterminant.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobianDeterminant.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CellFacetJacobianDeterminant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobianDeterminant">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellFacetJacobianDeterminant</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The pseudo-determinant of the CellFacetJacobian.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;detCFJ&quot;</span>
+
+<div class="viewcode-block" id="CellFacetJacobianDeterminant.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobianDeterminant.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex</span>
+        <span class="c1"># cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<span class="c1"># --- Inverses (signed or pseudo) of geometry mapping Jacobians</span>
+
+<div class="viewcode-block" id="JacobianInverse"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.JacobianInverse">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">JacobianInverse</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The inverse of the Jacobian.</span>
+
+<span class="sd">    Represents the inverse of a square Jacobian or the pseudo-inverse of a non-square Jacobian.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;K&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of coordinates defined (i.e. the geometric dimension of the domain).&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+
+<div class="viewcode-block" id="JacobianInverse.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.JacobianInverse.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex</span>
+        <span class="c1"># cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="FacetJacobianInverse"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobianInverse">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetJacobianInverse</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The pseudo-inverse of the FacetJacobian.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;FK&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;FacetJacobianInverse is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FacetJacobianInverse.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetJacobianInverse.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex</span>
+        <span class="c1"># cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CellFacetJacobianInverse"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobianInverse">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellFacetJacobianInverse</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The pseudo-inverse of the CellFacetJacobian.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;CFK&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">GeometricFacetQuantity</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;CellFacetJacobianInverse is only defined for topological dimensions &gt;= 2.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CellFacetJacobianInverse.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellFacetJacobianInverse.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<span class="c1"># --- Types representing normal or tangent vectors</span>
+
+<div class="viewcode-block" id="FacetNormal"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetNormal">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetNormal</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The outwards pointing normal vector of the current facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;n&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of coordinates defined (i.e. the geometric dimension of the domain).&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="FacetNormal.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetNormal.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># For product cells, this is only true for some but not all</span>
+        <span class="c1"># facets. Seems like too much work to fix right now.  Only</span>
+        <span class="c1"># true for a piecewise linear coordinate field with simplex</span>
+        <span class="c1"># _facets_.</span>
+        <span class="n">is_piecewise_linear</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">degree</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">is_piecewise_linear</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">has_simplex_facets</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="CellNormal"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellNormal">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellNormal</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The upwards pointing normal vector of the current manifold cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;cell_normal&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of coordinates defined (i.e. the geometric dimension of the domain).&quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span>
+        <span class="c1"># t = self._domain.topological_dimension()</span>
+        <span class="c1"># return (g-t,g) # TODO: Should it be CellNormals? For interval in 3D we have two!</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,)</span>
+
+<div class="viewcode-block" id="CellNormal.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellNormal.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># Only true for a piecewise linear coordinate field in simplex cells</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="ReferenceNormal"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceNormal">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ReferenceNormal</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The outwards pointing normal vector of the current facet on the reference cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;reference_normal&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">t</span><span class="p">,)</span></div>
+
+<span class="c1"># --- Types representing measures of the cell and entities of the cell, typically used for stabilisation terms</span>
+
+<span class="c1"># TODO: Clean up this set of types? Document!</span>
+
+
+<div class="viewcode-block" id="ReferenceCellVolume"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceCellVolume">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ReferenceCellVolume</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The volume of the reference cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;reference_cell_volume&quot;</span></div>
+
+
+<div class="viewcode-block" id="ReferenceFacetVolume"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ReferenceFacetVolume">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ReferenceFacetVolume</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The volume of the reference cell of the current facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;reference_facet_volume&quot;</span></div>
+
+
+<div class="viewcode-block" id="CellVolume"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellVolume">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellVolume</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The volume of the cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;volume&quot;</span></div>
+
+
+<div class="viewcode-block" id="Circumradius"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Circumradius">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">Circumradius</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The circumradius of the cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;circumradius&quot;</span></div>
+
+
+<div class="viewcode-block" id="CellDiameter"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellDiameter">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellDiameter</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The diameter of the cell, i.e., maximal distance of two points in the cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;diameter&quot;</span></div>
+
+
+<div class="viewcode-block" id="FacetArea"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetArea">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetArea</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>  <span class="c1"># FIXME: Should this be allowed for interval domain?</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The area of the facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;facetarea&quot;</span></div>
+
+
+<div class="viewcode-block" id="MinCellEdgeLength"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MinCellEdgeLength">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">MinCellEdgeLength</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The minimum edge length of the cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;mincelledgelength&quot;</span></div>
+
+
+<div class="viewcode-block" id="MaxCellEdgeLength"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MaxCellEdgeLength">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">MaxCellEdgeLength</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The maximum edge length of the cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;maxcelledgelength&quot;</span></div>
+
+
+<div class="viewcode-block" id="MinFacetEdgeLength"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MinFacetEdgeLength">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">MinFacetEdgeLength</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The minimum edge length of the facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;minfacetedgelength&quot;</span></div>
+
+
+<div class="viewcode-block" id="MaxFacetEdgeLength"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MaxFacetEdgeLength">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">MaxFacetEdgeLength</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The maximum edge length of the facet.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;maxfacetedgelength&quot;</span></div>
+
+
+<span class="c1"># --- Types representing other stuff</span>
+
+<div class="viewcode-block" id="CellOrientation"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CellOrientation">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">CellOrientation</span><span class="p">(</span><span class="n">GeometricCellQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The orientation (+1/-1) of the current cell.</span>
+
+<span class="sd">    For non-manifold cells (tdim == gdim), this equals the sign</span>
+<span class="sd">    of the Jacobian determinant, i.e. +1 if the physical cell is</span>
+<span class="sd">    oriented the same way as the reference cell and -1 otherwise.</span>
+
+<span class="sd">    For manifold cells of tdim==gdim-1 this is input data belonging</span>
+<span class="sd">    to the mesh, used to distinguish between the sides of the manifold.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;cell_orientation&quot;</span></div>
+
+
+<div class="viewcode-block" id="FacetOrientation"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FacetOrientation">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FacetOrientation</span><span class="p">(</span><span class="n">GeometricFacetQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The orientation (+1/-1) of the current facet relative to the reference cell.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;facet_orientation&quot;</span></div>
+
+
+<span class="c1"># This doesn&#39;t quite fit anywhere. Make a special set of symbolic</span>
+<span class="c1"># terminal types instead?</span>
+<div class="viewcode-block" id="QuadratureWeight"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.QuadratureWeight">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">QuadratureWeight</span><span class="p">(</span><span class="n">GeometricQuantity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The current quadrature weight.</span>
+
+<span class="sd">    Only used inside a quadrature context.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;weight&quot;</span>
+
+<div class="viewcode-block" id="QuadratureWeight.is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.QuadratureWeight.is_cellwise_constant">[docs]</a>    <span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return whether this expression is spatially constant over each cell.&quot;&quot;&quot;</span>
+        <span class="c1"># The weight usually varies with the quadrature points</span>
+        <span class="k">return</span> <span class="kc">False</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

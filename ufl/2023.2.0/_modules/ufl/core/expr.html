@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.core.expr &#8212; Unified Form Language (UFL) 2023.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=8c00a699"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.core.expr</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;This module defines the ``Expr`` class, the superclass for all expression tree node types in UFL.</span>
+
+<span class="sd">NB: A note about other operators not implemented here:</span>
+
+<span class="sd">More operators (special functions) on ``Expr`` instances are defined in</span>
+<span class="sd">``exproperators.py``, as well as the transpose ``A.T`` and spatial derivative</span>
+<span class="sd">``a.dx(i)``.</span>
+<span class="sd">This is to avoid circular dependencies between ``Expr`` and its subclasses.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLType</span><span class="p">,</span> <span class="n">update_ufl_type_attributes</span>
+
+
+<span class="c1"># --- The base object for all UFL expression tree nodes ---</span>
+
+<div class="viewcode-block" id="Expr"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr">[docs]</a><span class="k">class</span> <span class="nc">Expr</span><span class="p">(</span><span class="nb">object</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">UFLType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for all UFL expression types.</span>
+
+<span class="sd">    *Instance properties*</span>
+<span class="sd">        Every ``Expr`` instance will have certain properties.</span>
+<span class="sd">        The most important ones are ``ufl_operands``, ``ufl_shape``,</span>
+<span class="sd">        ``ufl_free_indices``, and ``ufl_index_dimensions`` properties.</span>
+<span class="sd">        Expressions are immutable and hashable.</span>
+
+<span class="sd">    *Type traits*</span>
+<span class="sd">        The ``Expr`` API defines a number of type traits that each subclass</span>
+<span class="sd">        needs to provide. Most of these are specified indirectly via</span>
+<span class="sd">        the arguments to the ``ufl_type`` class decorator, allowing UFL</span>
+<span class="sd">        to do some consistency checks and automate most of the traits</span>
+<span class="sd">        for most types. Type traits are accessed via a class or</span>
+<span class="sd">        instance object of the form ``obj._ufl_traitname_``. See the source</span>
+<span class="sd">        code for description of each type trait.</span>
+
+<span class="sd">    *Operators*</span>
+<span class="sd">        Some Python special functions are implemented in this class,</span>
+<span class="sd">        some are implemented in subclasses, and some are attached to</span>
+<span class="sd">        this class in the ``ufl_type`` class decorator.</span>
+
+<span class="sd">    *Defining subclasses*</span>
+<span class="sd">        To define a new expression class, inherit from either</span>
+<span class="sd">        ``Terminal`` or ``Operator``, and apply the ``ufl_type`` class</span>
+<span class="sd">        decorator with suitable arguments.  See the docstring of</span>
+<span class="sd">        ``ufl_type`` for details on its arguments.  Looking at existing</span>
+<span class="sd">        classes similar to the one you wish to add is a good</span>
+<span class="sd">        idea. Looking through the comments in the ``Expr`` class and</span>
+<span class="sd">        ``ufl_type`` to understand all the properties that may need to</span>
+<span class="sd">        be specified is also a good idea. Note that many algorithms in</span>
+<span class="sd">        UFL and form compilers will need handlers implemented for each</span>
+<span class="sd">        new type::.</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            @ufl_type()</span>
+<span class="sd">            class MyOperator(Operator):</span>
+<span class="sd">                pass</span>
+
+<span class="sd">    *Type collections*</span>
+<span class="sd">        All ``Expr`` subclasses are collected by ``ufl_type`` in global</span>
+<span class="sd">        variables available via ``Expr``.</span>
+
+<span class="sd">    *Profiling*</span>
+<span class="sd">        Object creation statistics can be collected by doing</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            Expr.ufl_enable_profiling()</span>
+<span class="sd">            # ... run some code</span>
+<span class="sd">            initstats, delstats = Expr.ufl_disable_profiling()</span>
+
+<span class="sd">        Giving a list of creation and deletion counts for each typecode.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># --- Each Expr subclass must define __slots__ or _ufl_noslots_ at</span>
+    <span class="c1"># --- the top ---</span>
+    <span class="c1"># This is to freeze member variables for objects of this class and</span>
+    <span class="c1"># save memory by skipping the per-instance dict.</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_hash&quot;</span><span class="p">,</span> <span class="s2">&quot;__weakref__&quot;</span><span class="p">)</span>
+    <span class="c1"># _ufl_noslots_ = True</span>
+
+    <span class="c1"># --- Basic object behaviour ---</span>
+
+    <span class="k">def</span> <span class="nf">__getnewargs__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get newargs tuple.</span>
+
+<span class="sd">        The tuple returned here is passed to as args to cls.__new__(cls, *args).</span>
+
+<span class="sd">        This implementation passes the operands, which is () for terminals.</span>
+
+<span class="sd">        May be necessary to override if __new__ is implemented in a subclass.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># This shows the principal behaviour of the hash function attached</span>
+    <span class="c1"># in ufl_type:</span>
+    <span class="c1"># def __hash__(self):</span>
+    <span class="c1">#     if self._hash is None:</span>
+    <span class="c1">#         self._hash = self._ufl_compute_hash_()</span>
+    <span class="c1">#     return self._hash</span>
+
+    <span class="c1"># --- Type traits are added to subclasses by the ufl_type class</span>
+    <span class="c1"># --- decorator ---</span>
+
+    <span class="c1"># Note: Some of these are modified after the Expr class definition</span>
+    <span class="c1"># because Expr is not defined yet at this point.  Note: Boolean</span>
+    <span class="c1"># type traits that categorize types are mostly set to None for</span>
+    <span class="c1"># Expr but should be True or False for any non-abstract type.</span>
+
+    <span class="c1"># A reference to the UFL class itself.  This makes it possible to</span>
+    <span class="c1"># do type(f)._ufl_class_ and be sure you get the actual UFL class</span>
+    <span class="c1"># instead of a subclass from another library.</span>
+    <span class="n">_ufl_class_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># The handler name.  This is the name of the handler function you</span>
+    <span class="c1"># implement for this type in a multifunction.</span>
+    <span class="n">_ufl_handler_name_</span> <span class="o">=</span> <span class="s2">&quot;expr&quot;</span>
+
+    <span class="c1"># Number of operands, &quot;varying&quot; for some types, or None if not</span>
+    <span class="c1"># applicable for abstract types.</span>
+    <span class="n">_ufl_num_ops_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is a literal.</span>
+    <span class="n">_ufl_is_literal_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is classified as a &#39;terminal modifier&#39;,</span>
+    <span class="c1"># for form compiler use.</span>
+    <span class="n">_ufl_is_terminal_modifier_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is a shaping operator.  Shaping</span>
+    <span class="c1"># operations include indexing, slicing, transposing, i.e. not</span>
+    <span class="c1"># introducing computation of a new value.</span>
+    <span class="n">_ufl_is_shaping_</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Type trait: If the type is in reference frame.</span>
+    <span class="n">_ufl_is_in_reference_frame_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is a restriction to a geometric entity.</span>
+    <span class="n">_ufl_is_restriction_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is evaluation in a particular way.</span>
+    <span class="n">_ufl_is_evaluation_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is a differential operator.</span>
+    <span class="n">_ufl_is_differential_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type is purely scalar, having no shape or</span>
+    <span class="c1"># indices.</span>
+    <span class="n">_ufl_is_scalar_</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Type trait: If the type never has free indices.</span>
+    <span class="n">_ufl_is_index_free_</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># --- All subclasses must define these object attributes ---</span>
+
+    <span class="c1"># Each subclass of Expr is checked to have these properties in</span>
+    <span class="c1"># ufl_type</span>
+    <span class="n">_ufl_required_properties_</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="c1"># A tuple of operands, all of them Expr instances.</span>
+        <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
+
+        <span class="c1"># A tuple of ints, the value shape of the expression.</span>
+        <span class="s2">&quot;ufl_shape&quot;</span><span class="p">,</span>
+
+        <span class="c1"># A tuple of free index counts.</span>
+        <span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span>
+
+        <span class="c1"># A tuple providing the int dimension for each free index.</span>
+        <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Each subclass of Expr is checked to have these methods in</span>
+    <span class="c1"># ufl_type</span>
+    <span class="c1"># FIXME: Add more and enable all</span>
+    <span class="n">_ufl_required_methods_</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="c1"># To compute the hash on demand, this method is called.</span>
+        <span class="s2">&quot;_ufl_compute_hash_&quot;</span><span class="p">,</span>
+
+        <span class="c1"># The data returned from this method is used to compute the</span>
+        <span class="c1"># signature of a form</span>
+        <span class="s2">&quot;_ufl_signature_data_&quot;</span><span class="p">,</span>
+
+        <span class="c1"># The == operator must be implemented to compare for identical</span>
+        <span class="c1"># representation, used by set() and dict(). The __hash__</span>
+        <span class="c1"># operator is added by ufl_type.</span>
+        <span class="s2">&quot;__eq__&quot;</span><span class="p">,</span>
+
+        <span class="c1"># To reconstruct an object of the same type with operands or</span>
+        <span class="c1"># properties changed.</span>
+        <span class="s2">&quot;_ufl_expr_reconstruct_&quot;</span><span class="p">,</span>  <span class="c1"># Implemented in Operator and Terminal so this should never fail</span>
+
+        <span class="s2">&quot;ufl_domains&quot;</span><span class="p">,</span>
+        <span class="c1"># &quot;ufl_cell&quot;,</span>
+        <span class="c1"># &quot;ufl_domain&quot;,</span>
+
+        <span class="c1"># &quot;__str__&quot;,</span>
+        <span class="c1"># &quot;__repr__&quot;,</span>
+
+        <span class="c1"># TODO: Add checks for methods/properties of terminals only?</span>
+        <span class="c1"># Required for terminals:</span>
+        <span class="c1"># &quot;is_cellwise_constant&quot;, # TODO: Rename to ufl_is_cellwise_constant?</span>
+    <span class="p">)</span>
+
+    <span class="c1"># --- Global variables for collecting all types ---</span>
+
+    <span class="c1"># A global dict mapping language_operator_name to the type it</span>
+    <span class="c1"># produces</span>
+    <span class="n">_ufl_language_operators_</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># List of all terminal modifier types</span>
+    <span class="n">_ufl_terminal_modifiers_</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># --- Mechanism for profiling object creation and deletion ---</span>
+
+    <span class="c1"># Backup of default init and del</span>
+    <span class="n">_ufl_regular__init__</span> <span class="o">=</span> <span class="fm">__init__</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_profiling__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replacement constructor with object counting.&quot;&quot;&quot;</span>
+        <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_regular__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_init_counts_</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_profiling__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replacement destructor with object counting.&quot;&quot;&quot;</span>
+        <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_del_counts_</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+
+<div class="viewcode-block" id="Expr.ufl_enable_profiling"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr.ufl_enable_profiling">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">ufl_enable_profiling</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Turn on the object counting mechanism and reset counts to zero.&quot;&quot;&quot;</span>
+        <span class="n">Expr</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_profiling__init__</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">Expr</span><span class="p">,</span> <span class="s2">&quot;__del__&quot;</span><span class="p">,</span> <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_profiling__del__</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_init_counts_</span><span class="p">)):</span>
+            <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_init_counts_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_del_counts_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="Expr.ufl_disable_profiling"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr.ufl_disable_profiling">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">ufl_disable_profiling</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Turn off the object counting mechanism. Return object init and del counts.&quot;&quot;&quot;</span>
+        <span class="n">Expr</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_regular__init__</span>
+        <span class="nb">delattr</span><span class="p">(</span><span class="n">Expr</span><span class="p">,</span> <span class="s2">&quot;__del__&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_init_counts_</span><span class="p">,</span> <span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_obj_del_counts_</span><span class="p">)</span></div>
+
+    <span class="c1"># === Abstract functions that must be implemented by subclasses ===</span>
+
+    <span class="c1"># --- Functions for reconstructing expression ---</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">operands</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new object of the same type with new operands.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">)</span>
+
+    <span class="c1"># --- Functions for geometric properties of expression ---</span>
+
+<div class="viewcode-block" id="Expr.ufl_domains"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all domains this expression is defined on.&quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Expr.ufl_domains() is deprecated, please &quot;</span>
+                      <span class="s2">&quot;use extract_domains(expr) instead.&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_domains</span>
+        <span class="k">return</span> <span class="n">extract_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Expr.ufl_domain"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr.ufl_domain">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the single unique domain this expression is defined on, or throw an error.&quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Expr.ufl_domain() is deprecated, please &quot;</span>
+                      <span class="s2">&quot;use extract_unique_domain(expr) instead.&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span>
+        <span class="k">return</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+    <span class="c1"># --- Functions for float evaluation ---</span>
+
+<div class="viewcode-block" id="Expr.evaluate"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.Expr.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate expression at given coordinate with given values for terminals.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Symbolic evaluation of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> not available.&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_ufl_evaluate_scalar_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot evaluate a nonscalar expression to a scalar value.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">(())</span>  <span class="c1"># No known x</span>
+
+    <span class="k">def</span> <span class="fm">__float__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Try to evaluate as scalar and cast to float.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_evaluate_scalar_</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="fm">__complex__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Try to evaluate as scalar and cast to complex.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_evaluate_scalar_</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="fm">__bool__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;By default, all Expr are nonzero/False.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">__nonzero__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;By default, all Expr are nonzero/False.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__bool__</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_ufl_coerce_</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert any value to a UFL type.&quot;&quot;&quot;</span>
+        <span class="c1"># Quick skip for most types</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">value</span>
+
+        <span class="c1"># Conversion from non-ufl types</span>
+        <span class="c1"># (the _ufl_from_*_ functions are attached to Expr by ufl_type)</span>
+        <span class="n">ufl_from_type</span> <span class="o">=</span> <span class="s2">&quot;_ufl_from_</span><span class="si">{0}</span><span class="s2">_&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">Expr</span><span class="p">,</span> <span class="n">ufl_from_type</span><span class="p">)(</span><span class="n">value</span><span class="p">)</span>
+
+        <span class="c1"># if hasattr(Expr, ufl_from_type):</span>
+        <span class="c1">#     return getattr(Expr, ufl_from_type)(value)</span>
+        <span class="c1"># Fail gracefully if no valid type conversion found</span>
+        <span class="c1"># raise TypeError(&quot;Cannot convert a {0.__class__.__name__} to UFL type.&quot;.format(value))</span>
+
+    <span class="c1"># --- Special functions for string representations ---</span>
+
+    <span class="c1"># All subclasses must implement _ufl_signature_data_</span>
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return data that uniquely identifies form compiler relevant aspects of this object.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">_ufl_signature_data_</span><span class="p">)</span>
+
+    <span class="c1"># All subclasses must implement __repr__</span>
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return string representation this object can be reconstructed from.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="fm">__repr__</span><span class="p">)</span>
+
+    <span class="c1"># All subclasses must implement __str__</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return pretty print string representation of this object.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="fm">__str__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_err_str_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a short string to represent this Expr in an error message.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> id=</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+
+    <span class="c1"># --- Special functions used for processing expressions ---</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks whether the two expressions are represented the exact same way.</span>
+
+<span class="sd">        This does not check if the expressions are</span>
+<span class="sd">        mathematically equal or equivalent! Used by sets and dicts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Length of expression. Used for iteration over vector expressions.&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Cannot take length of non-vector expression.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iteration over vector expressions.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)):</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__floordiv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL does not support integer division.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="fm">__floordiv__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__pos__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unary + is a no-op.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__round__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Round to nearest integer or to nearest nth decimal.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_evaluate_scalar_</span><span class="p">())</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">complex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_evaluate_scalar_</span><span class="p">())</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="nb">round</span><span class="p">(</span><span class="n">val</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+
+
+<span class="c1"># Initializing traits here because Expr is not defined in the class</span>
+<span class="c1"># declaration</span>
+<span class="n">Expr</span><span class="o">.</span><span class="n">_ufl_class_</span> <span class="o">=</span> <span class="n">Expr</span>
+
+<span class="c1"># Update Expr with metaclass properties (e.g. typecode or handler name)</span>
+<span class="c1"># Explicitly done here instead of using `@ufl_type` to avoid circular imports.</span>
+<span class="n">update_ufl_type_attributes</span><span class="p">(</span><span class="n">Expr</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ufl_err_str"><a class="viewcode-back" href="../../../api-doc/ufl.core.html#ufl.classes.ufl_err_str">[docs]</a><span class="k">def</span> <span class="nf">ufl_err_str</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a UFL error string.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="s2">&quot;_ufl_err_str_&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">expr</span><span class="o">.</span><span class="n">_ufl_err_str_</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
