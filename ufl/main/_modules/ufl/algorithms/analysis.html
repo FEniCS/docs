@@ -42,20 +42,19 @@
 
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
 
-<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span><span class="p">,</span> <span class="n">topological_sorting</span>
-
-<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span>
-<span class="kn">from</span> <span class="nn">ufl.core.base_form_operator</span> <span class="kn">import</span> <span class="n">BaseFormOperator</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.traversal</span> <span class="kn">import</span> <span class="n">iter_expressions</span>
 <span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">BaseArgument</span><span class="p">,</span> <span class="n">Coargument</span>
 <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">BaseCoefficient</span>
 <span class="kn">from</span> <span class="nn">ufl.constant</span> <span class="kn">import</span> <span class="n">Constant</span>
+<span class="kn">from</span> <span class="nn">ufl.core.base_form_operator</span> <span class="kn">import</span> <span class="n">BaseFormOperator</span>
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">Terminal</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">traverse_unique_terminals</span><span class="p">,</span> <span class="n">unique_pre_traversal</span>
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span>
-<span class="kn">from</span> <span class="nn">ufl.algorithms.traversal</span> <span class="kn">import</span> <span class="n">iter_expressions</span>
-<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">unique_pre_traversal</span><span class="p">,</span> <span class="n">traverse_unique_terminals</span>
-
+<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span><span class="p">,</span> <span class="n">topological_sorting</span>
 
 <span class="c1"># TODO: Some of these can possibly be optimised by implementing</span>
 <span class="c1"># inlined stack based traversal algorithms</span>
+
 
 <span class="k">def</span> <span class="nf">_sorted_by_number_and_part</span><span class="p">(</span><span class="n">seq</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Sort items by number and part.&quot;&quot;&quot;</span>
@@ -268,7 +267,7 @@
 
 <div class="viewcode-block" id="extract_sub_elements"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.analysis.extract_sub_elements">[docs]</a><span class="k">def</span> <span class="nf">extract_sub_elements</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Build sorted tuple of all sub elements (including parent element).&quot;&quot;&quot;</span>
-    <span class="n">sub_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]))</span>
+    <span class="n">sub_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">sub_elements</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]))</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">sub_elements</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span> <span class="o">+</span> <span class="n">extract_sub_elements</span><span class="p">(</span><span class="n">sub_elements</span><span class="p">)</span></div>
@@ -284,12 +283,12 @@
 <span class="sd">    The ordering is based on sorting a directed acyclic graph.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Set nodes</span>
-    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
 
     <span class="c1"># Set edges</span>
     <span class="n">edges</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">node</span><span class="p">,</span> <span class="p">[])</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">sub_element</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">sub_element</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">:</span>
             <span class="n">edges</span><span class="p">[</span><span class="n">element</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_element</span><span class="p">)</span>
 
     <span class="c1"># Sort graph</span>

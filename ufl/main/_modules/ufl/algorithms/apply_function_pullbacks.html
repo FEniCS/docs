@@ -37,152 +37,9 @@
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">accumulate</span><span class="p">,</span> <span class="n">chain</span><span class="p">,</span> <span class="n">repeat</span>
-
-<span class="kn">import</span> <span class="nn">numpy</span>
-
 <span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
-<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span>
-                         <span class="n">ReferenceValue</span><span class="p">)</span>
-<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">indices</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">ReferenceValue</span>
 <span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span><span class="p">,</span> <span class="n">memoized_handler</span>
-<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span>
-<span class="kn">from</span> <span class="nn">ufl.tensors</span> <span class="kn">import</span> <span class="n">as_tensor</span><span class="p">,</span> <span class="n">as_vector</span>
-<span class="kn">from</span> <span class="nn">ufl.utils.sequences</span> <span class="kn">import</span> <span class="n">product</span>
-
-
-<div class="viewcode-block" id="sub_elements_with_mappings"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.sub_elements_with_mappings">[docs]</a><span class="k">def</span> <span class="nf">sub_elements_with_mappings</span><span class="p">(</span><span class="n">element</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return an ordered list of the largest subelements that have a defined mapping.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;undefined&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">element</span><span class="p">]</span>
-    <span class="n">elements</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">subelm</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">subelm</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;undefined&quot;</span><span class="p">:</span>
-            <span class="n">elements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subelm</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">elements</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sub_elements_with_mappings</span><span class="p">(</span><span class="n">subelm</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">elements</span></div>
-
-
-<div class="viewcode-block" id="apply_known_single_pullback"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_known_single_pullback">[docs]</a><span class="k">def</span> <span class="nf">apply_known_single_pullback</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply pullback with given mapping.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        r: Expression wrapped in ReferenceValue</span>
-<span class="sd">        element: The element defining the mapping</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Need to pass in r rather than the physical space thing, because</span>
-    <span class="c1"># the latter may be a ListTensor or similar, rather than a</span>
-    <span class="c1"># Coefficient/Argument (in the case of mixed elements, see below</span>
-    <span class="c1"># in apply_single_function_pullbacks), to which we cannot apply ReferenceValue</span>
-    <span class="n">mapping</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span>
-    <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;physical&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">r</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;identity&quot;</span> <span class="ow">or</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;custom&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">r</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;contravariant Piola&quot;</span><span class="p">:</span>
-        <span class="n">J</span> <span class="o">=</span> <span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">detJ</span> <span class="o">=</span> <span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
-        <span class="n">transform</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">detJ</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span>
-        <span class="c1"># Apply transform &quot;row-wise&quot; to TensorElement(PiolaMapped, ...)</span>
-        <span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">kj</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">transform</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">r</span><span class="p">[</span><span class="n">kj</span><span class="p">],</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;covariant Piola&quot;</span><span class="p">:</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="c1"># Apply transform &quot;row-wise&quot; to TensorElement(PiolaMapped, ...)</span>
-        <span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">kj</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">r</span><span class="p">[</span><span class="n">kj</span><span class="p">],</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;L2 Piola&quot;</span><span class="p">:</span>
-        <span class="n">detJ</span> <span class="o">=</span> <span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">r</span> <span class="o">/</span> <span class="n">detJ</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;double contravariant Piola&quot;</span><span class="p">:</span>
-        <span class="n">J</span> <span class="o">=</span> <span class="n">Jacobian</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">detJ</span> <span class="o">=</span> <span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
-        <span class="n">transform</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">detJ</span><span class="p">)</span> <span class="o">*</span> <span class="n">J</span>
-        <span class="c1"># Apply transform &quot;row-wise&quot; to TensorElement(PiolaMapped, ...)</span>
-        <span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">kmn</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">detJ</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">m</span><span class="p">]</span> <span class="o">*</span> <span class="n">r</span><span class="p">[</span><span class="n">kmn</span><span class="p">]</span> <span class="o">*</span> <span class="n">J</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">n</span><span class="p">],</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;double covariant Piola&quot;</span><span class="p">:</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="c1"># Apply transform &quot;row-wise&quot; to TensorElement(PiolaMapped, ...)</span>
-        <span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">kmn</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">K</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">r</span><span class="p">[</span><span class="n">kmn</span><span class="p">]</span> <span class="o">*</span> <span class="n">K</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span> <span class="p">(</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mapping: </span><span class="si">{</span><span class="n">mapping</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="apply_single_function_pullbacks"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_single_function_pullbacks">[docs]</a><span class="k">def</span> <span class="nf">apply_single_function_pullbacks</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply an appropriate pullback to something in physical space.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        r: An expression wrapped in ReferenceValue.</span>
-<span class="sd">        element: The element this expression lives in.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        a pulled back expression.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mapping</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">mapping</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Expecting reference space expression with shape &#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">()</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">mapping</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;physical&quot;</span><span class="p">,</span> <span class="s2">&quot;identity&quot;</span><span class="p">,</span>
-                   <span class="s2">&quot;contravariant Piola&quot;</span><span class="p">,</span> <span class="s2">&quot;covariant Piola&quot;</span><span class="p">,</span>
-                   <span class="s2">&quot;double contravariant Piola&quot;</span><span class="p">,</span> <span class="s2">&quot;double covariant Piola&quot;</span><span class="p">,</span>
-                   <span class="s2">&quot;L2 Piola&quot;</span><span class="p">,</span> <span class="s2">&quot;custom&quot;</span><span class="p">}:</span>
-        <span class="c1"># Base case in recursion through elements. If the element</span>
-        <span class="c1"># advertises a mapping we know how to handle, do that</span>
-        <span class="c1"># directly.</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">apply_known_single_pullback</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting pulled back expression with shape &#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
-                             <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">elif</span> <span class="n">mapping</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;symmetries&quot;</span><span class="p">,</span> <span class="s2">&quot;undefined&quot;</span><span class="p">}:</span>
-        <span class="c1"># Need to pull back each unique piece of the reference space thing</span>
-        <span class="n">gsh</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span>
-        <span class="n">rsh</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span>
-        <span class="k">if</span> <span class="n">mapping</span> <span class="o">==</span> <span class="s2">&quot;symmetries&quot;</span><span class="p">:</span>
-            <span class="n">subelem</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">fcm</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">flattened_sub_element_mapping</span><span class="p">()</span>
-            <span class="n">offsets</span> <span class="o">=</span> <span class="p">(</span><span class="n">product</span><span class="p">(</span><span class="n">subelem</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">())</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fcm</span><span class="p">)</span>
-            <span class="n">elements</span> <span class="o">=</span> <span class="n">repeat</span><span class="p">(</span><span class="n">subelem</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">elements</span> <span class="o">=</span> <span class="n">sub_elements_with_mappings</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
-            <span class="c1"># Python &gt;= 3.8 has an initial keyword argument to</span>
-            <span class="c1"># accumulate, but 3.7 does not.</span>
-            <span class="n">offsets</span> <span class="o">=</span> <span class="n">chain</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span>
-                            <span class="n">accumulate</span><span class="p">(</span><span class="n">product</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">())</span>
-                                       <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">))</span>
-        <span class="n">rflat</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">rsh</span><span class="p">)])</span>
-        <span class="n">g_components</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="c1"># For each unique piece in reference space, apply the appropriate pullback</span>
-        <span class="k">for</span> <span class="n">offset</span><span class="p">,</span> <span class="n">subelem</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">offsets</span><span class="p">,</span> <span class="n">elements</span><span class="p">):</span>
-            <span class="n">sub_rsh</span> <span class="o">=</span> <span class="n">subelem</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">()</span>
-            <span class="n">rm</span> <span class="o">=</span> <span class="n">product</span><span class="p">(</span><span class="n">sub_rsh</span><span class="p">)</span>
-            <span class="n">rsub</span> <span class="o">=</span> <span class="p">[</span><span class="n">rflat</span><span class="p">[</span><span class="n">offset</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rm</span><span class="p">)]</span>
-            <span class="n">rsub</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">rsub</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sub_rsh</span><span class="p">))</span>
-            <span class="n">rmapped</span> <span class="o">=</span> <span class="n">apply_single_function_pullbacks</span><span class="p">(</span><span class="n">rsub</span><span class="p">,</span> <span class="n">subelem</span><span class="p">)</span>
-            <span class="c1"># Flatten into the pulled back expression for the whole thing</span>
-            <span class="n">g_components</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">rmapped</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-                                 <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">rmapped</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)])</span>
-        <span class="c1"># And reshape appropriately</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">g_components</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">gsh</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting pulled back expression with shape &#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">()</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
-                             <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">f</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mapping type: </span><span class="si">{</span><span class="n">mapping</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="FunctionPullbackApplier"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.FunctionPullbackApplier">[docs]</a><span class="k">class</span> <span class="nc">FunctionPullbackApplier</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
@@ -203,7 +60,18 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a form_argument.&quot;&quot;&quot;</span>
         <span class="c1"># Represent 0-derivatives of form arguments on reference</span>
         <span class="c1"># element</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">apply_single_function_pullbacks</span><span class="p">(</span><span class="n">ReferenceValue</span><span class="p">(</span><span class="n">o</span><span class="p">),</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">())</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ReferenceValue</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">element</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expecting reference space expression with shape &#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting pulled back expression with shape &#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">value_shape</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+                             <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
         <span class="k">assert</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">==</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span>
         <span class="k">return</span> <span class="n">f</span></div>
 
