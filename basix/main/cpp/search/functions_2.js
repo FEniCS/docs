@@ -10,7 +10,7 @@ var searchData=
   ['create_5fbdm_188',['create_bdm',['../namespacebasix_1_1element.html#a990a31267b1759b895d8a5f1c988e52b',1,'basix::element']]],
   ['create_5fbubble_189',['create_bubble',['../namespacebasix_1_1element.html#a8147f4e282e0d7c1aeeca13e0bceb56b',1,'basix::element']]],
   ['create_5fcr_190',['create_cr',['../namespacebasix_1_1element.html#a6b6c9255f23f931903efa8347fd5bfe7',1,'basix::element']]],
-  ['create_5fcustom_5felement_191',['create_custom_element',['../namespacebasix.html#a6883b9058167155fb5faa117c2bb0a1b',1,'basix']]],
+  ['create_5fcustom_5felement_191',['create_custom_element',['../namespacebasix.html#aebd3c7b442a9c51b0501961f607d995a',1,'basix']]],
   ['create_5fdpc_192',['create_dpc',['../namespacebasix_1_1element.html#aa8f3d15983403ed135ec2f6fd6360cde',1,'basix::element']]],
   ['create_5felement_193',['create_element',['../namespacebasix.html#a03975721dd04b7424b31cf60dd7ce88f',1,'basix']]],
   ['create_5fhermite_194',['create_hermite',['../namespacebasix_1_1element.html#aec88834d0019f6bbcd0d27e6aedb9c49',1,'basix::element']]],
