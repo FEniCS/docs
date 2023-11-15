@@ -1,10 +1,10 @@
 var searchData=
 [
-  ['eigh_219',['eigh',['../namespacebasix_1_1math.html#a137586a3dd8e84f7b3bc4497685c69be',1,'basix::math']]],
-  ['embedded_5fsubdegree_220',['embedded_subdegree',['../classbasix_1_1FiniteElement.html#a41f96560b78b0cc38a3ae7d5eb45eec3',1,'basix::FiniteElement']]],
-  ['embedded_5fsuperdegree_221',['embedded_superdegree',['../classbasix_1_1FiniteElement.html#a555d2234569e64d1983d8cf9a1fcf48c',1,'basix::FiniteElement']]],
-  ['entity_5fclosure_5fdofs_222',['entity_closure_dofs',['../classbasix_1_1FiniteElement.html#a4e591f62b3e49663aa91143dd3fcebbe',1,'basix::FiniteElement']]],
-  ['entity_5fdofs_223',['entity_dofs',['../classbasix_1_1FiniteElement.html#ad100cdb78027a12ffd295c43e6b7b117',1,'basix::FiniteElement']]],
-  ['entity_5ftransformations_224',['entity_transformations',['../classbasix_1_1FiniteElement.html#a026662c5a78070ec64ff8f2f76679f3f',1,'basix::FiniteElement']]],
-  ['eye_225',['eye',['../namespacebasix_1_1math.html#aad08e382fbb18aaed2ba440c60a0bf80',1,'basix::math']]]
+  ['facet_5fjacobians_213',['facet_jacobians',['../namespacebasix_1_1cell.html#a3596c0d2cc8b631203369001f92b7126',1,'basix::cell']]],
+  ['facet_5fnormals_214',['facet_normals',['../namespacebasix_1_1cell.html#aae075404bc538561d0503a942e192d83',1,'basix::cell']]],
+  ['facet_5forientations_215',['facet_orientations',['../namespacebasix_1_1cell.html#a1b8790f3435961ac3a681858d09723d3',1,'basix::cell']]],
+  ['facet_5foutward_5fnormals_216',['facet_outward_normals',['../namespacebasix_1_1cell.html#ae221b5f50bc4e51ca557cb08bcb12d21',1,'basix::cell']]],
+  ['facet_5freference_5fvolumes_217',['facet_reference_volumes',['../namespacebasix_1_1cell.html#a507207b8093fdccc1dda7e4e72d70314',1,'basix::cell']]],
+  ['family_218',['family',['../classbasix_1_1FiniteElement.html#af632d219b4c4b9f6a23ea124208c678e',1,'basix::FiniteElement']]],
+  ['finiteelement_219',['FiniteElement',['../classbasix_1_1FiniteElement.html#ac890ef2be0c6ab8fdbfd4ffd6ac7ff8d',1,'basix::FiniteElement::FiniteElement(element::family family, cell::type cell_type, polyset::type poly_type, int degree, const std::vector&lt; std::size_t &gt; &amp;value_shape, mdspan_t&lt; const F, 2 &gt; wcoeffs, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 2 &gt;&gt;, 4 &gt; &amp;x, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 4 &gt;&gt;, 4 &gt; &amp;M, int interpolation_nderivs, maps::type map_type, sobolev::space sobolev_space, bool discontinuous, int embedded_subdegree, int embedded_superdegree, element::lagrange_variant lvariant, element::dpc_variant dvariant, std::vector&lt; std::tuple&lt; std::vector&lt; FiniteElement &gt;, std::vector&lt; int &gt;&gt;&gt; tensor_factors={}, std::vector&lt; int &gt; dof_ordering={})'],['../classbasix_1_1FiniteElement.html#a9f059df079ea875e2768b650ef71ac3b',1,'basix::FiniteElement::FiniteElement(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a4a61c4b3ff76e3136c87c998674be332',1,'basix::FiniteElement::FiniteElement(FiniteElement &amp;&amp;element)=default']]]
 ];

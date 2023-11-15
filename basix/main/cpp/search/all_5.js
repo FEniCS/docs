@@ -1,10 +1,11 @@
 var searchData=
 [
-  ['facet_5fjacobians_78',['facet_jacobians',['../namespacebasix_1_1cell.html#a3596c0d2cc8b631203369001f92b7126',1,'basix::cell']]],
-  ['facet_5fnormals_79',['facet_normals',['../namespacebasix_1_1cell.html#aae075404bc538561d0503a942e192d83',1,'basix::cell']]],
-  ['facet_5forientations_80',['facet_orientations',['../namespacebasix_1_1cell.html#a1b8790f3435961ac3a681858d09723d3',1,'basix::cell']]],
-  ['facet_5foutward_5fnormals_81',['facet_outward_normals',['../namespacebasix_1_1cell.html#ae221b5f50bc4e51ca557cb08bcb12d21',1,'basix::cell']]],
-  ['facet_5freference_5fvolumes_82',['facet_reference_volumes',['../namespacebasix_1_1cell.html#a507207b8093fdccc1dda7e4e72d70314',1,'basix::cell']]],
-  ['family_83',['family',['../classbasix_1_1FiniteElement.html#af632d219b4c4b9f6a23ea124208c678e',1,'basix::FiniteElement::family()'],['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007',1,'basix::element::family()']]],
-  ['finiteelement_84',['FiniteElement',['../classbasix_1_1FiniteElement.html',1,'basix::FiniteElement&lt; F &gt;'],['../classbasix_1_1FiniteElement.html#ac890ef2be0c6ab8fdbfd4ffd6ac7ff8d',1,'basix::FiniteElement::FiniteElement(element::family family, cell::type cell_type, polyset::type poly_type, int degree, const std::vector&lt; std::size_t &gt; &amp;value_shape, mdspan_t&lt; const F, 2 &gt; wcoeffs, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 2 &gt;&gt;, 4 &gt; &amp;x, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 4 &gt;&gt;, 4 &gt; &amp;M, int interpolation_nderivs, maps::type map_type, sobolev::space sobolev_space, bool discontinuous, int embedded_subdegree, int embedded_superdegree, element::lagrange_variant lvariant, element::dpc_variant dvariant, std::vector&lt; std::tuple&lt; std::vector&lt; FiniteElement &gt;, std::vector&lt; int &gt;&gt;&gt; tensor_factors={}, std::vector&lt; int &gt; dof_ordering={})'],['../classbasix_1_1FiniteElement.html#a9f059df079ea875e2768b650ef71ac3b',1,'basix::FiniteElement::FiniteElement(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a4a61c4b3ff76e3136c87c998674be332',1,'basix::FiniteElement::FiniteElement(FiniteElement &amp;&amp;element)=default']]]
+  ['geometry_72',['geometry',['../namespacebasix_1_1cell.html#afc4d87a942897c513cc1c1e914a80713',1,'basix::cell']]],
+  ['get_5fdefault_5frule_73',['get_default_rule',['../namespacebasix_1_1quadrature.html#ad2bbc628e9563db03fe73360b45a9fa9',1,'basix::quadrature']]],
+  ['get_5fgl_5fpoints_74',['get_gl_points',['../namespacebasix_1_1quadrature.html#af4bdb01201e61815746910ec42a2e3df',1,'basix::quadrature']]],
+  ['get_5fgll_5fpoints_75',['get_gll_points',['../namespacebasix_1_1quadrature.html#aa1adf2cae9ddac53fdb2d66ba7f5f38b',1,'basix::quadrature']]],
+  ['get_5ftensor_5fproduct_5frepresentation_76',['get_tensor_product_representation',['../classbasix_1_1FiniteElement.html#a646d0e1d8e76098422e71133cba862fa',1,'basix::FiniteElement']]],
+  ['gl_77',['gl',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1ace1d5a2480e0f4a2d1c1c7968cc66c13',1,'basix::lattice']]],
+  ['gl_5fplus_5fendpoints_78',['gl_plus_endpoints',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1a47df9e373abb5620bddfb1f17904d08f',1,'basix::lattice']]],
+  ['gll_79',['gll',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1a10660da6ff265a52119ff6f7aec5233e',1,'basix::lattice']]]
 ];

@@ -1,7 +1,23 @@
 var searchData=
 [
-  ['operator_3d_115',['operator=',['../classbasix_1_1FiniteElement.html#a98bc7f3a482d24985b474a8b061dc41b',1,'basix::FiniteElement::operator=(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#ad4844b665541542aa3d0bc5b60ee5cce',1,'basix::FiniteElement::operator=(FiniteElement &amp;&amp;element)=default']]],
-  ['operator_3d_3d_116',['operator==',['../classbasix_1_1FiniteElement.html#a369c8049d19ca40e09189498feeee720',1,'basix::FiniteElement']]],
-  ['orthogonalise_117',['orthogonalise',['../namespacebasix_1_1math.html#aa889d437c908878a3ad15e2219d7a233',1,'basix::math']]],
-  ['outer_118',['outer',['../namespacebasix_1_1math.html#a327229375efcf4b72426f36431601e8e',1,'basix::math']]]
+  ['permute_5fdofs_106',['permute_dofs',['../classbasix_1_1FiniteElement.html#ac049b6f7023b230b51e8f5bd6920b594',1,'basix::FiniteElement']]],
+  ['points_107',['points',['../classbasix_1_1FiniteElement.html#a9029b7b3b17618c7da8ca49c31a24dd3',1,'basix::FiniteElement']]],
+  ['polyset_5ftype_108',['polyset_type',['../classbasix_1_1FiniteElement.html#ab8cbe1b35a2ab85fc8a85730fb76f0a4',1,'basix::FiniteElement']]],
+  ['post_5fapply_5fdof_5ftransformation_109',['post_apply_dof_transformation',['../classbasix_1_1FiniteElement.html#acaf76ef5536d15bf717cf97dbc923143',1,'basix::FiniteElement']]],
+  ['post_5fapply_5finverse_5fdof_5ftransformation_110',['post_apply_inverse_dof_transformation',['../classbasix_1_1FiniteElement.html#aa5c6ff997f49165f88a411807175cc44',1,'basix::FiniteElement']]],
+  ['post_5fapply_5finverse_5ftranspose_5fdof_5ftransformation_111',['post_apply_inverse_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#a05639950ed9e037f050cadb49e8f18c4',1,'basix::FiniteElement']]],
+  ['post_5fapply_5ftranpose_5fmatrix_112',['post_apply_tranpose_matrix',['../namespacebasix_1_1precompute.html#a5db24b064457361fe13111aa5e8fb1cd',1,'basix::precompute']]],
+  ['post_5fapply_5ftranspose_5fdof_5ftransformation_113',['post_apply_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#aa7de11fcdec0fe78bac1c9bbb296d805',1,'basix::FiniteElement']]],
+  ['post_5fapply_5ftranspose_5fpermutation_114',['post_apply_transpose_permutation',['../namespacebasix_1_1precompute.html#a1a9c5bb86b66e12fcfc6c36f094ff549',1,'basix::precompute']]],
+  ['pre_5fapply_5fdof_5ftransformation_115',['pre_apply_dof_transformation',['../classbasix_1_1FiniteElement.html#a3d5462d5d51923127c5f242402e1e8fe',1,'basix::FiniteElement']]],
+  ['pre_5fapply_5finverse_5fdof_5ftransformation_116',['pre_apply_inverse_dof_transformation',['../classbasix_1_1FiniteElement.html#a1ae036e758030b4b6378fe71dc5a2dd0',1,'basix::FiniteElement']]],
+  ['pre_5fapply_5finverse_5ftranspose_5fdof_5ftransformation_117',['pre_apply_inverse_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#a2705c45f1838a8470bebf9aaf51782d3',1,'basix::FiniteElement']]],
+  ['pre_5fapply_5fmatrix_118',['pre_apply_matrix',['../namespacebasix_1_1precompute.html#a7b17b3cfed7dfe9352368f1959c2c852',1,'basix::precompute']]],
+  ['pre_5fapply_5fpermutation_119',['pre_apply_permutation',['../namespacebasix_1_1precompute.html#ac8e7482bd3a1c73d4e9ae5da417aab32',1,'basix::precompute']]],
+  ['pre_5fapply_5fpermutation_5fmapped_120',['pre_apply_permutation_mapped',['../namespacebasix_1_1precompute.html#a63b9ea821c43f9a2ed3b30cf83b044f8',1,'basix::precompute']]],
+  ['pre_5fapply_5ftranspose_5fdof_5ftransformation_121',['pre_apply_transpose_dof_transformation',['../classbasix_1_1FiniteElement.html#a009249212b3759c42f2f09935827e14c',1,'basix::FiniteElement']]],
+  ['prepare_5fmatrix_122',['prepare_matrix',['../namespacebasix_1_1precompute.html#a2eb7579bd21754caec2f79fff692cb4c',1,'basix::precompute']]],
+  ['prepare_5fpermutation_123',['prepare_permutation',['../namespacebasix_1_1precompute.html#a806c3dbd017c632f9bd1981a7c761ba5',1,'basix::precompute']]],
+  ['pull_5fback_124',['pull_back',['../classbasix_1_1FiniteElement.html#ac95e334dfd3afaccb83d898d27f3efcc',1,'basix::FiniteElement']]],
+  ['push_5fforward_125',['push_forward',['../classbasix_1_1FiniteElement.html#ad09c511d565978e3a5a50b7481561224',1,'basix::FiniteElement']]]
 ];
