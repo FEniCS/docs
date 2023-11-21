@@ -11,9 +11,9 @@ header-includes: <link rel="shortcut icon" type="image/x-icon" href="https://fen
 
 #### DOLFINx
 
-`0.7.0.post0` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.0.post0/cpp/)
+`0.7.2` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/)
 
-`0.7.0.post0` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.0/python/](https://docs.fenicsproject.org/dolfinx/v0.7.0.post0/python/)
+`0.7.2` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.2/python/](https://docs.fenicsproject.org/dolfinx/v0.7.2/python/)
 
 #### FFCx
 
@@ -21,9 +21,9 @@ header-includes: <link rel="shortcut icon" type="image/x-icon" href="https://fen
 
 #### Basix
 
-`0.7.0` C++: [https://docs.fenicsproject.org/basix/v0.7.0/](https://docs.fenicsproject.org/basix/v0.7.0/cpp/)
+`0.7.0.post0` C++: [https://docs.fenicsproject.org/basix/v0.7.0.post0/](https://docs.fenicsproject.org/basix/v0.7.0.post0/cpp/)
 
-`0.7.0` Python: [https://docs.fenicsproject.org/basix/v0.7.0/](https://docs.fenicsproject.org/basix/v0.7.0/python/)
+`0.7.0.post0` Python: [https://docs.fenicsproject.org/basix/v0.7.0.post0/](https://docs.fenicsproject.org/basix/v0.7.0.post0/python/)
 
 #### UFL
 
@@ -52,6 +52,14 @@ header-includes: <link rel="shortcut icon" type="image/x-icon" href="https://fen
 ## Old releases
 
 #### DOLFINx
+
+`0.7.1` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.1/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.1/cpp/)
+
+`0.7.1` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.1/python/](https://docs.fenicsproject.org/dolfinx/v0.7.1/python/)
+
+`0.7.0` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.0/cpp/)
+
+`0.7.0` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.0/python/](https://docs.fenicsproject.org/dolfinx/v0.7.0/python/)
 
 `0.6.0` C++: [https://docs.fenicsproject.org/dolfinx/v0.6.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.6.0/cpp/)
 
@@ -138,6 +146,8 @@ header-includes: <link rel="shortcut icon" type="image/x-icon" href="https://fen
 `0.1.0` Python: [https://docs.fenicsproject.org/basix/v0.1.0/](https://docs.fenicsproject.org/basix/v0.1.0/python/)
 
 #### UFL
+
+`2022.2.0`: [https://docs.fenicsproject.org/ufl/2022.2.0](https://docs.fenicsproject.org/ufl/2022.2.0)
 
 `2022.2.0`: [https://docs.fenicsproject.org/ufl/2022.2.0](https://docs.fenicsproject.org/ufl/2022.2.0)
 
