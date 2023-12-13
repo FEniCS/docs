@@ -25,6 +25,9 @@ system(f"cd {web_path} && bundle install && bundle exec jekyll build")
 
 with open(os.path.join(web_path, "_site/template.html")) as f:
     template = f.read()
+
+system(f"rm -r {web_path}")
+
 template = template.replace("<p>!!", "!!")
 template = template.replace("!!</p>", "!!")
 template = template.replace("=\"/", "=\"https://fenicsproject.org/")
