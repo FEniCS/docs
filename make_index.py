@@ -8,7 +8,7 @@ def system(command):
 
 
 _path = os.path.dirname(os.path.realpath(__file__))
-web_path = os.path.join(_path, "web")
+web_path = os.path.join(_path, "_web")
 
 if os.path.isdir(web_path):
     system(f"rm -r {web_path}")
@@ -25,8 +25,6 @@ system(f"cd {web_path} && bundle install && bundle exec jekyll build")
 
 with open(os.path.join(web_path, "_site/template.html")) as f:
     template = f.read()
-
-system(f"rm -r {web_path}")
 
 template = template.replace("<p>!!", "!!")
 template = template.replace("!!</p>", "!!")
