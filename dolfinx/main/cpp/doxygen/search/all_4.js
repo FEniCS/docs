@@ -1,7 +1,7 @@
 var searchData=
 [
   ['elapsed_0',['elapsed',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#ac08ab25054d926a3298bc7251e3c4762',1,'dolfinx::common::Timer']]],
-  ['element_1',['element',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a4a0373091dc27f9f9f96da5174b505ad',1,'dolfinx::fem::FunctionSpace']]],
+  ['element_1',['element',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a903b5ac0bcb16f51b133c637ec833f69',1,'dolfinx::fem::FunctionSpace']]],
   ['element_5fdof_5flayout_2',['element_dof_layout',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#aa3ca824226f49b9647e96f3562feb974',1,'dolfinx::fem::DofMap']]],
   ['elementdoflayout_3',['elementdoflayout',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html',1,'ElementDofLayout'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a57fadc872c3e36ec7d9eceb45de0434c',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(int block_size, const std::vector&lt; std::vector&lt; std::vector&lt; int &gt; &gt; &gt; &amp;entity_dofs, const std::vector&lt; std::vector&lt; std::vector&lt; int &gt; &gt; &gt; &amp;entity_closure_dofs, const std::vector&lt; int &gt; &amp;parent_map, const std::vector&lt; ElementDofLayout &gt; &amp;sub_layouts)'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#ac917c4d40511db8eff6ba905c5ab3806',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(const ElementDofLayout &amp;dofmap)=default'],['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a4625fb8017bad0330fe91d25f69a3f7f',1,'dolfinx::fem::ElementDofLayout::ElementDofLayout(ElementDofLayout &amp;&amp;dofmap)=default']]],
   ['encoding_4',['Encoding',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#afb0564821f132bfe74508af8349a0faa',1,'dolfinx::io::XDMFFile']]],

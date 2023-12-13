@@ -1,12 +1,3 @@
----
-pagetitle: FEniCSx Project Documentation
-header-includes: <link rel="shortcut icon" type="image/x-icon" href="https://fenicsproject.org/favicon.ico"/>
----
-
-# FEniCSx Project Documentation
-
-<img style="display: block; margin: 0 auto; width: 70px;" src="https://fenicsproject.org/pub/graphics/fenics_logo.svg" alt="FEniCS project logo">
-
 ## Latest release
 
 #### DOLFINx
