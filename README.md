@@ -76,9 +76,9 @@
 
 `0.3.0` Python: [https://docs.fenicsproject.org/dolfinx/v0.3.0/python/](https://docs.fenicsproject.org/dolfinx/v0.3.0/python/)
 
-`0.2.0` C++: [https://docs.fenicsproject.org/dolfinx/v0.2.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.2.0/cpp/)
+`0.2.0a0` C++: [https://docs.fenicsproject.org/dolfinx/v0.2.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.2.0a0/cpp/)
 
-`0.2.0` Python: [https://docs.fenicsproject.org/dolfinx/v0.2.0/python/](https://docs.fenicsproject.org/dolfinx/v0.2.0/python/)
+`0.2.0a0` Python: [https://docs.fenicsproject.org/dolfinx/v0.2.0/python/](https://docs.fenicsproject.org/dolfinx/v0.2.0a0/python/)
 
 `0.1.0` C++: [https://docs.fenicsproject.org/dolfinx/v0.1.0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.1.0/cpp/)
 
@@ -100,7 +100,7 @@
 
 `0.2.0`: [https://docs.fenicsproject.org/ffcx/v0.2.0](https://docs.fenicsproject.org/ffcx/v0.2.0)
 
-`0.1.0`: [https://docs.fenicsproject.org/ffcx/0.1.0](https://docs.fenicsproject.org/ffcx/v0.1.0)
+`0.1.0`: [https://docs.fenicsproject.org/ffcx/v0.1.0](https://docs.fenicsproject.org/ffcx/v0.1.0)
 
 #### Basix
 
@@ -138,12 +138,10 @@
 
 #### UFL
 
-`2022.2.0`: [https://docs.fenicsproject.org/ufl/2022.2.0](https://docs.fenicsproject.org/ufl/2022.2.0)
+`2023.2.0`: [https://docs.fenicsproject.org/ufl/2022.2.0](https://docs.fenicsproject.org/ufl/2023.2.0)
 
 `2022.2.0`: [https://docs.fenicsproject.org/ufl/2022.2.0](https://docs.fenicsproject.org/ufl/2022.2.0)
 
 `2022.1.0`: [https://docs.fenicsproject.org/ufl/2022.1.0](https://docs.fenicsproject.org/ufl/2022.1.0)
-
-#### UFL
 
 `old`: [https://readthedocs.org/projects/fenics-ufl/](https://readthedocs.org/projects/fenics-ufl/)
