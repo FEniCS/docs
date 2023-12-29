@@ -2,9 +2,9 @@
 
 #### DOLFINx
 
-`0.7.2` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/)
+`0.7.3` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.3/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.3/cpp/)
 
-`0.7.2` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.2/python/](https://docs.fenicsproject.org/dolfinx/v0.7.2/python/)
+`0.7.3` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.3/python/](https://docs.fenicsproject.org/dolfinx/v0.7.3/python/)
 
 #### FFCx
 
@@ -43,6 +43,10 @@
 ## Old releases
 
 #### DOLFINx
+
+`0.7.2` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.2/cpp/)
+
+`0.7.2` Python: [https://docs.fenicsproject.org/dolfinx/v0.7.2/python/](https://docs.fenicsproject.org/dolfinx/v0.7.2/python/)
 
 `0.7.1` C++: [https://docs.fenicsproject.org/dolfinx/v0.7.1/cpp/](https://docs.fenicsproject.org/dolfinx/v0.7.1/cpp/)
 
