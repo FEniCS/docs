@@ -20,7 +20,7 @@ var searchData=
   ['topology_5fmutable_17',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0a2cf2ebf198cd471ba4bffdad8d58a4',1,'dolfinx::mesh::Mesh']]],
   ['transfer_5fcell_5fmeshtag_18',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
   ['transfer_5ffacet_5fmeshtag_19',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
-  ['transpose_20',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a38ab36662abd5f020c7d61acb3934410',1,'dolfinx::io::cells']]],
+  ['transpose_20',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#aab23f42f403e856a22080310440af205',1,'dolfinx::io::cells']]],
   ['transpose_5fdofmap_21',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#ab1b1a83c0dc42f3b9c182a6411cf80a0',1,'dolfinx::fem']]],
   ['type_22',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
 ];
