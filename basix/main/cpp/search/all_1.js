@@ -29,5 +29,6 @@ var searchData=
   ['create_5fserendipity_42',['create_serendipity',['../namespacebasix_1_1element.html#a8760848a4334dd2a580d9ec693c190d9',1,'basix::element']]],
   ['create_5fserendipity_5fcurl_43',['create_serendipity_curl',['../namespacebasix_1_1element.html#a689b562e8b641e30aebb58b75e15479f',1,'basix::element']]],
   ['create_5fserendipity_5fdiv_44',['create_serendipity_div',['../namespacebasix_1_1element.html#aa58c0a5d18b409491c9842768817d37f',1,'basix::element']]],
-  ['cross_45',['cross',['../namespacebasix_1_1math.html#a4d10f47ad43a02bab46793d163ffe850',1,'basix::math']]]
+  ['create_5ftp_5felement_45',['create_tp_element',['../namespacebasix.html#ae7943e49b14c4df44efd7192821aed65',1,'basix']]],
+  ['cross_46',['cross',['../namespacebasix_1_1math.html#a4d10f47ad43a02bab46793d163ffe850',1,'basix::math']]]
 ];

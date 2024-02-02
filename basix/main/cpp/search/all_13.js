@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['x_150',['x',['../classbasix_1_1FiniteElement.html#ad4160dd1b8ec0223b7a8d997a13775d6',1,'basix::FiniteElement']]]
+  ['x_153',['x',['../classbasix_1_1FiniteElement.html#ad4160dd1b8ec0223b7a8d997a13775d6',1,'basix::FiniteElement']]]
 ];
