@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['relaxation_5fparameter_0',['relaxation_parameter',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a0ee867c8196bc0edfe2283064defa1f8',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['report_1',['report',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#aaef1fcd30c74cb739b8e9f9c31a44b93',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['rtol_2',['rtol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a4587afeee8941ba7c208b3690a3eeaa7',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['name_0',['name',['../db/d97/classdolfinx_1_1Table.html#a9b45b3e13bd9167aab02e17e08916231',1,'dolfinx::Table::name'],['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a9b45b3e13bd9167aab02e17e08916231',1,'dolfinx::fem::Function::name'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a9b45b3e13bd9167aab02e17e08916231',1,'dolfinx::mesh::Mesh::name'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#a9b45b3e13bd9167aab02e17e08916231',1,'dolfinx::mesh::MeshTags::name']]]
 ];

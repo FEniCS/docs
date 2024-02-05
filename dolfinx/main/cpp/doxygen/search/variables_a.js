@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['shape_0',['shape',['../d6/d06/classdolfinx_1_1fem_1_1Constant.html#ae9c7e7e2afb8b3b1fc20432d727feb42',1,'dolfinx::fem::Constant']]]
+  ['original_5fcell_5findex_0',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a30b4770c597eeddabd420ddf4cff9f46',1,'dolfinx::mesh::Topology']]]
 ];
