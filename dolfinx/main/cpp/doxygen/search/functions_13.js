@@ -1,8 +1,8 @@
 var searchData=
 [
   ['value_0',['value',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#a790b0b864c5eb283d7e340a6145c7d35',1,'dolfinx::fem::DirichletBC']]],
-  ['value_5fshape_1',['value_shape',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#aa638758f17f0c4aba9588edbba8a6731',1,'dolfinx::fem::Expression::value_shape()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#abb3668bf24fd9e8ecfdc644c545e7812',1,'dolfinx::fem::FiniteElement::value_shape()']]],
-  ['value_5fsize_2',['value_size',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a7d326295a6362a9b6f112e0efa5a7de7',1,'dolfinx::fem::Expression::value_size()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a7d326295a6362a9b6f112e0efa5a7de7',1,'dolfinx::fem::FiniteElement::value_size()']]],
+  ['value_5fshape_1',['value_shape',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#aa638758f17f0c4aba9588edbba8a6731',1,'dolfinx::fem::Expression::value_shape()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#abb3668bf24fd9e8ecfdc644c545e7812',1,'dolfinx::fem::FunctionSpace::value_shape()']]],
+  ['value_5fsize_2',['value_size',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a7d326295a6362a9b6f112e0efa5a7de7',1,'dolfinx::fem::Expression::value_size()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a7d326295a6362a9b6f112e0efa5a7de7',1,'dolfinx::fem::FunctionSpace::value_size()']]],
   ['values_3',['values',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a29b38057b0491969b2e775885cb33c69',1,'dolfinx::la::MatrixCSR::values()'],['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a03c056df0ddfeee3a2cdc95b0d732329',1,'dolfinx::la::MatrixCSR::values() const'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#a7e777c792e9ad765e9c2cd25cb268a4a',1,'dolfinx::mesh::MeshTags::values()']]],
   ['variant_4',['variant',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a38beb2a0cd198af00631858be7de4042',1,'dolfinx::fem::CoordinateElement']]],
   ['vec_5',['vec',['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#aea730f3778ec99c234bfe033beba486c',1,'dolfinx::la::petsc::Vector']]],

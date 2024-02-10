@@ -467,7 +467,7 @@
 
         <span class="c1"># Allocate memory for return value if not provided</span>
         <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">value_size</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">value_shape</span><span class="p">)</span>
+            <span class="n">value_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">value_size</span>
             <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">num_points</span><span class="p">,</span> <span class="n">value_size</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="n">_cells</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
@@ -683,7 +683,6 @@
             <span class="n">e</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span>
             <span class="n">shape</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
             <span class="n">symmetry</span><span class="o">=</span><span class="n">e</span><span class="o">.</span><span class="n">symmetry</span><span class="p">,</span>
-            <span class="n">gdim</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span>
         <span class="p">)</span>
     <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
         <span class="n">ufl_e</span> <span class="o">=</span> <span class="n">element</span>  <span class="c1"># type: ignore</span>
@@ -691,6 +690,9 @@
     <span class="c1"># Check that element and mesh cell types match</span>
     <span class="k">if</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">cell</span> <span class="o">!=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">():</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Non-matching UFL cell and mesh cell shapes.&quot;</span><span class="p">)</span>
+
+    <span class="n">ufl_space</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">ufl_e</span><span class="p">)</span>
+    <span class="n">value_shape</span> <span class="o">=</span> <span class="n">ufl_space</span><span class="o">.</span><span class="n">value_shape</span>
 
     <span class="c1"># Compile dofmap and element and create DOLFIN objects</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span>
@@ -715,9 +717,13 @@
 
     <span class="c1"># Initialize the cpp.FunctionSpace</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">cppV</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float64</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">cpp_dofmap</span><span class="p">)</span>
+        <span class="n">cppV</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float64</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">cpp_dofmap</span><span class="p">,</span> <span class="n">value_shape</span>
+        <span class="p">)</span>
     <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-        <span class="n">cppV</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float32</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">cpp_dofmap</span><span class="p">)</span>
+        <span class="n">cppV</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float32</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">cpp_dofmap</span><span class="p">,</span> <span class="n">value_shape</span>
+        <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">ufl_e</span><span class="p">,</span> <span class="n">cppV</span><span class="p">)</span></div>
 
@@ -777,11 +783,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">Vcpp</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float64</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_shape</span><span class="p">,</span>
             <span class="p">)</span>  <span class="c1"># type: ignore</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
             <span class="n">Vcpp</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float32</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">element</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_shape</span><span class="p">,</span>
             <span class="p">)</span>  <span class="c1"># type: ignore</span>
         <span class="k">return</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">(),</span> <span class="n">Vcpp</span><span class="p">)</span></div>
 
@@ -790,6 +802,11 @@
     <span class="k">def</span> <span class="nf">num_sub_spaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of sub spaces.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value shape.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_shape</span><span class="p">)</span>
 
 <div class="viewcode-block" id="FunctionSpace.sub">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FunctionSpace.sub">[docs]</a>
