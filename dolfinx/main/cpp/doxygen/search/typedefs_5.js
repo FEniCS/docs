@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['rowptr_5fcontainer_5ftype_0',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]]
+  ['partition_5ffn_0',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#aa2e8bbea5ac3a27249e3155bc455f887',1,'dolfinx::graph']]]
 ];
