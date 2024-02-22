@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom cell kernel assembly (C++) &mdash; DOLFINx 0.3.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=4621528c"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Matrix-free Conjugate Gradient solver" href="demo_poisson_matrix_free.html" />
+    <link rel="prev" title="Hyperelasticity (C++)" href="demo_hyperelasticity.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../demo.html">Demos</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../demo.html#introductory">Introductory</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="demo_poisson.html">Poisson equation (C++)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_hyperelasticity.html">Hyperelasticity (C++)</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Custom cell kernel assembly (C++)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_poisson_matrix_free.html">Matrix-free Conjugate Gradient solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_biharmonic.html">Biharmonic equation (C++)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_interpolation_different_meshes.html">Interpolation different meshes (C++)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_interpolation-io.html">Interpolation-io (C++)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_mixed_topology.html">Mixed topology (C++)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">DOLFINx C++ API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../demo.html">Demos</a></li>
+      <li class="breadcrumb-item active">Custom cell kernel assembly (C++)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/demos/demo_custom_kernel.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="custom-cell-kernel-assembly-c">
+<h1>Custom cell kernel assembly (C++)<a class="headerlink" href="#custom-cell-kernel-assembly-c" title="Link to this heading"></a></h1>
+<p>This demo shows various methods to define custom cell kernels in C++ and
+have them assembled into DOLFINx linear algebra data structures.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/finite-element.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/mdspan.hpp&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/quadrature.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cmath&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;concepts&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/la/MatrixCSR.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/la/SparsityPattern.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;functional&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdint.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;utility&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">dolfinx</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">ndim</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">mdspand_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MDSPAN_IMPL_STANDARD_NAMESPACE</span><span class="o">::</span><span class="n">mdspan</span><span class="o">&lt;</span>
+<span class="w">    </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">MDSPAN_IMPL_STANDARD_NAMESPACE</span><span class="o">::</span><span class="n">dextents</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="p">,</span><span class="w"> </span><span class="n">ndim</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">n0</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">n1</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">mdspan2_t</span>
+<span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">MDSPAN_IMPL_STANDARD_NAMESPACE</span><span class="o">::</span><span class="n">mdspan</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span>
+<span class="w">                                             </span><span class="n">std</span><span class="o">::</span><span class="n">extents</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="p">,</span><span class="w"> </span><span class="n">n0</span><span class="p">,</span><span class="w"> </span><span class="n">n1</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Compute the P1 element mass matrix on the reference cell.</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param phi Basis functions.</span>
+<span class="c1">/// @param w Integration weights.</span>
+<span class="c1">/// @return Element reference matrix (row-major storage).</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A_ref</span><span class="p">(</span><span class="n">mdspand_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">w</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A_b</span><span class="p">{};</span>
+<span class="w">  </span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">A_b</span><span class="p">.</span><span class="n">data</span><span class="p">());</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">phi</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">k</span><span class="p">)</span><span class="w">   </span><span class="c1">// quadrature point</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">A</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w">   </span><span class="c1">// row i</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">A</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="c1">// column j</span>
+<span class="w">        </span><span class="n">A</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">w</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">phi</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">phi</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">A_b</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Compute the P1 RHS vector for f=1 on the reference cell.</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param phi Basis functions.</span>
+<span class="c1">/// @param w Integration weights.</span>
+<span class="c1">/// @return RHS reference vector.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_ref</span><span class="p">(</span><span class="n">mdspand_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">w</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">{};</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">phi</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="c1">// quadrature point</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w">    </span><span class="c1">// row i</span>
+<span class="w">      </span><span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">w</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">phi</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">b</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Assemble a matrix operator using a `std::function` kernel</span>
+<span class="c1">/// function.</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param V Function space.</span>
+<span class="c1">/// @param kernel Element kernel to execute.</span>
+<span class="c1">/// @param cells Cells to execute the kernel over.</span>
+<span class="c1">/// @return Frobenius norm squared of the matrix.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">assemble_matrix0</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">cells</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="c1">// Kernel data (ID, kernel function, cell indices to execute over)</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="w"> </span><span class="n">kernel_data</span><span class="p">{</span><span class="n">fem</span><span class="o">::</span><span class="n">integral_data</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">)};</span>
+
+<span class="w">  </span><span class="c1">// Associate kernel with cells (as opposed to facets, etc)</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="w"> </span><span class="n">integrals</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">{</span><span class="n">fem</span><span class="o">::</span><span class="n">IntegralType</span><span class="o">::</span><span class="n">cell</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_data</span><span class="p">}};</span>
+
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">Form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a</span><span class="p">({</span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="n">integrals</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">());</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">dofmap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">();</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">SparsityPattern</span><span class="p">(</span>
+<span class="w">      </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">(),</span><span class="w"> </span><span class="p">{</span><span class="n">dofmap</span><span class="o">-&gt;</span><span class="n">index_map</span><span class="p">,</span><span class="w"> </span><span class="n">dofmap</span><span class="o">-&gt;</span><span class="n">index_map</span><span class="p">},</span>
+<span class="w">      </span><span class="p">{</span><span class="n">dofmap</span><span class="o">-&gt;</span><span class="n">index_map_bs</span><span class="p">(),</span><span class="w"> </span><span class="n">dofmap</span><span class="o">-&gt;</span><span class="n">index_map_bs</span><span class="p">()});</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">sparsitybuild</span><span class="o">::</span><span class="n">cells</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="o">*</span><span class="n">dofmap</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">dofmap</span><span class="p">});</span>
+<span class="w">  </span><span class="n">sp</span><span class="p">.</span><span class="n">finalize</span><span class="p">();</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">MatrixCSR</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">sp</span><span class="p">);</span>
+<span class="w">  </span><span class="n">common</span><span class="o">::</span><span class="n">Timer</span><span class="w"> </span><span class="n">timer</span><span class="p">(</span><span class="s">&quot;Assembler0 std::function (matrix)&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">.</span><span class="n">mat_add_values</span><span class="p">(),</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="n">A</span><span class="p">.</span><span class="n">scatter_rev</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">A</span><span class="p">.</span><span class="n">squared_norm</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Assemble a RHS vector using a `std::function` kernel function.</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param V Function space.</span>
+<span class="c1">/// @param kernel Element kernel to execute.</span>
+<span class="c1">/// @param cells Cells to execute the kernel over.</span>
+<span class="c1">/// @return l2 norm squared of the vector.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">assemble_vector0</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">cells</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">();</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="w"> </span><span class="n">kernal_data</span><span class="p">{</span><span class="n">fem</span><span class="o">::</span><span class="n">integral_data</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">-1</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">)};</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="w"> </span><span class="n">integrals</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">{</span><span class="n">fem</span><span class="o">::</span><span class="n">IntegralType</span><span class="o">::</span><span class="n">cell</span><span class="p">,</span><span class="w"> </span><span class="n">kernal_data</span><span class="p">}};</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">Form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">L</span><span class="p">({</span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="n">integrals</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span><span class="w"> </span><span class="n">mesh</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">dofmap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">();</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">Vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">(</span><span class="n">dofmap</span><span class="o">-&gt;</span><span class="n">index_map</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">common</span><span class="o">::</span><span class="n">Timer</span><span class="w"> </span><span class="n">timer</span><span class="p">(</span><span class="s">&quot;Assembler0 std::function (vector)&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">mutable_array</span><span class="p">(),</span><span class="w"> </span><span class="n">L</span><span class="p">);</span>
+<span class="w">  </span><span class="n">b</span><span class="p">.</span><span class="n">scatter_rev</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">plus</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">());</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">squared_norm</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Assemble a matrix operator using a lambda kernel function.</span>
+<span class="c1">///</span>
+<span class="c1">/// The lambda function can be inlined in the assembly code, which can</span>
+<span class="c1">/// be important for performance for lightweight kernels.</span>
+<span class="c1">///</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param g mesh geometry.</span>
+<span class="c1">/// @param dofmap dofmap.</span>
+<span class="c1">/// @param kernel Element kernel to execute.</span>
+<span class="c1">/// @param cells Cells to execute the kernel over.</span>
+<span class="c1">/// @return Frobenius norm squared of the matrix.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">assemble_matrix1</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">mesh</span><span class="o">::</span><span class="n">Geometry</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">DofMap</span><span class="o">&amp;</span><span class="w"> </span><span class="n">dofmap</span><span class="p">,</span>
+<span class="w">                        </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">cells</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">SparsityPattern</span><span class="p">(</span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">(),</span>
+<span class="w">                                </span><span class="p">{</span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map</span><span class="p">,</span><span class="w"> </span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map</span><span class="p">},</span>
+<span class="w">                                </span><span class="p">{</span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map_bs</span><span class="p">(),</span><span class="w"> </span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map_bs</span><span class="p">()});</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">sparsitybuild</span><span class="o">::</span><span class="n">cells</span><span class="p">(</span><span class="n">sp</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">dofmap</span><span class="p">,</span><span class="w"> </span><span class="n">dofmap</span><span class="p">});</span>
+<span class="w">  </span><span class="n">sp</span><span class="p">.</span><span class="n">finalize</span><span class="p">();</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">MatrixCSR</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">sp</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">ident</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[](</span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">)</span><span class="w"> </span><span class="p">{};</span><span class="w"> </span><span class="c1">// DOF permutation not required</span>
+<span class="w">  </span><span class="n">common</span><span class="o">::</span><span class="n">Timer</span><span class="w"> </span><span class="n">timer</span><span class="p">(</span><span class="s">&quot;Assembler1 lambda (matrix)&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">impl</span><span class="o">::</span><span class="n">assemble_cells</span><span class="p">(</span><span class="n">A</span><span class="p">.</span><span class="n">mat_add_values</span><span class="p">(),</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">dofmap</span><span class="p">(),</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">x</span><span class="p">(),</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span><span class="w"> </span><span class="n">ident</span><span class="p">,</span>
+<span class="w">                            </span><span class="n">dofmap</span><span class="p">.</span><span class="n">map</span><span class="p">(),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">ident</span><span class="p">,</span><span class="w"> </span><span class="n">dofmap</span><span class="p">.</span><span class="n">map</span><span class="p">(),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">                            </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="n">A</span><span class="p">.</span><span class="n">scatter_rev</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">A</span><span class="p">.</span><span class="n">squared_norm</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Assemble a RHS vector using using a lambda kernel function.</span>
+<span class="c1">///</span>
+<span class="c1">/// The lambda function can be inlined in the assembly code, which can</span>
+<span class="c1">/// be important for performance for lightweight kernels.</span>
+<span class="c1">///</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param g mesh geometry.</span>
+<span class="c1">/// @param dofmap dofmap.</span>
+<span class="c1">/// @param kernel Element kernel to execute.</span>
+<span class="c1">/// @param cells Cells to execute the kernel over.</span>
+<span class="c1">/// @return l2 norm squared of the vector.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">assemble_vector1</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">mesh</span><span class="o">::</span><span class="n">Geometry</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">DofMap</span><span class="o">&amp;</span><span class="w"> </span><span class="n">dofmap</span><span class="p">,</span>
+<span class="w">                        </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">cells</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">Vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">(</span><span class="n">dofmap</span><span class="p">.</span><span class="n">index_map</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="n">common</span><span class="o">::</span><span class="n">Timer</span><span class="w"> </span><span class="n">timer</span><span class="p">(</span><span class="s">&quot;Assembler1 lambda (vector)&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">fem</span><span class="o">::</span><span class="n">impl</span><span class="o">::</span><span class="n">assemble_cells</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">([](</span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="p">)</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">                                  </span><span class="n">b</span><span class="p">.</span><span class="n">mutable_array</span><span class="p">(),</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">dofmap</span><span class="p">(),</span><span class="w"> </span><span class="n">g</span><span class="p">.</span><span class="n">x</span><span class="p">(),</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span>
+<span class="w">                                  </span><span class="n">dofmap</span><span class="p">.</span><span class="n">map</span><span class="p">(),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">kernel</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
+<span class="w">  </span><span class="n">b</span><span class="p">.</span><span class="n">scatter_rev</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">plus</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">());</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">squared_norm</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Assemble P1 mass matrix and a RHS vector using element kernel</span>
+<span class="c1">/// approaches.</span>
+<span class="c1">///</span>
+<span class="c1">/// Function demonstrates how hand-coded element kernels can be executed</span>
+<span class="c1">/// in assembly over cells.</span>
+<span class="c1">///</span>
+<span class="c1">/// @tparam T Scalar type.</span>
+<span class="c1">/// @param comm MPI communicator to assembler over.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">assemble</span><span class="p">(</span><span class="n">MPI_Comm</span><span class="w"> </span><span class="n">comm</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="c1">// Create mesh</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">create_rectangle</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">comm</span><span class="p">,</span><span class="w"> </span><span class="p">{{{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">}}},</span><span class="w"> </span><span class="p">{</span><span class="mi">516</span><span class="p">,</span><span class="w"> </span><span class="mi">116</span><span class="p">},</span><span class="w"> </span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">));</span>
+
+<span class="w">  </span><span class="c1">// Create Basix P1 Lagrange element. This will be used to construct</span>
+<span class="w">  </span><span class="c1">// basis functions inside the custom cell kernel.</span>
+<span class="w">  </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">order</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">basix</span><span class="o">::</span><span class="n">FiniteElement</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">P</span><span class="p">,</span>
+<span class="w">      </span><span class="n">mesh</span><span class="o">::</span><span class="n">cell_type_to_basix_type</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">),</span><span class="w"> </span><span class="n">order</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">dpc_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Construct quadrature rule</span>
+<span class="w">  </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">max_degree</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">order</span><span class="p">;</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">quadrature_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">quadrature</span><span class="o">::</span><span class="n">get_default_rule</span><span class="p">(</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">triangle</span><span class="p">,</span><span class="w"> </span><span class="n">max_degree</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="p">[</span><span class="n">X_b</span><span class="p">,</span><span class="w"> </span><span class="n">weights</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">quadrature</span><span class="o">::</span><span class="n">make_quadrature</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">quadrature_type</span><span class="p">,</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">triangle</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">polyset</span><span class="o">::</span><span class="n">type</span><span class="o">::</span><span class="n">standard</span><span class="p">,</span><span class="w"> </span><span class="n">max_degree</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mdspand_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="w"> </span><span class="n">X</span><span class="p">(</span><span class="n">X_b</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">weights</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Create a scalar function space</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">V</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">fem</span><span class="o">::</span><span class="n">create_functionspace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">));</span>
+
+<span class="w">  </span><span class="c1">// Build list of cells to assembler over (all cells owned by this</span>
+<span class="w">  </span><span class="c1">// rank)</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="w"> </span><span class="n">size_local</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">dim</span><span class="p">())</span><span class="o">-&gt;</span><span class="n">size_local</span><span class="p">();</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">cells</span><span class="p">(</span><span class="n">size_local</span><span class="p">);</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">iota</span><span class="p">(</span><span class="n">cells</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">cells</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Tabulate basis functions at quadrature points</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">e_shape</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">tabulate_shape</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">weights</span><span class="p">.</span><span class="n">size</span><span class="p">());</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">accumulate</span><span class="p">(</span><span class="n">e_shape</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">e_shape</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">multiplies</span><span class="o">&lt;&gt;</span><span class="p">{});</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">phi_b</span><span class="p">(</span><span class="n">length</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mdspand_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="w"> </span><span class="n">phi</span><span class="p">(</span><span class="n">phi_b</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">e_shape</span><span class="p">);</span>
+<span class="w">  </span><span class="n">e</span><span class="p">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">X</span><span class="p">,</span><span class="w"> </span><span class="n">phi</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Utility function to compute det(J) for an affine triangle cell</span>
+<span class="w">  </span><span class="c1">// (geometry is 3D)</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">detJ</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[](</span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">x</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">abs</span><span class="p">((</span><span class="n">x</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span>
+<span class="w">                    </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">))</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)));</span>
+<span class="w">  </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Finite element mass matrix kernel function</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A_hat_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">A_ref</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">weights</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel_a</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">A_hat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">(</span><span class="n">A_hat_b</span><span class="p">.</span><span class="n">data</span><span class="p">()),</span>
+<span class="w">         </span><span class="n">detJ</span><span class="p">](</span><span class="n">T</span><span class="o">*</span><span class="w"> </span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="o">*</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="n">T</span><span class="w"> </span><span class="n">scale</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">detJ</span><span class="p">(</span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">(</span><span class="n">x</span><span class="p">));</span>
+<span class="w">    </span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">_A</span><span class="p">(</span><span class="n">A</span><span class="p">);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">A_hat</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">A_hat</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">j</span><span class="p">)</span>
+<span class="w">        </span><span class="n">_A</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">scale</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">A_hat</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">);</span>
+<span class="w">  </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Finite element RHS (f=1) kernel function</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">kernel_L</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">b_hat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_ref</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span><span class="w"> </span><span class="n">weights</span><span class="p">),</span>
+<span class="w">         </span><span class="n">detJ</span><span class="p">](</span><span class="n">T</span><span class="o">*</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">*</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="o">*</span><span class="p">)</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="n">T</span><span class="w"> </span><span class="n">scale</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">detJ</span><span class="p">(</span><span class="n">mdspan2_t</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">(</span><span class="n">x</span><span class="p">));</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">      </span><span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">scale</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b_hat</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Assemble matrix and vector using std::function kernel</span>
+<span class="w">  </span><span class="n">assemble_matrix0</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_a</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assemble_vector0</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="n">kernel_L</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Assemble matrix and vector using lambda kernel. This version</span>
+<span class="w">  </span><span class="c1">// supports efficient inlining of the kernel in the assembler. This</span>
+<span class="w">  </span><span class="c1">// can give a significant performance improvement for lightweight</span>
+<span class="w">  </span><span class="c1">// kernels.</span>
+<span class="w">  </span><span class="n">assemble_matrix1</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">geometry</span><span class="p">(),</span><span class="w"> </span><span class="o">*</span><span class="n">V</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">(),</span><span class="w"> </span><span class="n">kernel_a</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assemble_vector1</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">geometry</span><span class="p">(),</span><span class="w"> </span><span class="o">*</span><span class="n">V</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">(),</span><span class="w"> </span><span class="n">kernel_L</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">);</span>
+
+<span class="w">  </span><span class="n">list_timings</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">TimingType</span><span class="o">::</span><span class="n">wall</span><span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">MPI_Init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">argv</span><span class="p">);</span>
+<span class="w">  </span><span class="n">dolfinx</span><span class="o">::</span><span class="n">init_logging</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="n">argv</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">MPI_COMM_WORLD</span><span class="p">);</span>
+<span class="w">  </span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">MPI_COMM_WORLD</span><span class="p">);</span>
+<span class="w">  </span><span class="n">MPI_Finalize</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demo_hyperelasticity.html" class="btn btn-neutral float-left" title="Hyperelasticity (C++)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="demo_poisson_matrix_free.html" class="btn btn-neutral float-right" title="Matrix-free Conjugate Gradient solver" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
