@@ -8,5 +8,6 @@ var searchData=
   ['has_5fscotch_5',['has_scotch',['../d2/dc7/namespacedolfinx.html#a48a7524329d412c2e3a24d28eb277c06',1,'dolfinx']]],
   ['has_5fslepc_6',['has_slepc',['../d2/dc7/namespacedolfinx.html#a69f957578bd759ad3bf108d27d924462',1,'dolfinx']]],
   ['hash_5fglobal_7',['hash_global',['../d7/de1/namespacedolfinx_1_1common.html#abf02a2803d65dfa4ba932e2a32d69d65',1,'dolfinx::common']]],
-  ['hash_5flocal_8',['hash_local',['../d7/de1/namespacedolfinx_1_1common.html#af086d214f48b9dc23d8f2fe30d23c1d8',1,'dolfinx::common']]]
+  ['hash_5flocal_8',['hash_local',['../d7/de1/namespacedolfinx_1_1common.html#af086d214f48b9dc23d8f2fe30d23c1d8',1,'dolfinx::common']]],
+  ['hyperelasticproblem_9',['HyperElasticProblem',['../d0/d23/classHyperElasticProblem.html#a4d6d1ae64d17bbe83a9eeb8b6090a178',1,'HyperElasticProblem']]]
 ];
