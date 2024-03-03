@@ -10,6 +10,5 @@ var searchData=
   ['option_7',['Option',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016',1,'dolfinx::refinement::plaza']]],
   ['original_5fcell_5findex_8',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a30b4770c597eeddabd420ddf4cff9f46',1,'dolfinx::mesh::Topology']]],
   ['orthonormalize_9',['orthonormalize',['../d6/dfa/namespacedolfinx_1_1la.html#a099c016d9a283690d5c49dfc49794c45',1,'dolfinx::la']]],
-  ['overlapped_10',['overlapped',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a0af453c70c14addd6ea34e94094bcc57',1,'dolfinx::common::IndexMap']]],
-  ['owners_11',['owners',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a35ac481195134aa838a97b18e7db8054',1,'dolfinx::common::IndexMap']]]
+  ['owners_10',['owners',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a35ac481195134aa838a97b18e7db8054',1,'dolfinx::common::IndexMap']]]
 ];
