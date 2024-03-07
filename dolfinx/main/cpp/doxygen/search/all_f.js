@@ -23,8 +23,9 @@ var searchData=
   ['pre_5fapply_5finverse_5fdof_5ftransformation_20',['pre_apply_inverse_dof_transformation',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ab79795950352104cdc1bb38ee6359825',1,'dolfinx::fem::FiniteElement']]],
   ['pre_5fapply_5finverse_5ftranspose_5fdof_5ftransformation_21',['pre_apply_inverse_transpose_dof_transformation',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ad87c5c06a7e08a58a3909086b8ed1f65',1,'dolfinx::fem::FiniteElement']]],
   ['pre_5fapply_5ftranspose_5fdof_5ftransformation_22',['pre_apply_transpose_dof_transformation',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a58a69951a19b3891e88986b42d28b49b',1,'dolfinx::fem::FiniteElement']]],
-  ['programmer_20s_20reference_23',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
-  ['pull_5fback_5faffine_24',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fnonaffine_25',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
-  ['push_5fforward_26',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
+  ['preserve_23',['preserve',['../d7/de1/namespacedolfinx_1_1common.html#a85fe08b363fe014c058cdf79d502910faec4875cf2d241556a0965f7237864693',1,'dolfinx::common']]],
+  ['programmer_20s_20reference_24',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
+  ['pull_5fback_5faffine_25',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fnonaffine_26',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
+  ['push_5fforward_27',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];

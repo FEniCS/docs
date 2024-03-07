@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['none_0',['none',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement::plaza']]]
+  ['interior_5ffacet_0',['interior_facet',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a55142ac49a379bbdd12dd3fe2e8bcbdf',1,'dolfinx::fem']]]
 ];
