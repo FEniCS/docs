@@ -866,7 +866,7 @@ $(function() { codefold.init(1); });
 <div class="line"><a id="l00875" name="l00875"></a><span class="lineno">  875</span>            std::shared_ptr&lt;<span class="keyword">const</span> mesh::Mesh&lt;T&gt;&gt; mesh,</div>
 <div class="line"><a id="l00876" name="l00876"></a><span class="lineno">  876</span>            std::string engine = <span class="stringliteral">&quot;BPFile&quot;</span>)</div>
 <div class="line"><a id="l00877" name="l00877"></a><span class="lineno">  877</span>      : ADIOS2Writer(comm, filename, <span class="stringliteral">&quot;VTX mesh writer&quot;</span>, engine), _mesh(mesh),</div>
-<div class="line"><a id="l00878" name="l00878"></a><span class="lineno">  878</span>        _mesh_reuse_policy(VTXMeshPolicy::update)</div>
+<div class="line"><a id="l00878" name="l00878"></a><span class="lineno">  878</span>        _mesh_reuse_policy(VTXMeshPolicy::update), _is_piecewise_constant(false)</div>
 <div class="line"><a id="l00879" name="l00879"></a><span class="lineno">  879</span>  {</div>
 <div class="line"><a id="l00880" name="l00880"></a><span class="lineno">  880</span>    <span class="comment">// Define VTK scheme attribute for mesh</span></div>
 <div class="line"><a id="l00881" name="l00881"></a><span class="lineno">  881</span>    std::string vtk_scheme = impl_vtx::create_vtk_schema({}, {}).str();</div>
@@ -878,7 +878,7 @@ $(function() { codefold.init(1); });
 <div class="line"><a id="l00902" name="l00902"></a><span class="lineno">  902</span>            VTXMeshPolicy mesh_policy = VTXMeshPolicy::update)</div>
 <div class="line"><a id="l00903" name="l00903"></a><span class="lineno">  903</span>      : ADIOS2Writer(comm, filename, <span class="stringliteral">&quot;VTX function writer&quot;</span>, engine),</div>
 <div class="line"><a id="l00904" name="l00904"></a><span class="lineno">  904</span>        _mesh(impl_adios2::<a class="code hl_function" href="../../df/d34/ADIOS2Writers_8h.html#a1f53408cd5a8c4baa563a7509c1d0c4e">extract_common_mesh</a>&lt;T&gt;(u)),</div>
-<div class="line"><a id="l00905" name="l00905"></a><span class="lineno">  905</span>        _mesh_reuse_policy(mesh_policy), _u(u)</div>
+<div class="line"><a id="l00905" name="l00905"></a><span class="lineno">  905</span>        _mesh_reuse_policy(mesh_policy), _u(u), _is_piecewise_constant(false)</div>
 <div class="line"><a id="l00906" name="l00906"></a><span class="lineno">  906</span>  {</div>
 <div class="line"><a id="l00907" name="l00907"></a><span class="lineno">  907</span>    <span class="keywordflow">if</span> (u.empty())</div>
 <div class="line"><a id="l00908" name="l00908"></a><span class="lineno">  908</span>      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;VTXWriter fem::Function list is empty.&quot;</span>);</div>
@@ -909,142 +909,157 @@ $(function() { codefold.init(1); });
 <div class="line"><a id="l00933" name="l00933"></a><span class="lineno">  933</span> </div>
 <div class="line"><a id="l00934" name="l00934"></a><span class="lineno">  934</span>    <span class="comment">// Check if function is DG 0</span></div>
 <div class="line"><a id="l00935" name="l00935"></a><span class="lineno">  935</span>    <span class="keywordflow">if</span> (element0-&gt;space_dimension() / element0-&gt;block_size() == 1)</div>
-<div class="line"><a id="l00936" name="l00936"></a><span class="lineno">  936</span>    {</div>
-<div class="line"><a id="l00937" name="l00937"></a><span class="lineno">  937</span>      <span class="keywordflow">throw</span> std::runtime_error(</div>
-<div class="line"><a id="l00938" name="l00938"></a><span class="lineno">  938</span>          <span class="stringliteral">&quot;VTK does not support cell-wise fields. See &quot;</span></div>
-<div class="line"><a id="l00939" name="l00939"></a><span class="lineno">  939</span>          <span class="stringliteral">&quot;https://gitlab.kitware.com/vtk/vtk/-/issues/18458.&quot;</span>);</div>
-<div class="line"><a id="l00940" name="l00940"></a><span class="lineno">  940</span>    }</div>
-<div class="line"><a id="l00941" name="l00941"></a><span class="lineno">  941</span> </div>
-<div class="line"><a id="l00942" name="l00942"></a><span class="lineno">  942</span>    <span class="comment">// Check that all functions come from same element type</span></div>
-<div class="line"><a id="l00943" name="l00943"></a><span class="lineno">  943</span>    <span class="keywordflow">for</span> (<span class="keyword">auto</span>&amp; v : _u)</div>
-<div class="line"><a id="l00944" name="l00944"></a><span class="lineno">  944</span>    {</div>
-<div class="line"><a id="l00945" name="l00945"></a><span class="lineno">  945</span>      std::visit(</div>
-<div class="line"><a id="l00946" name="l00946"></a><span class="lineno">  946</span>          [V0](<span class="keyword">auto</span>&amp; u)</div>
-<div class="line"><a id="l00947" name="l00947"></a><span class="lineno">  947</span>          {</div>
-<div class="line"><a id="l00948" name="l00948"></a><span class="lineno">  948</span>            <span class="keyword">auto</span> element = u-&gt;function_space()-&gt;element();</div>
-<div class="line"><a id="l00949" name="l00949"></a><span class="lineno">  949</span>            assert(element);</div>
-<div class="line"><a id="l00950" name="l00950"></a><span class="lineno">  950</span>            <span class="keywordflow">if</span> (*element != *V0-&gt;element().get())</div>
-<div class="line"><a id="l00951" name="l00951"></a><span class="lineno">  951</span>            {</div>
-<div class="line"><a id="l00952" name="l00952"></a><span class="lineno">  952</span>              <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;All functions in VTXWriter must have &quot;</span></div>
-<div class="line"><a id="l00953" name="l00953"></a><span class="lineno">  953</span>                                       <span class="stringliteral">&quot;the same element type.&quot;</span>);</div>
-<div class="line"><a id="l00954" name="l00954"></a><span class="lineno">  954</span>            }</div>
-<div class="line"><a id="l00955" name="l00955"></a><span class="lineno">  955</span><span class="preprocessor">#ifndef NDEBUG</span></div>
-<div class="line"><a id="l00956" name="l00956"></a><span class="lineno">  956</span>            <span class="keyword">auto</span> dmap0 = V0-&gt;dofmap()-&gt;map();</div>
-<div class="line"><a id="l00957" name="l00957"></a><span class="lineno">  957</span>            <span class="keyword">auto</span> dmap = u-&gt;function_space()-&gt;dofmap()-&gt;map();</div>
-<div class="line"><a id="l00958" name="l00958"></a><span class="lineno">  958</span>            <span class="keywordflow">if</span> (dmap0.size() != dmap.size()</div>
-<div class="line"><a id="l00959" name="l00959"></a><span class="lineno">  959</span>                or !std::equal(dmap0.data_handle(),</div>
-<div class="line"><a id="l00960" name="l00960"></a><span class="lineno">  960</span>                               dmap0.data_handle() + dmap0.size(),</div>
-<div class="line"><a id="l00961" name="l00961"></a><span class="lineno">  961</span>                               dmap.data_handle()))</div>
-<div class="line"><a id="l00962" name="l00962"></a><span class="lineno">  962</span>            {</div>
-<div class="line"><a id="l00963" name="l00963"></a><span class="lineno">  963</span>              <span class="keywordflow">throw</span> std::runtime_error(</div>
-<div class="line"><a id="l00964" name="l00964"></a><span class="lineno">  964</span>                  <span class="stringliteral">&quot;All functions must have the same dofmap for VTXWriter.&quot;</span>);</div>
-<div class="line"><a id="l00965" name="l00965"></a><span class="lineno">  965</span>            }</div>
-<div class="line"><a id="l00966" name="l00966"></a><span class="lineno">  966</span><span class="preprocessor">#endif</span></div>
-<div class="line"><a id="l00967" name="l00967"></a><span class="lineno">  967</span>          },</div>
-<div class="line"><a id="l00968" name="l00968"></a><span class="lineno">  968</span>          v);</div>
-<div class="line"><a id="l00969" name="l00969"></a><span class="lineno">  969</span>    }</div>
-<div class="line"><a id="l00970" name="l00970"></a><span class="lineno">  970</span> </div>
-<div class="line"><a id="l00971" name="l00971"></a><span class="lineno">  971</span>    <span class="comment">// Define VTK scheme attribute for set of functions</span></div>
-<div class="line"><a id="l00972" name="l00972"></a><span class="lineno">  972</span>    std::vector&lt;std::string&gt; names = impl_vtx::extract_function_names&lt;T&gt;(u);</div>
-<div class="line"><a id="l00973" name="l00973"></a><span class="lineno">  973</span>    std::string vtk_scheme = impl_vtx::create_vtk_schema(names, {}).str();</div>
-<div class="line"><a id="l00974" name="l00974"></a><span class="lineno">  974</span>    impl_adios2::define_attribute&lt;std::string&gt;(*_io, <span class="stringliteral">&quot;vtk.xml&quot;</span>, vtk_scheme);</div>
-<div class="line"><a id="l00975" name="l00975"></a><span class="lineno">  975</span>  }</div>
-<div class="line"><a id="l00976" name="l00976"></a><span class="lineno">  976</span> </div>
-<div class="line"><a id="l00991" name="l00991"></a><span class="lineno">  991</span>  VTXWriter(MPI_Comm comm, <span class="keyword">const</span> std::filesystem::path&amp; filename,</div>
-<div class="line"><a id="l00992" name="l00992"></a><span class="lineno">  992</span>            <span class="keyword">const</span> <span class="keyword">typename</span> adios2_writer::U&lt;T&gt;&amp; u,</div>
-<div class="line"><a id="l00993" name="l00993"></a><span class="lineno">  993</span>            VTXMeshPolicy mesh_policy = VTXMeshPolicy::update)</div>
-<div class="line"><a id="l00994" name="l00994"></a><span class="lineno">  994</span>      : VTXWriter(comm, filename, u, <span class="stringliteral">&quot;BPFile&quot;</span>, mesh_policy)</div>
-<div class="line"><a id="l00995" name="l00995"></a><span class="lineno">  995</span>  {</div>
-<div class="line"><a id="l00996" name="l00996"></a><span class="lineno">  996</span>  }</div>
-<div class="line"><a id="l00997" name="l00997"></a><span class="lineno">  997</span> </div>
-<div class="line"><a id="l00998" name="l00998"></a><span class="lineno">  998</span>  <span class="comment">// Copy constructor</span></div>
-<div class="line"><a id="l00999" name="l00999"></a><span class="lineno">  999</span>  VTXWriter(<span class="keyword">const</span> VTXWriter&amp;) = <span class="keyword">delete</span>;</div>
-<div class="line"><a id="l01000" name="l01000"></a><span class="lineno"> 1000</span> </div>
-<div class="line"><a id="l01002" name="l01002"></a><span class="lineno"> 1002</span>  VTXWriter(VTXWriter&amp;&amp; file) = <span class="keywordflow">default</span>;</div>
-<div class="line"><a id="l01003" name="l01003"></a><span class="lineno"> 1003</span> </div>
-<div class="line"><a id="l01005" name="l01005"></a><span class="lineno"> 1005</span>  ~VTXWriter() = <span class="keywordflow">default</span>;</div>
-<div class="line"><a id="l01006" name="l01006"></a><span class="lineno"> 1006</span> </div>
-<div class="line"><a id="l01008" name="l01008"></a><span class="lineno"> 1008</span>  VTXWriter&amp; operator=(VTXWriter&amp;&amp;) = <span class="keywordflow">default</span>;</div>
-<div class="line"><a id="l01009" name="l01009"></a><span class="lineno"> 1009</span> </div>
-<div class="line"><a id="l01010" name="l01010"></a><span class="lineno"> 1010</span>  <span class="comment">// Copy assignment</span></div>
-<div class="line"><a id="l01011" name="l01011"></a><span class="lineno"> 1011</span>  VTXWriter&amp; operator=(<span class="keyword">const</span> VTXWriter&amp;) = <span class="keyword">delete</span>;</div>
-<div class="line"><a id="l01012" name="l01012"></a><span class="lineno"> 1012</span> </div>
-<div class="line"><a id="l01015" name="l01015"></a><span class="lineno"> 1015</span>  <span class="keywordtype">void</span> write(<span class="keywordtype">double</span> t)</div>
-<div class="line"><a id="l01016" name="l01016"></a><span class="lineno"> 1016</span>  {</div>
-<div class="line"><a id="l01017" name="l01017"></a><span class="lineno"> 1017</span>    assert(_io);</div>
-<div class="line"><a id="l01018" name="l01018"></a><span class="lineno"> 1018</span>    adios2::Variable var_step</div>
-<div class="line"><a id="l01019" name="l01019"></a><span class="lineno"> 1019</span>        = impl_adios2::define_variable&lt;double&gt;(*_io, <span class="stringliteral">&quot;step&quot;</span>);</div>
-<div class="line"><a id="l01020" name="l01020"></a><span class="lineno"> 1020</span> </div>
-<div class="line"><a id="l01021" name="l01021"></a><span class="lineno"> 1021</span>    assert(_engine);</div>
-<div class="line"><a id="l01022" name="l01022"></a><span class="lineno"> 1022</span>    _engine-&gt;BeginStep();</div>
-<div class="line"><a id="l01023" name="l01023"></a><span class="lineno"> 1023</span>    _engine-&gt;template Put&lt;double&gt;(var_step, t);</div>
-<div class="line"><a id="l01024" name="l01024"></a><span class="lineno"> 1024</span> </div>
-<div class="line"><a id="l01025" name="l01025"></a><span class="lineno"> 1025</span>    <span class="comment">// If we have no functions write the mesh to file</span></div>
-<div class="line"><a id="l01026" name="l01026"></a><span class="lineno"> 1026</span>    <span class="keywordflow">if</span> (_u.empty())</div>
-<div class="line"><a id="l01027" name="l01027"></a><span class="lineno"> 1027</span>      impl_vtx::vtx_write_mesh(*_io, *_engine, *_mesh);</div>
-<div class="line"><a id="l01028" name="l01028"></a><span class="lineno"> 1028</span>    <span class="keywordflow">else</span></div>
-<div class="line"><a id="l01029" name="l01029"></a><span class="lineno"> 1029</span>    {</div>
-<div class="line"><a id="l01030" name="l01030"></a><span class="lineno"> 1030</span>      <span class="keywordflow">if</span> (_mesh_reuse_policy == VTXMeshPolicy::update</div>
-<div class="line"><a id="l01031" name="l01031"></a><span class="lineno"> 1031</span>          or !(_io-&gt;template InquireVariable&lt;std::int64_t&gt;(<span class="stringliteral">&quot;connectivity&quot;</span>)))</div>
-<div class="line"><a id="l01032" name="l01032"></a><span class="lineno"> 1032</span>      {</div>
-<div class="line"><a id="l01033" name="l01033"></a><span class="lineno"> 1033</span>        <span class="comment">// Write a single mesh for functions as they share finite</span></div>
-<div class="line"><a id="l01034" name="l01034"></a><span class="lineno"> 1034</span>        <span class="comment">// element</span></div>
-<div class="line"><a id="l01035" name="l01035"></a><span class="lineno"> 1035</span>        std::tie(_x_id, _x_ghost) = std::visit(</div>
-<div class="line"><a id="l01036" name="l01036"></a><span class="lineno"> 1036</span>            [&amp;](<span class="keyword">auto</span>&amp; u)</div>
-<div class="line"><a id="l01037" name="l01037"></a><span class="lineno"> 1037</span>            {</div>
-<div class="line"><a id="l01038" name="l01038"></a><span class="lineno"> 1038</span>              <span class="keywordflow">return</span> impl_vtx::vtx_write_mesh_from_space(*_io, *_engine,</div>
-<div class="line"><a id="l01039" name="l01039"></a><span class="lineno"> 1039</span>                                                         *u-&gt;function_space());</div>
-<div class="line"><a id="l01040" name="l01040"></a><span class="lineno"> 1040</span>            },</div>
-<div class="line"><a id="l01041" name="l01041"></a><span class="lineno"> 1041</span>            _u[0]);</div>
-<div class="line"><a id="l01042" name="l01042"></a><span class="lineno"> 1042</span>      }</div>
-<div class="line"><a id="l01043" name="l01043"></a><span class="lineno"> 1043</span>      <span class="keywordflow">else</span></div>
+<div class="line"><a id="l00936" name="l00936"></a><span class="lineno">  936</span>      _is_piecewise_constant = <span class="keyword">true</span>;</div>
+<div class="line"><a id="l00937" name="l00937"></a><span class="lineno">  937</span> </div>
+<div class="line"><a id="l00938" name="l00938"></a><span class="lineno">  938</span>    <span class="comment">// Check that all functions come from same element type</span></div>
+<div class="line"><a id="l00939" name="l00939"></a><span class="lineno">  939</span>    <span class="keywordflow">for</span> (<span class="keyword">auto</span>&amp; v : _u)</div>
+<div class="line"><a id="l00940" name="l00940"></a><span class="lineno">  940</span>    {</div>
+<div class="line"><a id="l00941" name="l00941"></a><span class="lineno">  941</span>      std::visit(</div>
+<div class="line"><a id="l00942" name="l00942"></a><span class="lineno">  942</span>          [V0](<span class="keyword">auto</span>&amp; u)</div>
+<div class="line"><a id="l00943" name="l00943"></a><span class="lineno">  943</span>          {</div>
+<div class="line"><a id="l00944" name="l00944"></a><span class="lineno">  944</span>            <span class="keyword">auto</span> element = u-&gt;function_space()-&gt;element();</div>
+<div class="line"><a id="l00945" name="l00945"></a><span class="lineno">  945</span>            assert(element);</div>
+<div class="line"><a id="l00946" name="l00946"></a><span class="lineno">  946</span>            <span class="keywordflow">if</span> (*element != *V0-&gt;element().get())</div>
+<div class="line"><a id="l00947" name="l00947"></a><span class="lineno">  947</span>            {</div>
+<div class="line"><a id="l00948" name="l00948"></a><span class="lineno">  948</span>              <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;All functions in VTXWriter must have &quot;</span></div>
+<div class="line"><a id="l00949" name="l00949"></a><span class="lineno">  949</span>                                       <span class="stringliteral">&quot;the same element type.&quot;</span>);</div>
+<div class="line"><a id="l00950" name="l00950"></a><span class="lineno">  950</span>            }</div>
+<div class="line"><a id="l00951" name="l00951"></a><span class="lineno">  951</span><span class="preprocessor">#ifndef NDEBUG</span></div>
+<div class="line"><a id="l00952" name="l00952"></a><span class="lineno">  952</span>            <span class="keyword">auto</span> dmap0 = V0-&gt;dofmap()-&gt;map();</div>
+<div class="line"><a id="l00953" name="l00953"></a><span class="lineno">  953</span>            <span class="keyword">auto</span> dmap = u-&gt;function_space()-&gt;dofmap()-&gt;map();</div>
+<div class="line"><a id="l00954" name="l00954"></a><span class="lineno">  954</span>            <span class="keywordflow">if</span> (dmap0.size() != dmap.size()</div>
+<div class="line"><a id="l00955" name="l00955"></a><span class="lineno">  955</span>                or !std::equal(dmap0.data_handle(),</div>
+<div class="line"><a id="l00956" name="l00956"></a><span class="lineno">  956</span>                               dmap0.data_handle() + dmap0.size(),</div>
+<div class="line"><a id="l00957" name="l00957"></a><span class="lineno">  957</span>                               dmap.data_handle()))</div>
+<div class="line"><a id="l00958" name="l00958"></a><span class="lineno">  958</span>            {</div>
+<div class="line"><a id="l00959" name="l00959"></a><span class="lineno">  959</span>              <span class="keywordflow">throw</span> std::runtime_error(</div>
+<div class="line"><a id="l00960" name="l00960"></a><span class="lineno">  960</span>                  <span class="stringliteral">&quot;All functions must have the same dofmap for VTXWriter.&quot;</span>);</div>
+<div class="line"><a id="l00961" name="l00961"></a><span class="lineno">  961</span>            }</div>
+<div class="line"><a id="l00962" name="l00962"></a><span class="lineno">  962</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l00963" name="l00963"></a><span class="lineno">  963</span>          },</div>
+<div class="line"><a id="l00964" name="l00964"></a><span class="lineno">  964</span>          v);</div>
+<div class="line"><a id="l00965" name="l00965"></a><span class="lineno">  965</span>    }</div>
+<div class="line"><a id="l00966" name="l00966"></a><span class="lineno">  966</span> </div>
+<div class="line"><a id="l00967" name="l00967"></a><span class="lineno">  967</span>    <span class="comment">// Define VTK scheme attribute for set of functions</span></div>
+<div class="line"><a id="l00968" name="l00968"></a><span class="lineno">  968</span>    std::vector&lt;std::string&gt; names = impl_vtx::extract_function_names&lt;T&gt;(u);</div>
+<div class="line"><a id="l00969" name="l00969"></a><span class="lineno">  969</span>    std::string vtk_scheme;</div>
+<div class="line"><a id="l00970" name="l00970"></a><span class="lineno">  970</span>    <span class="keywordflow">if</span> (_is_piecewise_constant)</div>
+<div class="line"><a id="l00971" name="l00971"></a><span class="lineno">  971</span>      vtk_scheme = impl_vtx::create_vtk_schema({}, names).str();</div>
+<div class="line"><a id="l00972" name="l00972"></a><span class="lineno">  972</span>    <span class="keywordflow">else</span></div>
+<div class="line"><a id="l00973" name="l00973"></a><span class="lineno">  973</span>      vtk_scheme = impl_vtx::create_vtk_schema(names, {}).str();</div>
+<div class="line"><a id="l00974" name="l00974"></a><span class="lineno">  974</span> </div>
+<div class="line"><a id="l00975" name="l00975"></a><span class="lineno">  975</span>    impl_adios2::define_attribute&lt;std::string&gt;(*_io, <span class="stringliteral">&quot;vtk.xml&quot;</span>, vtk_scheme);</div>
+<div class="line"><a id="l00976" name="l00976"></a><span class="lineno">  976</span>  }</div>
+<div class="line"><a id="l00977" name="l00977"></a><span class="lineno">  977</span> </div>
+<div class="line"><a id="l00992" name="l00992"></a><span class="lineno">  992</span>  VTXWriter(MPI_Comm comm, <span class="keyword">const</span> std::filesystem::path&amp; filename,</div>
+<div class="line"><a id="l00993" name="l00993"></a><span class="lineno">  993</span>            <span class="keyword">const</span> <span class="keyword">typename</span> adios2_writer::U&lt;T&gt;&amp; u,</div>
+<div class="line"><a id="l00994" name="l00994"></a><span class="lineno">  994</span>            VTXMeshPolicy mesh_policy = VTXMeshPolicy::update)</div>
+<div class="line"><a id="l00995" name="l00995"></a><span class="lineno">  995</span>      : VTXWriter(comm, filename, u, <span class="stringliteral">&quot;BPFile&quot;</span>, mesh_policy)</div>
+<div class="line"><a id="l00996" name="l00996"></a><span class="lineno">  996</span>  {</div>
+<div class="line"><a id="l00997" name="l00997"></a><span class="lineno">  997</span>  }</div>
+<div class="line"><a id="l00998" name="l00998"></a><span class="lineno">  998</span> </div>
+<div class="line"><a id="l00999" name="l00999"></a><span class="lineno">  999</span>  <span class="comment">// Copy constructor</span></div>
+<div class="line"><a id="l01000" name="l01000"></a><span class="lineno"> 1000</span>  VTXWriter(<span class="keyword">const</span> VTXWriter&amp;) = <span class="keyword">delete</span>;</div>
+<div class="line"><a id="l01001" name="l01001"></a><span class="lineno"> 1001</span> </div>
+<div class="line"><a id="l01003" name="l01003"></a><span class="lineno"> 1003</span>  VTXWriter(VTXWriter&amp;&amp; file) = <span class="keywordflow">default</span>;</div>
+<div class="line"><a id="l01004" name="l01004"></a><span class="lineno"> 1004</span> </div>
+<div class="line"><a id="l01006" name="l01006"></a><span class="lineno"> 1006</span>  ~VTXWriter() = <span class="keywordflow">default</span>;</div>
+<div class="line"><a id="l01007" name="l01007"></a><span class="lineno"> 1007</span> </div>
+<div class="line"><a id="l01009" name="l01009"></a><span class="lineno"> 1009</span>  VTXWriter&amp; operator=(VTXWriter&amp;&amp;) = <span class="keywordflow">default</span>;</div>
+<div class="line"><a id="l01010" name="l01010"></a><span class="lineno"> 1010</span> </div>
+<div class="line"><a id="l01011" name="l01011"></a><span class="lineno"> 1011</span>  <span class="comment">// Copy assignment</span></div>
+<div class="line"><a id="l01012" name="l01012"></a><span class="lineno"> 1012</span>  VTXWriter&amp; operator=(<span class="keyword">const</span> VTXWriter&amp;) = <span class="keyword">delete</span>;</div>
+<div class="line"><a id="l01013" name="l01013"></a><span class="lineno"> 1013</span> </div>
+<div class="line"><a id="l01016" name="l01016"></a><span class="lineno"> 1016</span>  <span class="keywordtype">void</span> write(<span class="keywordtype">double</span> t)</div>
+<div class="line"><a id="l01017" name="l01017"></a><span class="lineno"> 1017</span>  {</div>
+<div class="line"><a id="l01018" name="l01018"></a><span class="lineno"> 1018</span>    assert(_io);</div>
+<div class="line"><a id="l01019" name="l01019"></a><span class="lineno"> 1019</span>    adios2::Variable var_step</div>
+<div class="line"><a id="l01020" name="l01020"></a><span class="lineno"> 1020</span>        = impl_adios2::define_variable&lt;double&gt;(*_io, <span class="stringliteral">&quot;step&quot;</span>);</div>
+<div class="line"><a id="l01021" name="l01021"></a><span class="lineno"> 1021</span> </div>
+<div class="line"><a id="l01022" name="l01022"></a><span class="lineno"> 1022</span>    assert(_engine);</div>
+<div class="line"><a id="l01023" name="l01023"></a><span class="lineno"> 1023</span>    _engine-&gt;BeginStep();</div>
+<div class="line"><a id="l01024" name="l01024"></a><span class="lineno"> 1024</span>    _engine-&gt;template Put&lt;double&gt;(var_step, t);</div>
+<div class="line"><a id="l01025" name="l01025"></a><span class="lineno"> 1025</span> </div>
+<div class="line"><a id="l01026" name="l01026"></a><span class="lineno"> 1026</span>    <span class="comment">// If we have no functions or DG functions write the mesh to file</span></div>
+<div class="line"><a id="l01027" name="l01027"></a><span class="lineno"> 1027</span>    <span class="keywordflow">if</span> (_is_piecewise_constant or _u.empty())</div>
+<div class="line"><a id="l01028" name="l01028"></a><span class="lineno"> 1028</span>    {</div>
+<div class="line"><a id="l01029" name="l01029"></a><span class="lineno"> 1029</span>      impl_vtx::vtx_write_mesh(*_io, *_engine, *_mesh);</div>
+<div class="line"><a id="l01030" name="l01030"></a><span class="lineno"> 1030</span>      <span class="keywordflow">if</span> (_is_piecewise_constant)</div>
+<div class="line"><a id="l01031" name="l01031"></a><span class="lineno"> 1031</span>      {</div>
+<div class="line"><a id="l01032" name="l01032"></a><span class="lineno"> 1032</span>        <span class="keywordflow">for</span> (<span class="keyword">auto</span>&amp; v : _u)</div>
+<div class="line"><a id="l01033" name="l01033"></a><span class="lineno"> 1033</span>        {</div>
+<div class="line"><a id="l01034" name="l01034"></a><span class="lineno"> 1034</span>          std::visit([&amp;](<span class="keyword">auto</span>&amp; u)</div>
+<div class="line"><a id="l01035" name="l01035"></a><span class="lineno"> 1035</span>                     { impl_vtx::vtx_write_data(*_io, *_engine, *u); },</div>
+<div class="line"><a id="l01036" name="l01036"></a><span class="lineno"> 1036</span>                     v);</div>
+<div class="line"><a id="l01037" name="l01037"></a><span class="lineno"> 1037</span>        }</div>
+<div class="line"><a id="l01038" name="l01038"></a><span class="lineno"> 1038</span>      }</div>
+<div class="line"><a id="l01039" name="l01039"></a><span class="lineno"> 1039</span>    }</div>
+<div class="line"><a id="l01040" name="l01040"></a><span class="lineno"> 1040</span>    <span class="keywordflow">else</span></div>
+<div class="line"><a id="l01041" name="l01041"></a><span class="lineno"> 1041</span>    {</div>
+<div class="line"><a id="l01042" name="l01042"></a><span class="lineno"> 1042</span>      <span class="keywordflow">if</span> (_mesh_reuse_policy == VTXMeshPolicy::update</div>
+<div class="line"><a id="l01043" name="l01043"></a><span class="lineno"> 1043</span>          or !(_io-&gt;template InquireVariable&lt;std::int64_t&gt;(<span class="stringliteral">&quot;connectivity&quot;</span>)))</div>
 <div class="line"><a id="l01044" name="l01044"></a><span class="lineno"> 1044</span>      {</div>
-<div class="line"><a id="l01045" name="l01045"></a><span class="lineno"> 1045</span>        <span class="comment">// Node global ids</span></div>
-<div class="line"><a id="l01046" name="l01046"></a><span class="lineno"> 1046</span>        adios2::Variable orig_id = impl_adios2::define_variable&lt;std::int64_t&gt;(</div>
-<div class="line"><a id="l01047" name="l01047"></a><span class="lineno"> 1047</span>            *_io, <span class="stringliteral">&quot;vtkOriginalPointIds&quot;</span>, {}, {}, {_x_id.size()});</div>
-<div class="line"><a id="l01048" name="l01048"></a><span class="lineno"> 1048</span>        _engine-&gt;Put(orig_id, _x_id.data());</div>
-<div class="line"><a id="l01049" name="l01049"></a><span class="lineno"> 1049</span>        adios2::Variable ghost = impl_adios2::define_variable&lt;std::uint8_t&gt;(</div>
-<div class="line"><a id="l01050" name="l01050"></a><span class="lineno"> 1050</span>            *_io, <span class="stringliteral">&quot;vtkGhostType&quot;</span>, {}, {}, {_x_ghost.size()});</div>
-<div class="line"><a id="l01051" name="l01051"></a><span class="lineno"> 1051</span>        _engine-&gt;Put(ghost, _x_ghost.data());</div>
-<div class="line"><a id="l01052" name="l01052"></a><span class="lineno"> 1052</span>        _engine-&gt;PerformPuts();</div>
-<div class="line"><a id="l01053" name="l01053"></a><span class="lineno"> 1053</span>      }</div>
-<div class="line"><a id="l01054" name="l01054"></a><span class="lineno"> 1054</span> </div>
-<div class="line"><a id="l01055" name="l01055"></a><span class="lineno"> 1055</span>      <span class="comment">// Write function data for each function to file</span></div>
-<div class="line"><a id="l01056" name="l01056"></a><span class="lineno"> 1056</span>      <span class="keywordflow">for</span> (<span class="keyword">auto</span>&amp; v : _u)</div>
-<div class="line"><a id="l01057" name="l01057"></a><span class="lineno"> 1057</span>      {</div>
-<div class="line"><a id="l01058" name="l01058"></a><span class="lineno"> 1058</span>        std::visit(</div>
-<div class="line"><a id="l01059" name="l01059"></a><span class="lineno"> 1059</span>            [&amp;](<span class="keyword">auto</span>&amp; u) { impl_vtx::vtx_write_data(*_io, *_engine, *u); }, v);</div>
-<div class="line"><a id="l01060" name="l01060"></a><span class="lineno"> 1060</span>      }</div>
-<div class="line"><a id="l01061" name="l01061"></a><span class="lineno"> 1061</span>    }</div>
-<div class="line"><a id="l01062" name="l01062"></a><span class="lineno"> 1062</span> </div>
-<div class="line"><a id="l01063" name="l01063"></a><span class="lineno"> 1063</span>    _engine-&gt;EndStep();</div>
-<div class="line"><a id="l01064" name="l01064"></a><span class="lineno"> 1064</span>  }</div>
-<div class="line"><a id="l01065" name="l01065"></a><span class="lineno"> 1065</span> </div>
-<div class="line"><a id="l01066" name="l01066"></a><span class="lineno"> 1066</span><span class="keyword">private</span>:</div>
-<div class="line"><a id="l01067" name="l01067"></a><span class="lineno"> 1067</span>  std::shared_ptr&lt;const mesh::Mesh&lt;T&gt;&gt; _mesh;</div>
-<div class="line"><a id="l01068" name="l01068"></a><span class="lineno"> 1068</span>  adios2_writer::U&lt;T&gt; _u;</div>
-<div class="line"><a id="l01069" name="l01069"></a><span class="lineno"> 1069</span> </div>
-<div class="line"><a id="l01070" name="l01070"></a><span class="lineno"> 1070</span>  <span class="comment">// Control whether the mesh is written to file once or at every time</span></div>
-<div class="line"><a id="l01071" name="l01071"></a><span class="lineno"> 1071</span>  <span class="comment">// step</span></div>
-<div class="line"><a id="l01072" name="l01072"></a><span class="lineno"> 1072</span>  VTXMeshPolicy _mesh_reuse_policy;</div>
-<div class="line"><a id="l01073" name="l01073"></a><span class="lineno"> 1073</span>  std::vector&lt;std::int64_t&gt; _x_id;</div>
-<div class="line"><a id="l01074" name="l01074"></a><span class="lineno"> 1074</span>  std::vector&lt;std::uint8_t&gt; _x_ghost;</div>
-<div class="line"><a id="l01075" name="l01075"></a><span class="lineno"> 1075</span>};</div>
-<div class="line"><a id="l01076" name="l01076"></a><span class="lineno"> 1076</span> </div>
-<div class="line"><a id="l01078" name="l01078"></a><span class="lineno"> 1078</span><span class="keyword">template</span> &lt;<span class="keyword">typename</span> U, <span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a id="l01079" name="l01079"></a><span class="lineno"> 1079</span>VTXWriter(MPI_Comm comm, U filename, T mesh)</div>
-<div class="line"><a id="l01080" name="l01080"></a><span class="lineno"> 1080</span>    -&gt; VTXWriter&lt;<span class="keyword">typename</span> std::remove_cvref&lt;</div>
-<div class="line"><a id="l01081" name="l01081"></a><span class="lineno"> 1081</span>        <span class="keyword">typename</span> T::element_type&gt;::type::geometry_type::value_type&gt;;</div>
-<div class="line"><a id="l01082" name="l01082"></a><span class="lineno"> 1082</span> </div>
-<div class="line"><a id="l01084" name="l01084"></a><span class="lineno"> 1084</span><span class="keyword">template</span> &lt;<span class="keyword">typename</span> U, <span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a id="l01085" name="l01085"></a><span class="lineno"> 1085</span>FidesWriter(MPI_Comm comm, U filename, T mesh)</div>
-<div class="line"><a id="l01086" name="l01086"></a><span class="lineno"> 1086</span>    -&gt; FidesWriter&lt;<span class="keyword">typename</span> std::remove_cvref&lt;</div>
-<div class="line"><a id="l01087" name="l01087"></a><span class="lineno"> 1087</span>        <span class="keyword">typename</span> T::element_type&gt;::type::geometry_type::value_type&gt;;</div>
-<div class="line"><a id="l01088" name="l01088"></a><span class="lineno"> 1088</span> </div>
-<div class="line"><a id="l01089" name="l01089"></a><span class="lineno"> 1089</span>} <span class="comment">// namespace dolfinx::io</span></div>
+<div class="line"><a id="l01045" name="l01045"></a><span class="lineno"> 1045</span>        <span class="comment">// Write a single mesh for functions as they share finite</span></div>
+<div class="line"><a id="l01046" name="l01046"></a><span class="lineno"> 1046</span>        <span class="comment">// element</span></div>
+<div class="line"><a id="l01047" name="l01047"></a><span class="lineno"> 1047</span>        std::tie(_x_id, _x_ghost) = std::visit(</div>
+<div class="line"><a id="l01048" name="l01048"></a><span class="lineno"> 1048</span>            [&amp;](<span class="keyword">auto</span>&amp; u)</div>
+<div class="line"><a id="l01049" name="l01049"></a><span class="lineno"> 1049</span>            {</div>
+<div class="line"><a id="l01050" name="l01050"></a><span class="lineno"> 1050</span>              <span class="keywordflow">return</span> impl_vtx::vtx_write_mesh_from_space(*_io, *_engine,</div>
+<div class="line"><a id="l01051" name="l01051"></a><span class="lineno"> 1051</span>                                                         *u-&gt;function_space());</div>
+<div class="line"><a id="l01052" name="l01052"></a><span class="lineno"> 1052</span>            },</div>
+<div class="line"><a id="l01053" name="l01053"></a><span class="lineno"> 1053</span>            _u[0]);</div>
+<div class="line"><a id="l01054" name="l01054"></a><span class="lineno"> 1054</span>      }</div>
+<div class="line"><a id="l01055" name="l01055"></a><span class="lineno"> 1055</span>      <span class="keywordflow">else</span></div>
+<div class="line"><a id="l01056" name="l01056"></a><span class="lineno"> 1056</span>      {</div>
+<div class="line"><a id="l01057" name="l01057"></a><span class="lineno"> 1057</span>        <span class="comment">// Node global ids</span></div>
+<div class="line"><a id="l01058" name="l01058"></a><span class="lineno"> 1058</span>        adios2::Variable orig_id = impl_adios2::define_variable&lt;std::int64_t&gt;(</div>
+<div class="line"><a id="l01059" name="l01059"></a><span class="lineno"> 1059</span>            *_io, <span class="stringliteral">&quot;vtkOriginalPointIds&quot;</span>, {}, {}, {_x_id.size()});</div>
+<div class="line"><a id="l01060" name="l01060"></a><span class="lineno"> 1060</span>        _engine-&gt;Put(orig_id, _x_id.data());</div>
+<div class="line"><a id="l01061" name="l01061"></a><span class="lineno"> 1061</span>        adios2::Variable ghost = impl_adios2::define_variable&lt;std::uint8_t&gt;(</div>
+<div class="line"><a id="l01062" name="l01062"></a><span class="lineno"> 1062</span>            *_io, <span class="stringliteral">&quot;vtkGhostType&quot;</span>, {}, {}, {_x_ghost.size()});</div>
+<div class="line"><a id="l01063" name="l01063"></a><span class="lineno"> 1063</span>        _engine-&gt;Put(ghost, _x_ghost.data());</div>
+<div class="line"><a id="l01064" name="l01064"></a><span class="lineno"> 1064</span>        _engine-&gt;PerformPuts();</div>
+<div class="line"><a id="l01065" name="l01065"></a><span class="lineno"> 1065</span>      }</div>
+<div class="line"><a id="l01066" name="l01066"></a><span class="lineno"> 1066</span> </div>
+<div class="line"><a id="l01067" name="l01067"></a><span class="lineno"> 1067</span>      <span class="comment">// Write function data for each function to file</span></div>
+<div class="line"><a id="l01068" name="l01068"></a><span class="lineno"> 1068</span>      <span class="keywordflow">for</span> (<span class="keyword">auto</span>&amp; v : _u)</div>
+<div class="line"><a id="l01069" name="l01069"></a><span class="lineno"> 1069</span>      {</div>
+<div class="line"><a id="l01070" name="l01070"></a><span class="lineno"> 1070</span>        std::visit(</div>
+<div class="line"><a id="l01071" name="l01071"></a><span class="lineno"> 1071</span>            [&amp;](<span class="keyword">auto</span>&amp; u) { impl_vtx::vtx_write_data(*_io, *_engine, *u); }, v);</div>
+<div class="line"><a id="l01072" name="l01072"></a><span class="lineno"> 1072</span>      }</div>
+<div class="line"><a id="l01073" name="l01073"></a><span class="lineno"> 1073</span>    }</div>
+<div class="line"><a id="l01074" name="l01074"></a><span class="lineno"> 1074</span> </div>
+<div class="line"><a id="l01075" name="l01075"></a><span class="lineno"> 1075</span>    _engine-&gt;EndStep();</div>
+<div class="line"><a id="l01076" name="l01076"></a><span class="lineno"> 1076</span>  }</div>
+<div class="line"><a id="l01077" name="l01077"></a><span class="lineno"> 1077</span> </div>
+<div class="line"><a id="l01078" name="l01078"></a><span class="lineno"> 1078</span><span class="keyword">private</span>:</div>
+<div class="line"><a id="l01079" name="l01079"></a><span class="lineno"> 1079</span>  std::shared_ptr&lt;const mesh::Mesh&lt;T&gt;&gt; _mesh;</div>
+<div class="line"><a id="l01080" name="l01080"></a><span class="lineno"> 1080</span>  adios2_writer::U&lt;T&gt; _u;</div>
+<div class="line"><a id="l01081" name="l01081"></a><span class="lineno"> 1081</span> </div>
+<div class="line"><a id="l01082" name="l01082"></a><span class="lineno"> 1082</span>  <span class="comment">// Control whether the mesh is written to file once or at every time</span></div>
+<div class="line"><a id="l01083" name="l01083"></a><span class="lineno"> 1083</span>  <span class="comment">// step</span></div>
+<div class="line"><a id="l01084" name="l01084"></a><span class="lineno"> 1084</span>  VTXMeshPolicy _mesh_reuse_policy;</div>
+<div class="line"><a id="l01085" name="l01085"></a><span class="lineno"> 1085</span>  std::vector&lt;std::int64_t&gt; _x_id;</div>
+<div class="line"><a id="l01086" name="l01086"></a><span class="lineno"> 1086</span>  std::vector&lt;std::uint8_t&gt; _x_ghost;</div>
+<div class="line"><a id="l01087" name="l01087"></a><span class="lineno"> 1087</span> </div>
+<div class="line"><a id="l01088" name="l01088"></a><span class="lineno"> 1088</span>  <span class="comment">// Special handling of piecewise constant functions</span></div>
+<div class="line"><a id="l01089" name="l01089"></a><span class="lineno"> 1089</span>  <span class="keywordtype">bool</span> _is_piecewise_constant;</div>
+<div class="line"><a id="l01090" name="l01090"></a><span class="lineno"> 1090</span>};</div>
+<div class="line"><a id="l01091" name="l01091"></a><span class="lineno"> 1091</span> </div>
+<div class="line"><a id="l01093" name="l01093"></a><span class="lineno"> 1093</span><span class="keyword">template</span> &lt;<span class="keyword">typename</span> U, <span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a id="l01094" name="l01094"></a><span class="lineno"> 1094</span>VTXWriter(MPI_Comm comm, U filename, T mesh)</div>
+<div class="line"><a id="l01095" name="l01095"></a><span class="lineno"> 1095</span>    -&gt; VTXWriter&lt;<span class="keyword">typename</span> std::remove_cvref&lt;</div>
+<div class="line"><a id="l01096" name="l01096"></a><span class="lineno"> 1096</span>        <span class="keyword">typename</span> T::element_type&gt;::type::geometry_type::value_type&gt;;</div>
+<div class="line"><a id="l01097" name="l01097"></a><span class="lineno"> 1097</span> </div>
+<div class="line"><a id="l01099" name="l01099"></a><span class="lineno"> 1099</span><span class="keyword">template</span> &lt;<span class="keyword">typename</span> U, <span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a id="l01100" name="l01100"></a><span class="lineno"> 1100</span>FidesWriter(MPI_Comm comm, U filename, T mesh)</div>
+<div class="line"><a id="l01101" name="l01101"></a><span class="lineno"> 1101</span>    -&gt; FidesWriter&lt;<span class="keyword">typename</span> std::remove_cvref&lt;</div>
+<div class="line"><a id="l01102" name="l01102"></a><span class="lineno"> 1102</span>        <span class="keyword">typename</span> T::element_type&gt;::type::geometry_type::value_type&gt;;</div>
+<div class="line"><a id="l01103" name="l01103"></a><span class="lineno"> 1103</span> </div>
+<div class="line"><a id="l01104" name="l01104"></a><span class="lineno"> 1104</span>} <span class="comment">// namespace dolfinx::io</span></div>
 </div>
-<div class="line"><a id="l01090" name="l01090"></a><span class="lineno"> 1090</span> </div>
-<div class="line"><a id="l01091" name="l01091"></a><span class="lineno"> 1091</span><span class="preprocessor">#endif</span></div>
+<div class="line"><a id="l01105" name="l01105"></a><span class="lineno"> 1105</span> </div>
+<div class="line"><a id="l01106" name="l01106"></a><span class="lineno"> 1106</span><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="aADIOS2Writers_8h_html_a1f53408cd5a8c4baa563a7509c1d0c4e"><div class="ttname"><a href="../../df/d34/ADIOS2Writers_8h.html#a1f53408cd5a8c4baa563a7509c1d0c4e">dolfinx::io::impl_adios2::extract_common_mesh</a></div><div class="ttdeci">std::shared_ptr&lt; const mesh::Mesh&lt; T &gt; &gt; extract_common_mesh(const typename adios2_writer::U&lt; T &gt; &amp;u)</div><div class="ttdoc">Extract common mesh from list of Functions.</div><div class="ttdef"><b>Definition</b> ADIOS2Writers.h:132</div></div>
 <div class="ttc" id="aADIOS2Writers_8h_html_a30701124900661c39d6a104ee09dec49"><div class="ttname"><a href="../../df/d34/ADIOS2Writers_8h.html#a30701124900661c39d6a104ee09dec49">dolfinx::io::impl_vtx::vtx_write_mesh_from_space</a></div><div class="ttdeci">std::pair&lt; std::vector&lt; std::int64_t &gt;, std::vector&lt; std::uint8_t &gt; &gt; vtx_write_mesh_from_space(adios2::IO &amp;io, adios2::Engine &amp;engine, const fem::FunctionSpace&lt; T &gt; &amp;V)</div><div class="ttdoc">Given a FunctionSpace, create a topology and geometry based on the function space dof coordinates....</div><div class="ttdef"><b>Definition</b> ADIOS2Writers.h:783</div></div>
 <div class="ttc" id="aADIOS2Writers_8h_html_a352ac5684e7f8363fc414e8f09886be8"><div class="ttname"><a href="../../df/d34/ADIOS2Writers_8h.html#a352ac5684e7f8363fc414e8f09886be8">dolfinx::io::impl_adios2::define_variable</a></div><div class="ttdeci">adios2::Variable&lt; T &gt; define_variable(adios2::IO &amp;io, std::string name, const adios2::Dims &amp;shape=adios2::Dims(), const adios2::Dims &amp;start=adios2::Dims(), const adios2::Dims &amp;count=adios2::Dims())</div><div class="ttdoc">Safe definition of a variable. First check if it has already been defined and return it....</div><div class="ttdef"><b>Definition</b> ADIOS2Writers.h:114</div></div>
