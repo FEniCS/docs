@@ -1,10 +1,11 @@
 var searchData=
 [
-  ['tabulate_283',['tabulate',['../classbasix_1_1FiniteElement.html#a53b81aa1517fa85f40ab8d7e763627d4',1,'basix::FiniteElement::tabulate(int nd, impl::mdspan_t&lt; const F, 2 &gt; x) const'],['../classbasix_1_1FiniteElement.html#a27bbbe513ce61cfe4df1e630f2534832',1,'basix::FiniteElement::tabulate(int nd, std::span&lt; const F &gt; x, std::array&lt; std::size_t, 2 &gt; shape) const'],['../classbasix_1_1FiniteElement.html#a318c8c78c3bd964c05b3dd593bf0e122',1,'basix::FiniteElement::tabulate(int nd, impl::mdspan_t&lt; const F, 2 &gt; x, mdspan_t&lt; F, 4 &gt; basis) const'],['../classbasix_1_1FiniteElement.html#a39071d50e9e7777a642f515c545cc9ef',1,'basix::FiniteElement::tabulate(int nd, std::span&lt; const F &gt; x, std::array&lt; std::size_t, 2 &gt; xshape, std::span&lt; F &gt; basis) const'],['../namespacebasix_1_1polynomials.html#a4a05c99b81ed082a5c2cebd74bfea148',1,'basix::polynomials::tabulate()'],['../namespacebasix_1_1polyset.html#a535e46b2491c0ec69f7d7ed5f536dc7d',1,'basix::polyset::tabulate(cell::type celltype, polyset::type ptype, int d, int n, MDSPAN_IMPL_STANDARD_NAMESPACE::mdspan&lt; const T, MDSPAN_IMPL_STANDARD_NAMESPACE::dextents&lt; std::size_t, 2 &gt;&gt; x)'],['../namespacebasix_1_1polyset.html#aa9facc1362b1107a0775e6613d581324',1,'basix::polyset::tabulate(MDSPAN_IMPL_STANDARD_NAMESPACE::mdspan&lt; T, MDSPAN_IMPL_STANDARD_NAMESPACE::dextents&lt; std::size_t, 3 &gt;&gt; P, cell::type celltype, polyset::type ptype, int d, int n, MDSPAN_IMPL_STANDARD_NAMESPACE::mdspan&lt; const T, MDSPAN_IMPL_STANDARD_NAMESPACE::dextents&lt; std::size_t, 2 &gt;&gt; x)']]],
-  ['tabulate_5fshape_284',['tabulate_shape',['../classbasix_1_1FiniteElement.html#a97bfad3598917d05db627e06c8fe4399',1,'basix::FiniteElement']]],
-  ['topological_5fdimension_285',['topological_dimension',['../namespacebasix_1_1cell.html#a801bcee695d91d02f45dcbd9470d2f18',1,'basix::cell']]],
-  ['topology_286',['topology',['../namespacebasix_1_1cell.html#a5cae2b1e6148e0c376d6ad8ea32a2f44',1,'basix::cell']]],
-  ['tp_5fdof_5fordering_287',['tp_dof_ordering',['../namespacebasix.html#a262553e872a1b76a3e9c579c636ec082',1,'basix']]],
-  ['tp_5ffactors_288',['tp_factors',['../namespacebasix.html#a4ec50148c28bf3eb477c6f28b94300a1',1,'basix']]],
-  ['transpose_5flu_289',['transpose_lu',['../namespacebasix_1_1math.html#ae3c73e636dd4b9878420d38bbd72de16',1,'basix::math']]]
+  ['sobolev_5fspace_268',['sobolev_space',['../classbasix_1_1FiniteElement.html#a9b69240399a8db8705ba4305e88e34d1',1,'basix::FiniteElement']]],
+  ['solve_269',['solve',['../namespacebasix_1_1math.html#a5256552339970ac6455a47e8c78ec314',1,'basix::math']]],
+  ['space_5fintersection_270',['space_intersection',['../namespacebasix_1_1sobolev.html#a3014167d23250e483377ed1b2ea0bcbc',1,'basix::sobolev']]],
+  ['sub_5fentity_5fconnectivity_271',['sub_entity_connectivity',['../namespacebasix_1_1cell.html#a98b2aebaf61e060096e7bb0f7d131a29',1,'basix::cell']]],
+  ['sub_5fentity_5fgeometry_272',['sub_entity_geometry',['../namespacebasix_1_1cell.html#aa7eff842f4d1403ea1481a091fd5e835',1,'basix::cell']]],
+  ['sub_5fentity_5ftype_273',['sub_entity_type',['../namespacebasix_1_1cell.html#a4969dbd91b9a39f335d687ec0e502624',1,'basix::cell']]],
+  ['subentity_5ftypes_274',['subentity_types',['../namespacebasix_1_1cell.html#a5dd8a1c86ba94d84a5a01cef49e0948c',1,'basix::cell']]],
+  ['superset_275',['superset',['../namespacebasix_1_1polyset.html#addff9b18eddf754b6abf07133bc44ba6',1,'basix::polyset']]]
 ];

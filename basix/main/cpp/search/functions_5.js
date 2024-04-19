@@ -1,8 +1,10 @@
 var searchData=
 [
-  ['geometry_225',['geometry',['../namespacebasix_1_1cell.html#afc4d87a942897c513cc1c1e914a80713',1,'basix::cell']]],
-  ['get_5fdefault_5frule_226',['get_default_rule',['../namespacebasix_1_1quadrature.html#ad2bbc628e9563db03fe73360b45a9fa9',1,'basix::quadrature']]],
-  ['get_5fgl_5fpoints_227',['get_gl_points',['../namespacebasix_1_1quadrature.html#af4bdb01201e61815746910ec42a2e3df',1,'basix::quadrature']]],
-  ['get_5fgll_5fpoints_228',['get_gll_points',['../namespacebasix_1_1quadrature.html#aa1adf2cae9ddac53fdb2d66ba7f5f38b',1,'basix::quadrature']]],
-  ['get_5ftensor_5fproduct_5frepresentation_229',['get_tensor_product_representation',['../classbasix_1_1FiniteElement.html#a147a6c863dc4b0af508be9f4d0ff9927',1,'basix::FiniteElement']]]
+  ['facet_5fjacobians_223',['facet_jacobians',['../namespacebasix_1_1cell.html#a3596c0d2cc8b631203369001f92b7126',1,'basix::cell']]],
+  ['facet_5fnormals_224',['facet_normals',['../namespacebasix_1_1cell.html#aae075404bc538561d0503a942e192d83',1,'basix::cell']]],
+  ['facet_5forientations_225',['facet_orientations',['../namespacebasix_1_1cell.html#a1b8790f3435961ac3a681858d09723d3',1,'basix::cell']]],
+  ['facet_5foutward_5fnormals_226',['facet_outward_normals',['../namespacebasix_1_1cell.html#ae221b5f50bc4e51ca557cb08bcb12d21',1,'basix::cell']]],
+  ['facet_5freference_5fvolumes_227',['facet_reference_volumes',['../namespacebasix_1_1cell.html#a507207b8093fdccc1dda7e4e72d70314',1,'basix::cell']]],
+  ['family_228',['family',['../classbasix_1_1FiniteElement.html#af632d219b4c4b9f6a23ea124208c678e',1,'basix::FiniteElement']]],
+  ['finiteelement_229',['FiniteElement',['../classbasix_1_1FiniteElement.html#a5f8794de82cfc63ce8e40fad99802dfe',1,'basix::FiniteElement::FiniteElement(element::family family, cell::type cell_type, polyset::type poly_type, int degree, const std::vector&lt; std::size_t &gt; &amp;value_shape, mdspan_t&lt; const F, 2 &gt; wcoeffs, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 2 &gt;&gt;, 4 &gt; &amp;x, const std::array&lt; std::vector&lt; mdspan_t&lt; const F, 4 &gt;&gt;, 4 &gt; &amp;M, int interpolation_nderivs, maps::type map_type, sobolev::space sobolev_space, bool discontinuous, int embedded_subdegree, int embedded_superdegree, element::lagrange_variant lvariant, element::dpc_variant dvariant, std::vector&lt; int &gt; dof_ordering={})'],['../classbasix_1_1FiniteElement.html#a9f059df079ea875e2768b650ef71ac3b',1,'basix::FiniteElement::FiniteElement(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#a4a61c4b3ff76e3136c87c998674be332',1,'basix::FiniteElement::FiniteElement(FiniteElement &amp;&amp;element)=default']]]
 ];

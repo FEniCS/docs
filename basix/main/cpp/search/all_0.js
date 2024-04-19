@@ -1,19 +1,8 @@
 var searchData=
 [
-  ['base_5ftransformations_0',['base_transformations',['../classbasix_1_1FiniteElement.html#a1ec2f9542fb0f555e73605045130eaef',1,'basix::FiniteElement']]],
-  ['basix_1',['basix',['../namespacebasix.html',1,'']]],
-  ['basix_20c_2b_2b_20documentation_2',['Basix C++ documentation',['../index.html',1,'']]],
-  ['cell_3',['cell',['../namespacebasix_1_1cell.html',1,'basix']]],
-  ['doftransforms_4',['doftransforms',['../namespacebasix_1_1doftransforms.html',1,'basix']]],
-  ['element_5',['element',['../namespacebasix_1_1element.html',1,'basix']]],
-  ['indexing_6',['indexing',['../namespacebasix_1_1indexing.html',1,'basix']]],
-  ['lattice_7',['lattice',['../namespacebasix_1_1lattice.html',1,'basix']]],
-  ['maps_8',['maps',['../namespacebasix_1_1maps.html',1,'basix']]],
-  ['math_9',['math',['../namespacebasix_1_1math.html',1,'basix']]],
-  ['moments_10',['moments',['../namespacebasix_1_1moments.html',1,'basix']]],
-  ['polynomials_11',['polynomials',['../namespacebasix_1_1polynomials.html',1,'basix']]],
-  ['polyset_12',['polyset',['../namespacebasix_1_1polyset.html',1,'basix']]],
-  ['precompute_13',['precompute',['../namespacebasix_1_1precompute.html',1,'basix']]],
-  ['quadrature_14',['quadrature',['../namespacebasix_1_1quadrature.html',1,'basix']]],
-  ['sobolev_15',['sobolev',['../namespacebasix_1_1sobolev.html',1,'basix']]]
+  ['apply_5finv_5fpermutation_5fright_0',['apply_inv_permutation_right',['../namespacebasix_1_1precompute.html#a7c913b8aafce7e287a6d1849d5414b23',1,'basix::precompute']]],
+  ['apply_5fmatrix_1',['apply_matrix',['../namespacebasix_1_1precompute.html#a8a6cc95021f4fa43d5572a916a67478e',1,'basix::precompute']]],
+  ['apply_5fpermutation_2',['apply_permutation',['../namespacebasix_1_1precompute.html#a77b6b512082a53c8d61568b056569e0d',1,'basix::precompute']]],
+  ['apply_5fpermutation_5fmapped_3',['apply_permutation_mapped',['../namespacebasix_1_1precompute.html#abda997f9505a90811d080e4f236a8154',1,'basix::precompute']]],
+  ['apply_5ftranpose_5fmatrix_5fright_4',['apply_tranpose_matrix_right',['../namespacebasix_1_1precompute.html#a72c41b2ef0b665b3149ebfcd02dc496a',1,'basix::precompute']]]
 ];

@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['operator_3d_104',['operator=',['../classbasix_1_1FiniteElement.html#a98bc7f3a482d24985b474a8b061dc41b',1,'basix::FiniteElement::operator=(const FiniteElement &amp;element)=default'],['../classbasix_1_1FiniteElement.html#ad4844b665541542aa3d0bc5b60ee5cce',1,'basix::FiniteElement::operator=(FiniteElement &amp;&amp;element)=default']]],
-  ['operator_3d_3d_105',['operator==',['../classbasix_1_1FiniteElement.html#a369c8049d19ca40e09189498feeee720',1,'basix::FiniteElement']]],
-  ['orthogonalise_106',['orthogonalise',['../namespacebasix_1_1math.html#aa889d437c908878a3ad15e2219d7a233',1,'basix::math']]],
-  ['outer_107',['outer',['../namespacebasix_1_1math.html#a327229375efcf4b72426f36431601e8e',1,'basix::math']]]
+  ['nderivs_106',['nderivs',['../namespacebasix_1_1polyset.html#a7a6e365944a944f005610968ffba2dfc',1,'basix::polyset']]],
+  ['none_107',['none',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'basix::lattice']]],
+  ['num_5fsub_5fentities_108',['num_sub_entities',['../namespacebasix_1_1cell.html#a2006170ad82ba92eb4554d23c6954f36',1,'basix::cell']]]
 ];
