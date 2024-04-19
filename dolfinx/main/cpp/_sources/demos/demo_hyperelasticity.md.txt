@@ -22,6 +22,7 @@ trial and test functions on this space:
 from basix.ufl import element
 from ufl import (
     Coefficient,
+    Constant,
     FunctionSpace,
     Identity,
     Mesh,
@@ -30,8 +31,10 @@ from ufl import (
     derivative,
     det,
     diff,
+    ds,
     dx,
     grad,
+    inner,
     ln,
     tr,
     variable,
@@ -60,8 +63,8 @@ traction `T` and the displacement solution itself `u`:
 ```python
 # Functions
 u = Coefficient(V)  # Displacement from previous iteration
-# B = Coefficient(element)        # Body force per unit volume
-# T = Coefficient(element)        # Traction force on the boundary
+B = Constant(mesh, shape=(3,))  # Body force per unit volume
+T = Constant(mesh, shape=(3,))  # Traction force on the boundary
 ```
 
 Now, we can define the kinematic quantities involved in the model:
@@ -103,7 +106,7 @@ psi = (mu / 2) * (Ic - 3) - mu * ln(J) + (lmbda / 2) * (ln(J)) ** 2
 
 ```python
 # Total potential energy
-Pi = psi * dx  # - inner(B, u) * dx - inner(T, u) * ds
+Pi = psi * dx - inner(B, u) * dx - inner(T, u) * ds
 ```
 
 ```python
@@ -285,12 +288,17 @@ int main(int argc, char* argv[])
     auto V = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace(
         functionspace_form_hyperelasticity_F_form, "u", mesh));
 
+    auto B = std::make_shared<fem::Constant<T>>(std::vector<T>{0, 0, 0});
+    auto traction = std::make_shared<fem::Constant<T>>(std::vector<T>{0, 0, 0});
+
     // Define solution function
     auto u = std::make_shared<fem::Function<T>>(V);
-    auto a = std::make_shared<fem::Form<T>>(fem::create_form<T>(
-        *form_hyperelasticity_J_form, {V, V}, {{"u", u}}, {}, {}));
-    auto L = std::make_shared<fem::Form<T>>(fem::create_form<T>(
-        *form_hyperelasticity_F_form, {V}, {{"u", u}}, {}, {}));
+    auto a = std::make_shared<fem::Form<T>>(
+        fem::create_form<T>(*form_hyperelasticity_J_form, {V, V}, {{"u", u}},
+                            {{"B", B}, {"T", traction}}, {}));
+    auto L = std::make_shared<fem::Form<T>>(
+        fem::create_form<T>(*form_hyperelasticity_F_form, {V}, {{"u", u}},
+                            {{"B", B}, {"T", traction}}, {}));
 
     auto u_rotation = std::make_shared<fem::Function<T>>(V);
     u_rotation->interpolate(
@@ -368,7 +376,8 @@ int main(int argc, char* argv[])
     newton_solver.atol = 10 * std::numeric_limits<T>::epsilon();
 
     la::petsc::Vector _u(la::petsc::create_vector_wrap(*u->x()), false);
-    newton_solver.solve(_u.vec());
+    auto [niter, success] = newton_solver.solve(_u.vec());
+    std::cout << "Number of Newton iterations: " << niter << std::endl;
 
     // Compute Cauchy stress. Construct appropriate Basix element for
     // stress.
