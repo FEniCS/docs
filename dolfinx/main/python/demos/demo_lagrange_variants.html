@@ -61,7 +61,6 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../demos.html#user-defined-and-advanced-finite-elements">User-defined and advanced finite elements</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Variants of Lagrange elements</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equispaced-versus-gauss-lobatto-legendre-gll-points">Equispaced versus Gauss–Lobatto–Legendre (GLL) points</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#wrapping-a-basix-element">Wrapping a Basix element</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#computing-the-error-of-an-interpolation">Computing the error of an interpolation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#available-lagrange-variants">Available Lagrange variants</a></li>
 </ul>
@@ -83,7 +82,6 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_types.html">Solving PDEs with different scalar (float) types</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Variants of Lagrange elements</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equispaced-versus-gauss-lobatto-legendre-gll-points">Equispaced versus Gauss–Lobatto–Legendre (GLL) points</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#wrapping-a-basix-element">Wrapping a Basix element</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#computing-the-error-of-an-interpolation">Computing the error of an interpolation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#available-lagrange-variants">Available Lagrange variants</a></li>
 </ul>
@@ -138,22 +136,16 @@
 </ul>
 <p>We begin this demo by importing the required modules.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pylab</span> <span class="k">as</span> <span class="nn">plt</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pylab</span> <span class="k">as</span> <span class="nn">plt</span>
 
 <span class="kn">import</span> <span class="nn">basix</span>
 <span class="kn">import</span> <span class="nn">basix.ufl</span>
 <span class="kn">import</span> <span class="nn">ufl</span>  <span class="c1"># type: ignore</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">default_scalar_type</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">mesh</span>
-<span class="kn">from</span> <span class="nn">dolfinx.fem.petsc</span> <span class="kn">import</span> <span class="n">LinearProblem</span>
-<span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">ds</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">mesh</span>
+<span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">dx</span>
 </pre></div>
 </div>
-<p>Note that Basix and the Basix UFL wrapper are imported directly. Basix
-is the element definition and tabulation library that is used by
-FEniCSx.</p>
 <section id="equispaced-versus-gauss-lobatto-legendre-gll-points">
 <h2>Equispaced versus Gauss–Lobatto–Legendre (GLL) points<a class="headerlink" href="#equispaced-versus-gauss-lobatto-legendre-gll-points" title="Link to this heading"></a></h2>
 <p>The basis functions of a Lagrange element are defined by placing
@@ -161,22 +153,21 @@ points on the reference element, with each basis function equal to 1
 at one point and 0 at all the other points. To demonstrate the
 influence of interpolation point position, we create a degree 10
 element on an interval using equally spaced points, and plot the basis
-functions. We create this element using Basix’s
-<a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/demo/demo_create_and_tabulate.py.html"><code class="docutils literal notranslate"><span class="pre">create_element</span></code></a>
-function. Basix’s function <code class="docutils literal notranslate"><span class="pre">element.tabulate</span></code> returns a 4-dimensional
-array with shape (derivatives, points, basis functions, value size).
+functions. We create this element using <code class="docutils literal notranslate"><span class="pre">basix.ufl</span></code>’s
+<code class="docutils literal notranslate"><span class="pre">element</span></code> function. The function <code class="docutils literal notranslate"><span class="pre">element.tabulate</span></code> returns a 3-dimensional
+array with shape (derivatives, points, (value size) * (basis functions)).
 In this example, we only tabulate the 0th derivative and the value
-size is 1, so we take the slice <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">:,</span> <span class="pre">:,</span> <span class="pre">0]</span></code> to get a 2-dimensional
+size is 1, so we take the slice <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">:,</span> <span class="pre">:]</span></code> to get a 2-dimensional
 array.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">create_element</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
     <span class="n">basix</span><span class="o">.</span><span class="n">ElementFamily</span><span class="o">.</span><span class="n">P</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">equispaced</span>
 <span class="p">)</span>
 <span class="n">lattice</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">create_lattice</span><span class="p">(</span><span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">LatticeType</span><span class="o">.</span><span class="n">equispaced</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-<span class="n">values</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">lattice</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">values</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">lattice</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
 <span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">values</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">points</span><span class="p">],</span> <span class="s2">&quot;ko&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">_element</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;ko&quot;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;demo_lagrange_variants_equispaced_10.png&quot;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
@@ -192,14 +183,14 @@ increased.</p>
 that uses the <a class="reference external" href="https://en.wikipedia.org/wiki/Gaussian_quadrature#Gauss%E2%80%93Lobatto_rules">Gauss–Lobatto–Legendre (GLL)
 points</a>
 to define the basis functions.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">create_element</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
     <span class="n">basix</span><span class="o">.</span><span class="n">ElementFamily</span><span class="o">.</span><span class="n">P</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">gll_warped</span>
 <span class="p">)</span>
-<span class="n">values</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">lattice</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">values</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">tabulate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">lattice</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
 <span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># Skip this plotting in parallel</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">values</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">element</span><span class="o">.</span><span class="n">points</span><span class="p">],</span> <span class="s2">&quot;ko&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">_element</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;ko&quot;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;demo_lagrange_variants_gll_10.png&quot;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
@@ -208,44 +199,6 @@ to define the basis functions.</p>
 <p><img alt="The basis functions of a degree 10 Lagrange space defined using GLLpoints." src="../_images/demo_lagrange_variants_gll_10.png" /></p>
 <p>The points are clustered towards the endpoints of the interval, and
 the basis functions do not exhibit Runge’s phenomenon.</p>
-</section>
-<section id="wrapping-a-basix-element">
-<h2>Wrapping a Basix element<a class="headerlink" href="#wrapping-a-basix-element" title="Link to this heading"></a></h2>
-<p>Elements created using Basix can be used directly with UFL via Basix’s
-UFL wrapper.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ufl_element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
-    <span class="n">basix</span><span class="o">.</span><span class="n">ElementFamily</span><span class="o">.</span><span class="n">P</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">gll_warped</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>The UFL element <code class="docutils literal notranslate"><span class="pre">ufl_element</span></code> can be used in the same way as an
-element created directly in UFL. For example, we could <a class="reference internal" href="demo_poisson.html"><span class="doc std std-doc">solve a
-Poisson problem</span></a> using this element.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">msh</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">create_rectangle</span><span class="p">(</span>
-    <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span>
-    <span class="n">points</span><span class="o">=</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)),</span>
-    <span class="n">n</span><span class="o">=</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
-    <span class="n">cell_type</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">ufl_element</span><span class="p">)</span>
-<span class="n">facets</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span>
-    <span class="n">msh</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">2.0</span><span class="p">)</span>
-<span class="p">)</span>
-<span class="n">dofs</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">locate_dofs_topological</span><span class="p">(</span><span class="n">V</span><span class="o">=</span><span class="n">V</span><span class="p">,</span> <span class="n">entity_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">entities</span><span class="o">=</span><span class="n">facets</span><span class="p">)</span>
-<span class="n">bc</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">default_scalar_type</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">dofs</span><span class="o">=</span><span class="n">dofs</span><span class="p">,</span> <span class="n">V</span><span class="o">=</span><span class="n">V</span><span class="p">)</span>
-
-<span class="n">u</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">v</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">x</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
-<span class="n">f</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">ufl</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.02</span><span class="p">)</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<span class="n">a</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span>
-<span class="n">L</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">inner</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">ds</span>
-
-<span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="n">bc</span><span class="p">],</span> <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span> <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">})</span>
-<span class="n">uh</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
-</pre></div>
-</div>
 </section>
 <section id="computing-the-error-of-an-interpolation">
 <h2>Computing the error of an interpolation<a class="headerlink" href="#computing-the-error-of-an-interpolation" title="Link to this heading"></a></h2>

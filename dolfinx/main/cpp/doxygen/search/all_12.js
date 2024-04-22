@@ -25,7 +25,7 @@ var searchData=
   ['topology_5fmutable_22',['topology_mutable',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a0a2cf2ebf198cd471ba4bffdad8d58a4',1,'dolfinx::mesh::Mesh']]],
   ['transfer_5fcell_5fmeshtag_23',['transfer_cell_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#aafc960d3126a66bdfb1a246e2f539e3a',1,'dolfinx::refinement']]],
   ['transfer_5ffacet_5fmeshtag_24',['transfer_facet_meshtag',['../d9/dd6/namespacedolfinx_1_1refinement.html#a069715b9c9820982b5d13ff66a2add48',1,'dolfinx::refinement']]],
-  ['transpose_25',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#aab23f42f403e856a22080310440af205',1,'dolfinx::io::cells']]],
+  ['transpose_25',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#aab23f42f403e856a22080310440af205',1,'dolfinx::io::cells::transpose()'],['../d8/dbf/namespacedolfinx_1_1fem.html#a7fca24b826a16ff97db3431784cc8a6ba382eb179a7d78f25d89c085988b37e95',1,'dolfinx::fem::transpose']]],
   ['transpose_5fdofmap_26',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#ab1b1a83c0dc42f3b9c182a6411cf80a0',1,'dolfinx::fem']]],
   ['tt_5fapply_27',['Tt_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac2c4ae2b7844245eaca60bfad5644609',1,'dolfinx::fem::FiniteElement']]],
   ['tt_5fapply_5fright_28',['Tt_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acff5768975f264f0eeaa521af586ea9c',1,'dolfinx::fem::FiniteElement']]],
