@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.domain &#8212; Unified Form Language (UFL) 2024.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=81bcce63"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.domain</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Types for representing a geometric domain.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">import</span> <span class="nn">numbers</span>
+
+<span class="kn">from</span> <span class="nn">ufl.cell</span> <span class="kn">import</span> <span class="n">AbstractCell</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_id</span> <span class="kn">import</span> <span class="n">attach_ufl_id</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLObject</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">traverse_unique_terminals</span>
+<span class="kn">from</span> <span class="nn">ufl.sobolevspace</span> <span class="kn">import</span> <span class="n">H1</span>
+
+<span class="c1"># Export list for ufl.classes</span>
+<span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AbstractDomain&quot;</span><span class="p">,</span> <span class="s2">&quot;Mesh&quot;</span><span class="p">,</span> <span class="s2">&quot;MeshView&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="AbstractDomain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.AbstractDomain">[docs]</a><span class="k">class</span> <span class="nc">AbstractDomain</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symbolic representation of a geometric domain.</span>
+
+<span class="sd">    Domain has only a geometric and a topological dimension.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topological_dimension</span><span class="p">,</span> <span class="n">geometric_dimension</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="c1"># Validate dimensions</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geometric_dimension</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expecting integer geometric dimension, not </span><span class="si">{</span><span class="n">geometric_dimension</span><span class="o">.</span><span class="vm">__class__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">topological_dimension</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expecting integer topological dimension, not </span><span class="si">{</span><span class="n">topological_dimension</span><span class="o">.</span><span class="vm">__class__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">topological_dimension</span> <span class="o">&gt;</span> <span class="n">geometric_dimension</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Topological dimension cannot be larger than geometric dimension.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store validated dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topological_dimension</span> <span class="o">=</span> <span class="n">topological_dimension</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span> <span class="o">=</span> <span class="n">geometric_dimension</span>
+
+<div class="viewcode-block" id="AbstractDomain.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.AbstractDomain.geometric_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the space this domain is embedded in.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_dimension</span></div>
+
+<div class="viewcode-block" id="AbstractDomain.topological_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.AbstractDomain.topological_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">topological_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the dimension of the topology of this domain.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topological_dimension</span></div></div>
+
+
+<span class="c1"># TODO: Would it be useful to have a domain representing R^d? E.g. for</span>
+<span class="c1"># Expression.</span>
+<span class="c1"># class EuclideanSpace(AbstractDomain):</span>
+<span class="c1">#     def __init__(self, geometric_dimension):</span>
+<span class="c1">#         AbstractDomain.__init__(self, geometric_dimension, geometric_dimension)</span>
+
+
+<div class="viewcode-block" id="Mesh"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Mesh">[docs]</a><span class="nd">@attach_ufl_id</span>
+<span class="k">class</span> <span class="nc">Mesh</span><span class="p">(</span><span class="n">AbstractDomain</span><span class="p">,</span> <span class="n">UFLObject</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symbolic representation of a mesh.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coordinate_element</span><span class="p">,</span> <span class="n">ufl_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cargo</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_ufl_id</span><span class="p">(</span><span class="n">ufl_id</span><span class="p">)</span>
+
+        <span class="c1"># Store reference to object that will not be used by UFL</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="n">cargo</span>
+        <span class="k">if</span> <span class="n">cargo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cargo</span><span class="o">.</span><span class="n">ufl_id</span><span class="p">()</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting cargo object (e.g. dolfin.Mesh) to have the same ufl_id.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># No longer accepting coordinates provided as a Coefficient</span>
+        <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coordinate_element</span><span class="p">,</span> <span class="p">(</span><span class="n">Coefficient</span><span class="p">,</span> <span class="n">AbstractCell</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting a coordinate element in the ufl.Mesh construct.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store coordinate element</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span> <span class="o">=</span> <span class="n">coordinate_element</span>
+
+        <span class="c1"># Derive dimensions from element</span>
+        <span class="p">(</span><span class="n">gdim</span><span class="p">,)</span> <span class="o">=</span> <span class="n">coordinate_element</span><span class="o">.</span><span class="n">reference_value_shape</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="n">coordinate_element</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="n">AbstractDomain</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tdim</span><span class="p">,</span> <span class="n">gdim</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Mesh.ufl_cargo"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Mesh.ufl_cargo">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_cargo</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return carried object that will not be used by UFL.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_cargo</span></div>
+
+<div class="viewcode-block" id="Mesh.ufl_coordinate_element"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Mesh.ufl_coordinate_element">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_coordinate_element</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the coordinate element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span></div>
+
+<div class="viewcode-block" id="Mesh.ufl_cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Mesh.ufl_cell">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span><span class="o">.</span><span class="n">cell</span></div>
+
+<div class="viewcode-block" id="Mesh.is_piecewise_linear_simplex_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Mesh.is_piecewise_linear_simplex_domain">[docs]</a>    <span class="k">def</span> <span class="nf">is_piecewise_linear_simplex_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the domain is a piecewise linear simplex.&quot;&quot;&quot;</span>
+        <span class="n">ce</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span>
+        <span class="k">return</span> <span class="n">ce</span><span class="o">.</span><span class="n">embedded_superdegree</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">ce</span> <span class="ow">in</span> <span class="n">H1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span><span class="o">.</span><span class="n">is_simplex</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation.&quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;Mesh(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;Mesh #</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL hash data.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL signature data.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;Mesh&quot;</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span><span class="p">)</span>
+
+    <span class="c1"># NB! Dropped __lt__ here, don&#39;t want users to write &#39;mesh1 &lt;</span>
+    <span class="c1"># mesh2&#39;.</span>
+    <span class="k">def</span> <span class="nf">_ufl_sort_key_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL sort key.&quot;&quot;&quot;</span>
+        <span class="n">typespecific</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_coordinate_element</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">(),</span> <span class="s2">&quot;Mesh&quot;</span><span class="p">,</span> <span class="n">typespecific</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MeshView"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeshView">[docs]</a><span class="nd">@attach_ufl_id</span>
+<span class="k">class</span> <span class="nc">MeshView</span><span class="p">(</span><span class="n">AbstractDomain</span><span class="p">,</span> <span class="n">UFLObject</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Symbolic representation of a mesh.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">topological_dimension</span><span class="p">,</span> <span class="n">ufl_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_ufl_id</span><span class="p">(</span><span class="n">ufl_id</span><span class="p">)</span>
+
+        <span class="c1"># Store mesh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span> <span class="o">=</span> <span class="n">mesh</span>
+
+        <span class="c1"># Derive dimensions from element</span>
+        <span class="n">coordinate_element</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span>
+        <span class="p">(</span><span class="n">gdim</span><span class="p">,)</span> <span class="o">=</span> <span class="n">coordinate_element</span><span class="o">.</span><span class="n">value_shape</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="n">coordinate_element</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="n">AbstractDomain</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tdim</span><span class="p">,</span> <span class="n">gdim</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MeshView.ufl_mesh"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeshView.ufl_mesh">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the mesh.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span></div>
+
+<div class="viewcode-block" id="MeshView.ufl_cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeshView.ufl_cell">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MeshView.is_piecewise_linear_simplex_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeshView.is_piecewise_linear_simplex_domain">[docs]</a>    <span class="k">def</span> <span class="nf">is_piecewise_linear_simplex_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the domain is a piecewise linear simplex.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="o">.</span><span class="n">is_piecewise_linear_simplex_domain</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation.&quot;&quot;&quot;</span>
+        <span class="n">tdim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;MeshView(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="n">tdim</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;MeshView #</span><span class="si">%s</span><span class="s2"> of dimension </span><span class="si">%d</span><span class="s2"> over mesh </span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_hash_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL hash data.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="o">.</span><span class="n">_ufl_hash_data_</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_signature_data_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL signature data.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;MeshView&quot;</span><span class="p">,</span> <span class="n">renumbering</span><span class="p">[</span><span class="bp">self</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="o">.</span><span class="n">_ufl_signature_data_</span><span class="p">(</span><span class="n">renumbering</span><span class="p">))</span>
+
+    <span class="c1"># NB! Dropped __lt__ here, don&#39;t want users to write &#39;mesh1 &lt;</span>
+    <span class="c1"># mesh2&#39;.</span>
+    <span class="k">def</span> <span class="nf">_ufl_sort_key_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL sort key.&quot;&quot;&quot;</span>
+        <span class="n">typespecific</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_mesh</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">(),</span> <span class="s2">&quot;MeshView&quot;</span><span class="p">,</span> <span class="n">typespecific</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="as_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.as_domain">[docs]</a><span class="k">def</span> <span class="nf">as_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert any valid object to an AbstractDomain type.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">AbstractDomain</span><span class="p">):</span>
+        <span class="c1"># Modern UFL files and dolfin behaviour</span>
+        <span class="k">return</span> <span class="n">domain</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="sort_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.sort_domains">[docs]</a><span class="k">def</span> <span class="nf">sort_domains</span><span class="p">(</span><span class="n">domains</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sort domains in a canonical ordering.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">domain</span><span class="p">:</span> <span class="n">domain</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">()))</span></div>
+
+
+<div class="viewcode-block" id="join_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.join_domains">[docs]</a><span class="k">def</span> <span class="nf">join_domains</span><span class="p">(</span><span class="n">domains</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Take a list of domains and return a tuple with only unique domain objects.</span>
+
+<span class="sd">    Checks that domains with the same id are compatible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Use hashing to join domains, ignore None</span>
+    <span class="n">domains</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">domains</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">((</span><span class="kc">None</span><span class="p">,))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">domains</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">()</span>
+
+    <span class="c1"># Check geometric dimension compatibility</span>
+    <span class="n">gdims</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">:</span>
+        <span class="n">gdims</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">())</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdims</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Found domains with different geometric dimensions.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">domains</span></div>
+
+
+<span class="c1"># TODO: Move these to an analysis module?</span>
+
+
+<div class="viewcode-block" id="extract_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.extract_domains">[docs]</a><span class="k">def</span> <span class="nf">extract_domains</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return all domains expression is defined on.&quot;&quot;&quot;</span>
+    <span class="n">domainlist</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+        <span class="n">domainlist</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">())</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">join_domains</span><span class="p">(</span><span class="n">domainlist</span><span class="p">),</span>
+        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">D</span><span class="p">:</span> <span class="p">(</span><span class="n">D</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">(),</span> <span class="n">D</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">(),</span> <span class="n">D</span><span class="o">.</span><span class="n">ufl_id</span><span class="p">()),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extract_unique_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.extract_unique_domain">[docs]</a><span class="k">def</span> <span class="nf">extract_unique_domain</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the single unique domain expression is defined on or throw an error.&quot;&quot;&quot;</span>
+    <span class="n">domains</span> <span class="o">=</span> <span class="n">extract_domains</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">domains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">domains</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">domains</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Found multiple domains, cannot return just one.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="find_geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.find_geometric_dimension">[docs]</a><span class="k">def</span> <span class="nf">find_geometric_dimension</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the geometric dimension of an expression.&quot;&quot;&quot;</span>
+    <span class="n">gdims</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">gdims</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">())</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdims</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot determine geometric dimension from expression.&quot;</span><span class="p">)</span>
+    <span class="p">(</span><span class="n">gdim</span><span class="p">,)</span> <span class="o">=</span> <span class="n">gdims</span>
+    <span class="k">return</span> <span class="n">gdim</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

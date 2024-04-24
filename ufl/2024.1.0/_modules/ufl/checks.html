@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.checks &#8212; Unified Form Language (UFL) 2024.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=81bcce63"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.checks</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions for checking properties of expressions.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2013-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span>
+<span class="kn">from</span> <span class="nn">ufl.core.terminal</span> <span class="kn">import</span> <span class="n">FormArgument</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.traversal</span> <span class="kn">import</span> <span class="n">traverse_unique_terminals</span>
+<span class="kn">from</span> <span class="nn">ufl.geometry</span> <span class="kn">import</span> <span class="n">GeometricQuantity</span>
+<span class="kn">from</span> <span class="nn">ufl.sobolevspace</span> <span class="kn">import</span> <span class="n">H1</span>
+
+
+<div class="viewcode-block" id="is_python_scalar"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.checks.is_python_scalar">[docs]</a><span class="k">def</span> <span class="nf">is_python_scalar</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff expression is of a Python scalar type.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">complex</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="is_ufl_scalar"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.checks.is_ufl_scalar">[docs]</a><span class="k">def</span> <span class="nf">is_ufl_scalar</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff expression is scalar-valued, but possibly containing free indices.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Expr</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">expression</span><span class="o">.</span><span class="n">ufl_shape</span></div>
+
+
+<div class="viewcode-block" id="is_true_ufl_scalar"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.checks.is_true_ufl_scalar">[docs]</a><span class="k">def</span> <span class="nf">is_true_ufl_scalar</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return True iff expression is scalar-valued, with no free indices.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Expr</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="n">expression</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">or</span> <span class="n">expression</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="is_cellwise_constant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.checks.is_cellwise_constant">[docs]</a><span class="k">def</span> <span class="nf">is_cellwise_constant</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether expression is constant over a single cell.&quot;&quot;&quot;</span>
+    <span class="c1"># TODO: Implement more accurately considering e.g. derivatives?</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">is_cellwise_constant</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">expr</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="is_scalar_constant_expression"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.checks.is_scalar_constant_expression">[docs]</a><span class="k">def</span> <span class="nf">is_scalar_constant_expression</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if an expression is a globally constant scalar expression.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">is_python_scalar</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="c1"># TODO: This does not consider gradients of coefficients, so false</span>
+    <span class="c1"># negatives are possible.</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+        <span class="c1"># Return False if any single terminal is not constant</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">FormArgument</span><span class="p">):</span>
+            <span class="c1"># Accept only globally constant Arguments and Coefficients</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">H1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">GeometricQuantity</span><span class="p">):</span>
+            <span class="c1"># Reject all geometric quantities, they all vary over</span>
+            <span class="c1"># cells</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="c1"># All terminals passed constant check</span>
+    <span class="k">return</span> <span class="kc">True</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

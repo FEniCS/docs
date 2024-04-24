@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.change_to_reference &#8212; Unified Form Language (UFL) 2024.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=81bcce63"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.change_to_reference</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm for replacing gradients in an expression.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.apply_function_pullbacks</span> <span class="kn">import</span> <span class="n">apply_function_pullbacks</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.apply_geometry_lowering</span> <span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
+<span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_cellwise_constant</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Grad</span><span class="p">,</span> <span class="n">JacobianInverse</span><span class="p">,</span> <span class="n">ReferenceGrad</span><span class="p">,</span> <span class="n">ReferenceValue</span><span class="p">,</span> <span class="n">Restricted</span>
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">indices</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.map_dag</span> <span class="kn">import</span> <span class="n">map_expr_dag</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span> <span class="nn">ufl.tensors</span> <span class="kn">import</span> <span class="n">as_tensor</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd"># Some notes:</span>
+<span class="sd"># Below, let v_i mean physical coordinate of vertex i and V_i mean the</span>
+<span class="sd">reference cell coordinate of the same vertex.</span>
+
+
+<span class="sd"># Add a type for CellVertices? Note that vertices must be computed in</span>
+<span class="sd">linear cell cases! triangle_vertices[i,j] = component j of vertex i,</span>
+<span class="sd">following ufc numbering conventions</span>
+
+
+<span class="sd"># DONE Add a type for CellEdgeLengths? Note that these are only easy to</span>
+<span class="sd">define in the linear cell case!</span>
+<span class="sd">triangle_edge_lengths    = [v1v2, v0v2, v0v1] # shape (3,)</span>
+<span class="sd">tetrahedron_edge_lengths = [v0v1, v0v2, v0v3, v1v2, v1v3, v2v3] # shape (6,)</span>
+
+
+<span class="sd"># DONE Here&#39;s how to compute edge lengths from the Jacobian:</span>
+<span class="sd">J =[ [dx0/dX0, dx0/dX1],</span>
+<span class="sd">     [dx1/dX0, dx1/dX1] ]</span>
+<span class="sd"># First compute the edge vector, which is constant for each edge: the</span>
+<span class="sd">vector from one vertex to the other</span>
+<span class="sd">reference_edge_vector_0 = V2 - V1 # Example! Add a type ReferenceEdgeVectors?</span>
+<span class="sd"># Then apply J to it and take the length of the resulting vector, this is generic for affine cells</span>
+<span class="sd">edge_length_i = || dot(J, reference_edge_vector_i) ||</span>
+
+<span class="sd">e2 = || J[:,0] . &lt; 1, 0&gt; || = || J[:,0] || = || dx/dX0 || = edge length of edge 2 (v0-v1)</span>
+<span class="sd">e1 = || J[:,1] . &lt; 0, 1&gt; || = || J[:,1] || = || dx/dX1 || = edge length of edge 1 (v0-v2)</span>
+<span class="sd">e0 = || J[:,:] . &lt;-1, 1&gt; || = || &lt; J[0,1]-J[0,0], J[1,1]-J[1,0] &gt; || = || dx/dX &lt;-1,1&gt; ||</span>
+<span class="sd">    = edge length of edge 0 (v1-v2)</span>
+
+<span class="sd">trev = triangle_reference_edge_vector</span>
+<span class="sd">evec0 = J00 * trev[edge][0] + J01 * trev[edge][1]  =  J*trev[edge]</span>
+<span class="sd">evec1 = J10 * trev[edge][0] + J11 * trev[edge][1]</span>
+<span class="sd">elen[edge] = sqrt(evec0*evec0 + evec1*evec1)  = sqrt((J*trev[edge])**2)</span>
+
+<span class="sd">trev = triangle_reference_edge_vector</span>
+<span class="sd">evec0 = J00 * trev[edge][0] + J01 * trev[edge][1]  =  J*trev</span>
+<span class="sd">evec1 = J10 * trev[edge][0] + J11 * trev[edge][1]</span>
+<span class="sd">evec2 = J20 * trev[edge][0] + J21 * trev[edge][1] # Manifold: triangle in 3D</span>
+<span class="sd">elen[edge] = sqrt(evec0*evec0 + evec1*evec1 + evec2*evec2)  = sqrt((J*trev[edge])**2)</span>
+
+<span class="sd">trev = tetrahedron_reference_edge_vector</span>
+<span class="sd">evec0 = sum(J[0,k] * trev[edge][k] for k in range(3))</span>
+<span class="sd">evec1 = sum(J[1,k] * trev[edge][k] for k in range(3))</span>
+<span class="sd">evec2 = sum(J[2,k] * trev[edge][k] for k in range(3))</span>
+<span class="sd">elen[edge] = sqrt(evec0*evec0 + evec1*evec1 + evec2*evec2)  = sqrt((J*trev[edge])**2)</span>
+
+
+<span class="sd"># DONE Here&#39;s how to compute min/max facet edge length:</span>
+<span class="sd">triangle:</span>
+<span class="sd">  r = facetarea</span>
+<span class="sd">tetrahedron:</span>
+<span class="sd">  min(elen[edge] for edge in range(6))</span>
+<span class="sd">or</span>
+<span class="sd">  min( min(elen[0], min(elen[1], elen[2])), min(elen[3], min(elen[4], elen[5])) )</span>
+<span class="sd">or</span>
+<span class="sd">  min1 = min_value(elen[0], min_value(elen[1], elen[2]))</span>
+<span class="sd">  min2 = min_value(elen[3], min_value(elen[4], elen[5]))</span>
+<span class="sd">  r = min_value(min1, min2)</span>
+<span class="sd">(want proper Min/Max types for this!)</span>
+
+
+<span class="sd"># DONE Here&#39;s how to compute circumradius for an interval:</span>
+<span class="sd">circumradius_interval = cellvolume / 2</span>
+
+
+<span class="sd"># DONE Here&#39;s how to compute circumradius for a triangle:</span>
+<span class="sd">e0 = elen[0]</span>
+<span class="sd">e1 = elen[1]</span>
+<span class="sd">e2 = elen[2]</span>
+<span class="sd">circumradius_triangle = (e0*e1*e2) / (4*cellvolume)</span>
+
+
+<span class="sd"># DONE Here&#39;s how to compute circumradius for a tetrahedron:</span>
+<span class="sd"># v1v2 = edge length between vertex 1 and 2</span>
+<span class="sd"># la,lb,lc = lengths of the sides of an intermediate triangle</span>
+<span class="sd">la = v1v2 * v0v3</span>
+<span class="sd">lb = v0v2 * v1v3</span>
+<span class="sd">lc = v0v1 * v2v3</span>
+<span class="sd"># p = perimeter</span>
+<span class="sd">p = (la + lb + lc)</span>
+<span class="sd"># s = semiperimeter</span>
+<span class="sd">s = p / 2</span>
+<span class="sd"># area of intermediate triangle with Herons formula</span>
+<span class="sd">tmp_area = sqrt(s * (s - la) * (s - lb) * (s - lc))</span>
+<span class="sd">circumradius_tetrahedron = tmp_area / (6*cellvolume)</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="ChangeToReferenceGrad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad">[docs]</a><span class="k">class</span> <span class="nc">ChangeToReferenceGrad</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change to reference grad.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initalise.&quot;&quot;&quot;</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="ChangeToReferenceGrad.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to terminal.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+<div class="viewcode-block" id="ChangeToReferenceGrad.grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to grad.&quot;&quot;&quot;</span>
+        <span class="c1"># Peel off the Grads and count them, and get restriction if</span>
+        <span class="c1"># it&#39;s between the grad and the terminal</span>
+        <span class="n">ngrads</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">restricted</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_is_terminal_</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Grad</span><span class="p">):</span>
+                <span class="p">(</span><span class="n">o</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+                <span class="n">ngrads</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Restricted</span><span class="p">):</span>
+                <span class="n">restricted</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">side</span><span class="p">()</span>
+                <span class="p">(</span><span class="n">o</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">ReferenceValue</span><span class="p">):</span>
+                <span class="n">rv</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="p">(</span><span class="n">o</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid type </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">o</span>
+        <span class="k">if</span> <span class="n">rv</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">ReferenceValue</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="c1"># Get domain and create Jacobian inverse object</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">Jinv</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">Jinv</span><span class="p">):</span>
+            <span class="c1"># Optimise slightly by turning Grad(Grad(...)) into</span>
+            <span class="c1"># J^(-T)J^(-T)RefGrad(RefGrad(...))</span>
+            <span class="c1"># rather than J^(-T)RefGrad(J^(-T)RefGrad(...))</span>
+
+            <span class="c1"># Create some new indices</span>
+            <span class="n">ii</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">))</span>  <span class="c1"># Indices to get to the scalar component of f</span>
+            <span class="n">jj</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span>
+                <span class="n">ngrads</span>
+            <span class="p">)</span>  <span class="c1"># Indices to sum over the local gradient axes with the inverse Jacobian</span>
+            <span class="n">kk</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="n">ngrads</span><span class="p">)</span>  <span class="c1"># Indices for the leftover inverse Jacobian axes</span>
+
+            <span class="c1"># Preserve restricted property</span>
+            <span class="k">if</span> <span class="n">restricted</span><span class="p">:</span>
+                <span class="n">Jinv</span> <span class="o">=</span> <span class="n">Jinv</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
+
+            <span class="c1"># Apply the same number of ReferenceGrad without mappings</span>
+            <span class="n">lgrad</span> <span class="o">=</span> <span class="n">f</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ngrads</span><span class="p">):</span>
+                <span class="n">lgrad</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">lgrad</span><span class="p">)</span>
+
+            <span class="c1"># Apply mappings with scalar indexing operations (assumes</span>
+            <span class="c1"># ReferenceGrad(Jinv) is zero)</span>
+            <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">lgrad</span><span class="p">[</span><span class="n">ii</span> <span class="o">+</span> <span class="n">jj</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">jj</span><span class="p">,</span> <span class="n">kk</span><span class="p">):</span>
+                <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">Jinv</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">jinv_lgrad_f</span>
+
+            <span class="c1"># Wrap back in tensor shape, derivative axes at the end</span>
+            <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">jinv_lgrad_f</span><span class="p">,</span> <span class="n">ii</span> <span class="o">+</span> <span class="n">kk</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># J^(-T)RefGrad(J^(-T)RefGrad(...))</span>
+
+            <span class="c1"># Preserve restricted property</span>
+            <span class="k">if</span> <span class="n">restricted</span><span class="p">:</span>
+                <span class="n">Jinv</span> <span class="o">=</span> <span class="n">Jinv</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">restricted</span><span class="p">)</span>
+
+            <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">f</span>
+            <span class="k">for</span> <span class="n">foo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ngrads</span><span class="p">):</span>
+                <span class="n">ii</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">jinv_lgrad_f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+                <span class="p">)</span>  <span class="c1"># Indices to get to the scalar component of f</span>
+                <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+                <span class="n">lgrad</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">jinv_lgrad_f</span><span class="p">)</span>
+                <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">Jinv</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">lgrad</span><span class="p">[</span><span class="n">ii</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span><span class="p">,)]</span>
+
+                <span class="c1"># Wrap back in tensor shape, derivative axes at the end</span>
+                <span class="n">jinv_lgrad_f</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">jinv_lgrad_f</span><span class="p">,</span> <span class="n">ii</span> <span class="o">+</span> <span class="p">(</span><span class="n">k</span><span class="p">,))</span>
+
+        <span class="k">return</span> <span class="n">jinv_lgrad_f</span></div>
+
+<div class="viewcode-block" id="ChangeToReferenceGrad.reference_grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.reference_grad">[docs]</a>    <span class="k">def</span> <span class="nf">reference_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to reference_grad.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting reference grad while applying change to reference grad.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeToReferenceGrad.coefficient_derivative"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.ChangeToReferenceGrad.coefficient_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to coefficient_derivative.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Coefficient derivatives should be expanded before applying change to reference grad.&quot;</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="change_to_reference_grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.change_to_reference_grad">[docs]</a><span class="k">def</span> <span class="nf">change_to_reference_grad</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change Grad objects in expression to products of JacobianInverse and ReferenceGrad.</span>
+
+<span class="sd">    Assumes the expression is preprocessed or at least that derivatives</span>
+<span class="sd">    have been expanded.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        e: An Expr or Form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mf</span> <span class="o">=</span> <span class="n">ChangeToReferenceGrad</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">map_expr_dag</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="change_integrand_geometry_representation"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.change_to_reference.change_integrand_geometry_representation">[docs]</a><span class="k">def</span> <span class="nf">change_integrand_geometry_representation</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change integrand geometry to the right representations.&quot;&quot;&quot;</span>
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">apply_function_pullbacks</span><span class="p">(</span><span class="n">integrand</span><span class="p">)</span>
+
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">change_to_reference_grad</span><span class="p">(</span><span class="n">integrand</span><span class="p">)</span>
+
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">integrand</span> <span class="o">*</span> <span class="n">scale</span>
+
+    <span class="k">if</span> <span class="n">integral_type</span> <span class="o">==</span> <span class="s2">&quot;quadrature&quot;</span><span class="p">:</span>
+        <span class="n">physical_coordinates_known</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">physical_coordinates_known</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">integrand</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">physical_coordinates_known</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">integrand</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
