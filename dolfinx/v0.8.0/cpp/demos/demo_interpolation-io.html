@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interpolation and IO &mdash; DOLFINx 0.3.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=4621528c"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Custom cell kernel assembly" href="demo_custom_kernel.html" />
+    <link rel="prev" title="Interpolation different meshes" href="demo_interpolation_different_meshes.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../demo.html">Demos</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../demo.html#introductory">Introductory</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../demo.html#intermediate">Intermediate</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="demo_hyperelasticity.html">Hyperelasticity</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_poisson_matrix_free.html">Matrix-free conjugate gradient (CG) solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="demo_interpolation_different_meshes.html">Interpolation different meshes</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Interpolation and IO</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../demo.html#advanced">Advanced</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo.html#experimental">Experimental</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../demo.html">Demos</a></li>
+      <li class="breadcrumb-item active">Interpolation and IO</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/demos/demo_interpolation-io.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Copyright (C) 2022-2023 Garth N. Wells
+This file is part of DOLFINx (https://www.fenicsproject.org)
+SPDX-License-Identifier:    LGPL-3.0-or-later
+</pre></div>
+</div>
+<section class="tex2jax_ignore mathjax_ignore" id="interpolation-and-io">
+<h1>Interpolation and IO<a class="headerlink" href="#interpolation-and-io" title="Link to this heading"></a></h1>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/finite-element.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cmath&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;concepts&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/common/log.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/fem/FiniteElement.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/fem/FunctionSpace.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/fem/utils.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/io/ADIOS2Writers.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/io/VTKFile.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/mesh/Mesh.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/mesh/cell_types.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/mesh/generation.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/mesh/utils.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;filesystem&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;mpi.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;numbers&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">dolfinx</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Interpolate a function into a Lagrange finite element space</span>
+<span class="c1">/// and outputs the finite element function to a VTX file for</span>
+<span class="c1">/// visualisation.</span>
+<span class="c1">///</span>
+<span class="c1">/// Also shows how to create a finite element using Basix.</span>
+<span class="c1">///</span>
+<span class="c1">/// @tparam T Scalar type of the finite element function.</span>
+<span class="c1">/// @tparam U Float type for the finite element basis and the mesh.</span>
+<span class="c1">/// @param mesh Mesh.</span>
+<span class="c1">/// @param filename Output filename. File output requires DOLFINX to be</span>
+<span class="c1">/// configured with ADIOS2.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">U</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">interpolate_scalar</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">mesh</span><span class="p">,</span>
+<span class="w">                        </span><span class="p">[[</span><span class="n">maybe_unused</span><span class="p">]]</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">filesystem</span><span class="o">::</span><span class="n">path</span><span class="w"> </span><span class="n">filename</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="c1">// Create a Basix continuous Lagrange element of degree 1</span>
+<span class="w">  </span><span class="n">basix</span><span class="o">::</span><span class="n">FiniteElement</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">P</span><span class="p">,</span>
+<span class="w">      </span><span class="n">mesh</span><span class="o">::</span><span class="n">cell_type_to_basix_type</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">),</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">dpc_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Create a scalar function space</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">V</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">fem</span><span class="o">::</span><span class="n">create_functionspace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">));</span>
+
+<span class="w">  </span><span class="c1">// Create a finite element Function</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">u</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Interpolate sin(2 \pi x[0]) in the scalar Lagrange finite element</span>
+<span class="w">  </span><span class="c1">// space</span>
+<span class="w">  </span><span class="n">u</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
+<span class="w">      </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">p</span><span class="p">)</span>
+<span class="w">          </span><span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">numbers</span><span class="o">::</span><span class="n">pi</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">));</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">f</span><span class="p">.</span><span class="n">size</span><span class="p">()}};</span>
+<span class="w">      </span><span class="p">});</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#ifdef HAS_ADIOS2</span>
+<span class="w">  </span><span class="c1">// Write the function to a VTX file for visualisation, e.g. using</span>
+<span class="w">  </span><span class="c1">// ParaView</span>
+<span class="w">  </span><span class="n">io</span><span class="o">::</span><span class="n">VTXWriter</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="n">outfile</span><span class="p">(</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">(),</span><span class="w"> </span><span class="n">filename</span><span class="p">.</span><span class="n">replace_extension</span><span class="p">(</span><span class="s">&quot;bp&quot;</span><span class="p">),</span><span class="w"> </span><span class="p">{</span><span class="n">u</span><span class="p">},</span>
+<span class="w">                           </span><span class="s">&quot;BP4&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">outfile</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">outfile</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
+<span class="cp">#endif</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief Interpolate a function into a H(curl) finite element space.</span>
+<span class="c1">///</span>
+<span class="c1">/// To visualise the function, the H(curl) finite element function is</span>
+<span class="c1">/// interpolated in a discontinuous Lagrange space, which is written to</span>
+<span class="c1">/// a VTX file for visualisation. This allows exact visualisation of a</span>
+<span class="c1">/// function in H(curl).</span>
+<span class="c1">///</span>
+<span class="c1">/// @tparam T Scalar type of the finite element function.</span>
+<span class="c1">/// @tparam U Float type for the finite element basis and the mesh.</span>
+<span class="c1">/// @param mesh Mesh.</span>
+<span class="c1">/// @param filename Output filename. File output requires DOLFINX to be</span>
+<span class="c1">/// configured with ADIOS2.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span><span class="w"> </span><span class="n">U</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">interpolate_nedelec</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">mesh</span><span class="p">,</span>
+<span class="w">                         </span><span class="p">[[</span><span class="n">maybe_unused</span><span class="p">]]</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">filesystem</span><span class="o">::</span><span class="n">path</span><span class="w"> </span><span class="n">filename</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="c1">// Create a Basix Nedelec (first kind) element of degree 2 (dim=6 on</span>
+<span class="w">  </span><span class="c1">// triangle)</span>
+<span class="w">  </span><span class="n">basix</span><span class="o">::</span><span class="n">FiniteElement</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">N1E</span><span class="p">,</span>
+<span class="w">      </span><span class="n">mesh</span><span class="o">::</span><span class="n">cell_type_to_basix_type</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">legendre</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">dpc_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Create a Nedelec function space</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">V</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">fem</span><span class="o">::</span><span class="n">create_functionspace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">));</span>
+
+<span class="w">  </span><span class="c1">// Create a Nedelec finite element Function</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">u</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Interpolate the vector field</span>
+<span class="w">  </span><span class="c1">//  u = [x[0], x[1]]  if x[0] &lt; 0.5</span>
+<span class="w">  </span><span class="c1">//      [x[0] + 1, x[1]]  if x[0] &gt;= 0.5</span>
+<span class="w">  </span><span class="c1">// in the Nedelec space.</span>
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span><span class="c1">// Note that the x1 component of this field is continuous, and the x0</span>
+<span class="w">  </span><span class="c1">// component is discontinuous across x0 = 0.5. This function lies in</span>
+<span class="w">  </span><span class="c1">// the Nedelec space when there are cell edges aligned to x0 = 0.5.</span>
+
+<span class="w">  </span><span class="c1">// Find cells with all vertices satisfying (0) x0 &lt;= 0.5 and (1) x0 &gt;= 0.5</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">cells0</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="o">::</span><span class="n">locate_entities</span><span class="p">(</span><span class="o">*</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">                              </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span>
+<span class="w">                              </span><span class="p">{</span>
+<span class="w">                                </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int8_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">marked</span><span class="p">;</span>
+<span class="w">                                </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">                                  </span><span class="n">marked</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">x</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mf">0.5</span><span class="p">);</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="n">marked</span><span class="p">;</span>
+<span class="w">                              </span><span class="p">});</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">cells1</span>
+<span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="o">::</span><span class="n">locate_entities</span><span class="p">(</span><span class="o">*</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">                              </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span>
+<span class="w">                              </span><span class="p">{</span>
+<span class="w">                                </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int8_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">marked</span><span class="p">;</span>
+<span class="w">                                </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">                                  </span><span class="n">marked</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">x</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mf">0.5</span><span class="p">);</span>
+<span class="w">                                </span><span class="k">return</span><span class="w"> </span><span class="n">marked</span><span class="p">;</span>
+<span class="w">                              </span><span class="p">});</span>
+
+<span class="w">  </span><span class="c1">// Interpolation on the two sets of cells</span>
+<span class="w">  </span><span class="n">u</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
+<span class="w">      </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mf">0.0</span><span class="p">);</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">copy_n</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">data_handle</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">begin</span><span class="p">());</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">)}};</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="n">cells0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">u</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
+<span class="w">      </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
+<span class="w">      </span><span class="p">{</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="mf">0.0</span><span class="p">);</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">copy_n</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">data_handle</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">begin</span><span class="p">());</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">transform</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="n">cbegin</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">cend</span><span class="p">(),</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span>
+<span class="w">                       </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">T</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"> </span><span class="p">});</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="n">f</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">extent</span><span class="p">(</span><span class="mi">1</span><span class="p">)}};</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="n">cells1</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Nedelec spaces are not generally supported by visualisation tools.</span>
+<span class="w">  </span><span class="c1">// Simply evaluating a Nedelec function at cell vertices can</span>
+<span class="w">  </span><span class="c1">// mis-represent the function. However, we can represented a Nedelec</span>
+<span class="w">  </span><span class="c1">// function exactly in a discontinuous Lagrange space which we can</span>
+<span class="w">  </span><span class="c1">// then visualise. We do this here.</span>
+
+<span class="w">  </span><span class="c1">// First create a degree 2 vector-valued discontinuous Lagrange space</span>
+<span class="w">  </span><span class="c1">// (which contains the N2 space):</span>
+<span class="w">  </span><span class="n">basix</span><span class="o">::</span><span class="n">FiniteElement</span><span class="w"> </span><span class="n">e_l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">basix</span><span class="o">::</span><span class="n">create_element</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">family</span><span class="o">::</span><span class="n">P</span><span class="p">,</span>
+<span class="w">      </span><span class="n">mesh</span><span class="o">::</span><span class="n">cell_type_to_basix_type</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">lagrange_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span>
+<span class="w">      </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">dpc_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Create a function space</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">V_l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span>
+<span class="w">      </span><span class="n">fem</span><span class="o">::</span><span class="n">create_functionspace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">e_l</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">{</span><span class="mi">2</span><span class="p">}));</span>
+
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">u_l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V_l</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Interpolate the Nedelec function into the discontinuous Lagrange</span>
+<span class="w">  </span><span class="c1">// space:</span>
+<span class="w">  </span><span class="n">u_l</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span><span class="o">*</span><span class="n">u</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Output the discontinuous Lagrange space in VTX format. When plotting</span>
+<span class="c1">// the x0 component the field will appear discontinuous at x0 = 0.5</span>
+<span class="c1">// (jump in the normal component between cells) and the x1 component</span>
+<span class="c1">// will appear continuous (continuous tangent component between cells).</span>
+<span class="cp">#ifdef HAS_ADIOS2</span>
+<span class="w">  </span><span class="n">io</span><span class="o">::</span><span class="n">VTXWriter</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="n">outfile</span><span class="p">(</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">comm</span><span class="p">(),</span><span class="w"> </span><span class="n">filename</span><span class="p">.</span><span class="n">replace_extension</span><span class="p">(</span><span class="s">&quot;bp&quot;</span><span class="p">),</span>
+<span class="w">                           </span><span class="p">{</span><span class="n">u_l</span><span class="p">},</span><span class="w"> </span><span class="s">&quot;BP4&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="n">outfile</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">);</span>
+<span class="w">  </span><span class="n">outfile</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
+<span class="cp">#endif</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">/// @brief This program shows how to create finite element spaces without FFCx</span>
+<span class="c1">/// generated code.</span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="o">*</span><span class="w"> </span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+<span class="w">  </span><span class="n">dolfinx</span><span class="o">::</span><span class="n">init_logging</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="n">argv</span><span class="p">);</span>
+<span class="w">  </span><span class="n">MPI_Init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">argv</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// The main body of the function is scoped to ensure that all objects</span>
+<span class="w">  </span><span class="c1">// that depend on an MPI communicator are destroyed before MPI is</span>
+<span class="w">  </span><span class="c1">// finalised at the end of this function.</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//  Create meshes. For what comes later in this demo we need to</span>
+<span class="w">    </span><span class="c1">//  ensure that a boundary between cells is located at x0=0.5</span>
+
+<span class="w">    </span><span class="c1">// Create mesh using float for geometry coordinates</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh0</span>
+<span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">create_rectangle</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">            </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="p">{{{</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">}}},</span><span class="w"> </span><span class="p">{</span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
+<span class="w">            </span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">,</span>
+<span class="w">            </span><span class="n">mesh</span><span class="o">::</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">GhostMode</span><span class="o">::</span><span class="n">none</span><span class="p">)));</span>
+
+<span class="w">    </span><span class="c1">// Create mesh using same topology as mesh0, but with different</span>
+<span class="w">    </span><span class="c1">// scalar type for geometry</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh1</span>
+<span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">create_rectangle</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">            </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="p">{{{</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">}}},</span><span class="w"> </span><span class="p">{</span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
+<span class="w">            </span><span class="n">mesh</span><span class="o">::</span><span class="n">CellType</span><span class="o">::</span><span class="n">triangle</span><span class="p">,</span>
+<span class="w">            </span><span class="n">mesh</span><span class="o">::</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">GhostMode</span><span class="o">::</span><span class="n">none</span><span class="p">)));</span>
+
+<span class="w">    </span><span class="c1">// Interpolate a function in a scalar Lagrange space and output the</span>
+<span class="w">    </span><span class="c1">// result to file for visualisation using different types</span>
+<span class="w">    </span><span class="n">interpolate_scalar</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u32&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_scalar</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u64&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_scalar</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_complex64&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_scalar</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_complex128&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Interpolate a function in a H(curl) finite element space, and</span>
+<span class="w">    </span><span class="c1">// then interpolate the H(curl) function in a discontinuous Lagrange</span>
+<span class="w">    </span><span class="c1">// space for visualisation using different types</span>
+<span class="w">    </span><span class="n">interpolate_nedelec</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_nedelec32&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_nedelec</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_nedelec64&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_nedelec</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_nedelec_complex64&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">interpolate_nedelec</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;u_nedelec_complex128&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">MPI_Finalize</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demo_interpolation_different_meshes.html" class="btn btn-neutral float-left" title="Interpolation different meshes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="demo_custom_kernel.html" class="btn btn-neutral float-right" title="Custom cell kernel assembly" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
