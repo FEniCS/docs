@@ -48,5 +48,6 @@ var searchData=
   ['sub_45',['sub',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a6bdea53633d1c759488b53e1ca60c672',1,'dolfinx::fem::Function::sub()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a559e9ce683fb6091468e4012aeee4d99',1,'dolfinx::fem::FunctionSpace::sub()']]],
   ['sub_5felements_46',['sub_elements',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1748329b8783fbecb5641df06761445b',1,'dolfinx::fem::FiniteElement']]],
   ['sub_5flayout_47',['sub_layout',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#aee215f53b8e9837ad37c15e161aca3ee',1,'dolfinx::fem::ElementDofLayout']]],
-  ['sub_5fview_48',['sub_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a4286f9773615ebeacd402d91f0b8d0d8',1,'dolfinx::fem::ElementDofLayout']]]
+  ['sub_5fview_48',['sub_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a4286f9773615ebeacd402d91f0b8d0d8',1,'dolfinx::fem::ElementDofLayout']]],
+  ['symmetric_49',['symmetric',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a054885c66384c7bbfc59b9916d5be00f',1,'dolfinx::fem::FiniteElement::symmetric()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a054885c66384c7bbfc59b9916d5be00f',1,'dolfinx::fem::FunctionSpace::symmetric()']]]
 ];
