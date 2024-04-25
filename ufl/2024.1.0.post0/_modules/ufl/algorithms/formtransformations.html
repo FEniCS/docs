@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.formtransformations &#8212; Unified Form Language (UFL) 2024.1.0.post0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=c2f48ab3"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.formtransformations</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utilities for transforming complete Forms into new related Forms.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009.</span>
+<span class="c1"># Modified by Garth N. Wells, 2010.</span>
+<span class="c1"># Modified by Marie E. Rognes, 2010.</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">debug</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algebra</span> <span class="kn">import</span> <span class="n">Conj</span>
+
+<span class="c1"># Other algorithms:</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrands</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.replace</span> <span class="kn">import</span> <span class="n">replace</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.transformer</span> <span class="kn">import</span> <span class="n">Transformer</span>
+<span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+
+<span class="c1"># All classes:</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">ufl_err_str</span>
+
+
+<span class="c1"># FIXME: Don&#39;t use this below, it makes partextracter more expensive than necessary</span>
+<span class="k">def</span> <span class="nf">_expr_has_terminal_types</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">ufl_types</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if an expression has terminal types.&quot;&quot;&quot;</span>
+    <span class="nb">input</span> <span class="o">=</span> <span class="p">[</span><span class="n">expr</span><span class="p">]</span>
+    <span class="k">while</span> <span class="nb">input</span><span class="p">:</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="n">ops</span><span class="p">:</span>
+            <span class="nb">input</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">ufl_types</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="kc">False</span>
+
+
+<div class="viewcode-block" id="zero_expr"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.zero_expr">[docs]</a><span class="k">def</span> <span class="nf">zero_expr</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a zero expression.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PartExtracter"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter">[docs]</a><span class="k">class</span> <span class="nc">PartExtracter</span><span class="p">(</span><span class="n">Transformer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;PartExtracter extracts those parts of a form that contain the given argument(s).&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Transformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_want</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PartExtracter.expr"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.expr">[docs]</a>    <span class="k">def</span> <span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to expr.</span>
+
+<span class="sd">        The default is a nonlinear operator not accepting any Arguments among its children.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">_expr_has_terminal_types</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">Argument</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found Argument in </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">, this is an invalid expression.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span></div>
+
+    <span class="c1"># Terminals that are not Variables or Arguments behave as default</span>
+    <span class="c1"># expr-s.</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">expr</span>
+
+<div class="viewcode-block" id="PartExtracter.variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return relevant parts of this variable.&quot;&quot;&quot;</span>
+        <span class="c1"># Extract parts/provides from this variable&#39;s expression</span>
+        <span class="n">expression</span><span class="p">,</span> <span class="n">label</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">part</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+
+        <span class="c1"># If the extracted part is zero or we provide more than we</span>
+        <span class="c1"># want, return zero</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">provides</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="c1"># Reuse varible if possible (or reconstruct from part)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PartExtracter.argument"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.argument">[docs]</a>    <span class="k">def</span> <span class="nf">argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return itself unless itself provides too much.&quot;&quot;&quot;</span>
+        <span class="c1"># An argument provides itself</span>
+        <span class="n">provides</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="p">}</span>
+
+        <span class="c1"># If we provide more than we want, return zero</span>
+        <span class="k">if</span> <span class="n">provides</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PartExtracter.sum"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.sum">[docs]</a>    <span class="k">def</span> <span class="nf">sum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the terms that might eventually yield the correct parts(!).</span>
+
+<span class="sd">        The logic required for sums is a bit elaborate:</span>
+
+<span class="sd">        A sum may contain terms providing different arguments. We</span>
+<span class="sd">        should return (a sum of) a suitable subset of these</span>
+<span class="sd">        terms. Those should all provide the same arguments.</span>
+
+<span class="sd">        For each term in a sum, there are 2 simple possibilities:</span>
+
+<span class="sd">        1a) The relevant part of the term is zero -&gt; skip.</span>
+<span class="sd">        1b) The term provides more arguments than we want -&gt; skip</span>
+
+<span class="sd">        2) If all terms fall into the above category, we can just</span>
+<span class="sd">        return zero.</span>
+
+<span class="sd">        Any remaining terms may provide exactly the arguments we want,</span>
+<span class="sd">        or fewer. This is where things start getting interesting.</span>
+
+<span class="sd">        3) Bottom-line: if there are terms with providing different</span>
+<span class="sd">        arguments -- provide terms that contain the most arguments. If</span>
+<span class="sd">        there are terms providing different sets of same size -&gt; throw</span>
+<span class="sd">        error (e.g. Argument(-1) + Argument(-2)).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parts_that_provide</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># 1. Skip terms that provide too much</span>
+        <span class="n">original_terms</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_terms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">original_terms</span><span class="p">:</span>
+            <span class="c1"># Visit this term in the sum</span>
+            <span class="n">part</span><span class="p">,</span> <span class="n">term_provides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">term</span><span class="p">)</span>
+
+            <span class="c1"># If this part is zero or it provides more than we want,</span>
+            <span class="c1"># skip it</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">term_provides</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Add the contributions from this part to temporary list</span>
+            <span class="n">term_provides</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">term_provides</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">term_provides</span> <span class="ow">in</span> <span class="n">parts_that_provide</span><span class="p">:</span>
+                <span class="n">parts_that_provide</span><span class="p">[</span><span class="n">term_provides</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">part</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">parts_that_provide</span><span class="p">[</span><span class="n">term_provides</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">part</span><span class="p">]</span>
+
+        <span class="c1"># 2. If there are no remaining terms, return zero</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parts_that_provide</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="c1"># 3. Return the terms that provide the biggest set</span>
+        <span class="n">most_provided</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">provideds</span><span class="p">,</span> <span class="n">parts</span> <span class="ow">in</span> <span class="n">parts_that_provide</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>  <span class="c1"># TODO: Just sort instead?</span>
+            <span class="c1"># Throw error if size of sets are equal (and not zero)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">provideds</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">most_provided</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">most_provided</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Don&#39;t know what to do with sums with different Arguments.&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">provideds</span> <span class="o">&gt;</span> <span class="n">most_provided</span><span class="p">:</span>
+                <span class="n">most_provided</span> <span class="o">=</span> <span class="n">provideds</span>
+
+        <span class="n">terms</span> <span class="o">=</span> <span class="n">parts_that_provide</span><span class="p">[</span><span class="n">most_provided</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">terms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">terms</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">x</span><span class="p">,)</span> <span class="o">=</span> <span class="n">terms</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">most_provided</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PartExtracter.product"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.product">[docs]</a>    <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to product.</span>
+
+<span class="sd">        Note: Product is a visit-children-first handler. ops are</span>
+<span class="sd">        the visited factors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">provides</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">factor</span><span class="p">,</span> <span class="n">factor_provides</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+            <span class="c1"># If any factor is zero, return</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+            <span class="c1"># Add factor to factors and extend provides</span>
+            <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span>
+            <span class="n">provides</span> <span class="o">=</span> <span class="n">provides</span> <span class="o">|</span> <span class="n">factor_provides</span>
+
+            <span class="c1"># If we provide more than we want, return zero</span>
+            <span class="k">if</span> <span class="n">provides</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_want</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">provides</span><span class="p">)</span>
+
+        <span class="c1"># Reuse product if possible (or reconstruct from factors)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">factors</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+    <span class="c1"># inner, outer and dot all behave as product</span>
+    <span class="n">inner</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="n">outer</span> <span class="o">=</span> <span class="n">product</span>
+    <span class="n">dot</span> <span class="o">=</span> <span class="n">product</span>
+
+<div class="viewcode-block" id="PartExtracter.division"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.division">[docs]</a>    <span class="k">def</span> <span class="nf">division</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return parts_of_numerator/denominator.&quot;&quot;&quot;</span>
+        <span class="c1"># Get numerator and denominator</span>
+        <span class="n">numerator</span><span class="p">,</span> <span class="n">denominator</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+        <span class="c1"># Check for Arguments in the denominator</span>
+        <span class="k">if</span> <span class="n">_expr_has_terminal_types</span><span class="p">(</span><span class="n">denominator</span><span class="p">,</span> <span class="n">Argument</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Found Argument in denominator of </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">, this is an invalid expression.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Visit numerator</span>
+        <span class="n">numerator_parts</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">numerator</span><span class="p">)</span>
+
+        <span class="c1"># If numerator is zero, return zero. (No need to check whether</span>
+        <span class="c1"># it provides too much, already checked by visit.)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">numerator_parts</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="c1"># Reuse x if possible, otherwise reconstruct from (parts of)</span>
+        <span class="c1"># numerator and denominator</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">numerator_parts</span><span class="p">,</span> <span class="n">denominator</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PartExtracter.linear_operator"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.linear_operator">[docs]</a>    <span class="k">def</span> <span class="nf">linear_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to linear_operator.</span>
+
+<span class="sd">        A linear operator with a single operand accepting arity &gt; 0,</span>
+<span class="sd">        providing whatever Argument its operand does.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># linear_operator is a visit-children-first handler. Handled</span>
+        <span class="c1"># arguments are in arg.</span>
+        <span class="n">part</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="n">arg</span>
+
+        <span class="c1"># Discard if part is zero. (No need to check whether we</span>
+        <span class="c1"># provide too much, already checked by children.)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">part</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+    <span class="c1"># Positive and negative restrictions behave as linear operators</span>
+    <span class="n">positive_restricted</span> <span class="o">=</span> <span class="n">linear_operator</span>
+    <span class="n">negative_restricted</span> <span class="o">=</span> <span class="n">linear_operator</span>
+
+    <span class="c1"># Cell and facet average are linear operators</span>
+    <span class="n">cell_avg</span> <span class="o">=</span> <span class="n">linear_operator</span>
+    <span class="n">facet_avg</span> <span class="o">=</span> <span class="n">linear_operator</span>
+
+    <span class="c1"># Grad is a linear operator</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">linear_operator</span>
+
+    <span class="c1"># Conj, Real, Imag are linear operators</span>
+    <span class="n">conj</span> <span class="o">=</span> <span class="n">linear_operator</span>
+    <span class="n">real</span> <span class="o">=</span> <span class="n">linear_operator</span>
+    <span class="n">imag</span> <span class="o">=</span> <span class="n">linear_operator</span>
+
+<div class="viewcode-block" id="PartExtracter.linear_indexed_type"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.linear_indexed_type">[docs]</a>    <span class="k">def</span> <span class="nf">linear_indexed_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return parts of expression belonging to this indexed expression.&quot;&quot;&quot;</span>
+        <span class="n">expression</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">part</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+
+        <span class="c1"># Return zero if extracted part is zero. (The expression</span>
+        <span class="c1"># should already have checked if it provides too much.)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">zero_expr</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">set</span><span class="p">())</span>
+
+        <span class="c1"># Reuse x if possible (or reconstruct by indexing part)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">provides</span><span class="p">)</span></div>
+
+    <span class="c1"># All of these indexed thingies behave as a linear_indexed_type</span>
+    <span class="n">indexed</span> <span class="o">=</span> <span class="n">linear_indexed_type</span>
+    <span class="n">index_sum</span> <span class="o">=</span> <span class="n">linear_indexed_type</span>
+    <span class="n">component_tensor</span> <span class="o">=</span> <span class="n">linear_indexed_type</span>
+
+<div class="viewcode-block" id="PartExtracter.list_tensor"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.PartExtracter.list_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">list_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to list_tensor.&quot;&quot;&quot;</span>
+        <span class="c1"># list_tensor is a visit-children-first handler. ops contains</span>
+        <span class="c1"># the visited operands with their provides. (It follows that</span>
+        <span class="c1"># none of the visited operands provide more than wanted.)</span>
+
+        <span class="c1"># Extract the most arguments provided by any of the components</span>
+        <span class="n">most_provides</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">provides</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">provides</span> <span class="o">-</span> <span class="n">most_provides</span><span class="p">:</span>
+                <span class="n">most_provides</span> <span class="o">=</span> <span class="n">provides</span>
+
+        <span class="c1"># Check that all components either provide the same arguments</span>
+        <span class="c1"># or vanish. (This check is here b/c it is not obvious what to</span>
+        <span class="c1"># return if the components provide different arguments, at</span>
+        <span class="c1"># least with the current transformer design.)</span>
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">provides</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">provides</span> <span class="o">!=</span> <span class="n">most_provides</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;PartExtracter does not know how to handle list_tensors with &quot;</span>
+                    <span class="s2">&quot;non-zero components providing fewer arguments&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Return components</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">components</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">most_provides</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="compute_form_with_arity"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_with_arity">[docs]</a><span class="k">def</span> <span class="nf">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">arity</span><span class="p">,</span> <span class="n">arguments</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute parts of form of given arity.&quot;&quot;&quot;</span>
+    <span class="c1"># Extract all arguments in form</span>
+    <span class="k">if</span> <span class="n">arguments</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_with_arity cannot handle parts.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">arity</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Form has no parts with arity </span><span class="si">{</span><span class="n">arity</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span> <span class="o">*</span> <span class="n">form</span>
+
+    <span class="c1"># Assuming that the form is not a sum of terms</span>
+    <span class="c1"># that depend on different arguments, e.g. (u+v)*dx</span>
+    <span class="c1"># would result in just v*dx. But that doesn&#39;t make</span>
+    <span class="c1"># any sense anyway.</span>
+    <span class="n">sub_arguments</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">[:</span><span class="n">arity</span><span class="p">])</span>
+    <span class="n">pe</span> <span class="o">=</span> <span class="n">PartExtracter</span><span class="p">(</span><span class="n">sub_arguments</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_transform</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="n">pe</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">provides</span> <span class="o">==</span> <span class="n">sub_arguments</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">e</span>
+        <span class="k">return</span> <span class="n">Zero</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">map_integrands</span><span class="p">(</span><span class="n">_transform</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_form_arities"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_arities">[docs]</a><span class="k">def</span> <span class="nf">compute_form_arities</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return set of arities of terms present in form.&quot;&quot;&quot;</span>
+    <span class="c1"># Extract all arguments present in form</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_arities cannot handle parts.&quot;</span><span class="p">)</span>
+
+    <span class="n">arities</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">arity</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># Compute parts with arity &quot;arity&quot;</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">arity</span><span class="p">,</span> <span class="n">arguments</span><span class="p">)</span>
+
+        <span class="c1"># Register arity if &quot;parts&quot; does not vanish</span>
+        <span class="k">if</span> <span class="n">parts</span> <span class="ow">and</span> <span class="n">parts</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
+            <span class="n">arities</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">arity</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">arities</span></div>
+
+
+<div class="viewcode-block" id="compute_form_lhs"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_lhs">[docs]</a><span class="k">def</span> <span class="nf">compute_form_lhs</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the left hand side of a form.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        a = u*v*dx + f*v*dx</span>
+<span class="sd">        a = lhs(a) -&gt; u*v*dx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_form_rhs"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_rhs">[docs]</a><span class="k">def</span> <span class="nf">compute_form_rhs</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the right hand side of a form.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        a = u*v*dx + f*v*dx</span>
+<span class="sd">        L = rhs(a) -&gt; -f*v*dx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_form_functional"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_functional">[docs]</a><span class="k">def</span> <span class="nf">compute_form_functional</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the functional part of a form, that is the terms independent of Arguments.</span>
+
+<span class="sd">    (Used for testing, not sure if it&#39;s useful for anything?)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_form_action"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_action">[docs]</a><span class="k">def</span> <span class="nf">compute_form_action</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the action of a form on a Coefficient.</span>
+
+<span class="sd">    This works simply by replacing the last Argument</span>
+<span class="sd">    with a Coefficient on the same function space (element).</span>
+<span class="sd">    The form returned will thus have one Argument less</span>
+<span class="sd">    and one additional Coefficient at the end if no</span>
+<span class="sd">    Coefficient has been provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: Check whatever makes sense for coefficient</span>
+
+    <span class="c1"># Extract all arguments</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_action cannot handle parts.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Pick last argument (will be replaced)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">fs</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">coefficient</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">coefficient</span> <span class="o">=</span> <span class="n">Coefficient</span><span class="p">(</span><span class="n">fs</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">coefficient</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">fs</span><span class="p">:</span>
+        <span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Computing action of form on a coefficient in a different function space.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="p">{</span><span class="n">u</span><span class="p">:</span> <span class="n">coefficient</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="compute_energy_norm"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_energy_norm">[docs]</a><span class="k">def</span> <span class="nf">compute_energy_norm</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the a-norm of a Coefficient given a form a.</span>
+
+<span class="sd">    This works simply by replacing the two Arguments</span>
+<span class="sd">    with a Coefficient on the same function space (element).</span>
+<span class="sd">    The Form returned will thus be a functional with no</span>
+<span class="sd">    Arguments, and one additional Coefficient at the</span>
+<span class="sd">    end if no coefficient has been provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">ufl.formoperators</span> <span class="kn">import</span> <span class="n">action</span>  <span class="c1"># Delayed import to avoid circularity</span>
+
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_energy_norm cannot handle parts.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting bilinear form.&quot;</span><span class="p">)</span>
+    <span class="n">v</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">arguments</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">U</span> <span class="o">!=</span> <span class="n">V</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Expecting equal finite elements for test and trial functions, got &#39;</span><span class="si">{</span><span class="n">U</span><span class="si">}</span><span class="s2">&#39; and &#39;</span><span class="si">{</span><span class="n">V</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">coefficient</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">coefficient</span> <span class="o">=</span> <span class="n">Coefficient</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">coefficient</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">U</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Trying to compute action of form on a &quot;</span>
+                <span class="s2">&quot;coefficient in an incompatible element space.&quot;</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="n">action</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">),</span> <span class="n">coefficient</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="compute_form_adjoint"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.formtransformations.compute_form_adjoint">[docs]</a><span class="k">def</span> <span class="nf">compute_form_adjoint</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">reordered_arguments</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the adjoint of a bilinear form.</span>
+
+<span class="sd">    This works simply by swapping the number and part of the two arguments,</span>
+<span class="sd">    but keeping their elements and places in the integrand expressions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_adjoint cannot handle parts.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting bilinear form.&quot;</span><span class="p">)</span>
+
+    <span class="n">v</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">arguments</span>
+    <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">u</span><span class="o">.</span><span class="n">number</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mistaken assumption in code!&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">reordered_arguments</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">reordered_u</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="n">part</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">part</span><span class="p">())</span>
+        <span class="n">reordered_v</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="n">u</span><span class="o">.</span><span class="n">number</span><span class="p">(),</span> <span class="n">part</span><span class="o">=</span><span class="n">u</span><span class="o">.</span><span class="n">part</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">reordered_u</span><span class="p">,</span> <span class="n">reordered_v</span> <span class="o">=</span> <span class="n">reordered_arguments</span>
+
+    <span class="k">if</span> <span class="n">reordered_u</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">reordered_v</span><span class="o">.</span><span class="n">number</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Ordering of new arguments is the same as the old arguments!&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">reordered_u</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="o">!=</span> <span class="n">v</span><span class="o">.</span><span class="n">part</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Ordering of new arguments is the same as the old arguments!&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">reordered_v</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="o">!=</span> <span class="n">u</span><span class="o">.</span><span class="n">part</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Ordering of new arguments is the same as the old arguments!&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">reordered_u</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">u</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Element mismatch between new and old arguments (trial functions).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">reordered_v</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Element mismatch between new and old arguments (test functions).&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">map_integrands</span><span class="p">(</span><span class="n">Conj</span><span class="p">,</span> <span class="n">replace</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">reordered_v</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">reordered_u</span><span class="p">}))</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

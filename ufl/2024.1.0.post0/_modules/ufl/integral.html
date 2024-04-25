@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.integral &#8212; Unified Form Language (UFL) 2024.1.0.post0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=c2f48ab3"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.integral</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The Integral class.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016.</span>
+
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_python_scalar</span><span class="p">,</span> <span class="n">is_scalar_constant_expression</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span>
+<span class="kn">from</span> <span class="nn">ufl.protocols</span> <span class="kn">import</span> <span class="n">id_or_none</span>
+
+<span class="c1"># Export list for ufl.classes</span>
+<span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Integral&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="Integral"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral">[docs]</a><span class="k">class</span> <span class="nc">Integral</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An integral over a single domain.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;_integrand&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_integral_type&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_ufl_domain&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_subdomain_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_metadata&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_subdomain_data&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integrand to be an Expr instance.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span> <span class="o">=</span> <span class="n">integrand</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span> <span class="o">=</span> <span class="n">integral_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">=</span> <span class="n">domain</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="o">=</span> <span class="n">subdomain_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomain_data</span>
+
+<div class="viewcode-block" id="Integral.reconstruct"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">integrand</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">integral_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomain_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomain_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a new Integral object with some properties replaced with new values.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &lt;a = Integral instance&gt;</span>
+<span class="sd">            b = a.reconstruct(expand_compounds(a.integrand()))</span>
+<span class="sd">            c = a.reconstruct(metadata={&#39;quadrature_degree&#39;:2})</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">integrand</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">integrand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrand</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">integral_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">integral_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">subdomain_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomain_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">subdomain_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomain_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span>
+        <span class="k">return</span> <span class="n">Integral</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Integral.integrand"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.integrand">[docs]</a>    <span class="k">def</span> <span class="nf">integrand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the integrand expression, which is an ``Expr`` instance.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span></div>
+
+<div class="viewcode-block" id="Integral.integral_type"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.integral_type">[docs]</a>    <span class="k">def</span> <span class="nf">integral_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the domain type of this integral.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span></div>
+
+<div class="viewcode-block" id="Integral.ufl_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.ufl_domain">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the integration domain of this integral.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span></div>
+
+<div class="viewcode-block" id="Integral.subdomain_id"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.subdomain_id">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the subdomain id of this integral.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span></div>
+
+<div class="viewcode-block" id="Integral.metadata"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.metadata">[docs]</a>    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the compiler metadata this integral has been annotated with.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span></div>
+
+<div class="viewcode-block" id="Integral.subdomain_data"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Integral.subdomain_data">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the domain data of this integral.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span></div>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Negate.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_python_scalar</span><span class="p">(</span><span class="n">scalar</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot multiply an integral with non-constant values.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">scalar</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar_constant_expression</span><span class="p">(</span><span class="n">scalar</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;An integral can only be multiplied by a globally constant scalar expression.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">scalar</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">fmt</span> <span class="o">=</span> <span class="s2">&quot;{ </span><span class="si">%s</span><span class="s2"> } * </span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">], </span><span class="si">%s</span><span class="s2">)&quot;</span>
+        <span class="n">mname</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">integral_type_to_measure_name</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="p">]</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">fmt</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="p">,</span> <span class="n">mname</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Integral(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="si">!r}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check equality.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Integral</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_integral_type</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_ufl_domain</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_subdomain_id</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_integrand</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_metadata</span>
+            <span class="ow">and</span> <span class="n">id_or_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">)</span> <span class="o">==</span> <span class="n">id_or_none</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash.&quot;&quot;&quot;</span>
+        <span class="c1"># Assuming few collisions by ignoring hash(self._metadata) (a</span>
+        <span class="c1"># dict is not hashable but we assume it is immutable in</span>
+        <span class="c1"># practice)</span>
+        <span class="n">hashdata</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrand</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="p">,</span>
+            <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="p">,</span>
+            <span class="n">id_or_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="n">hashdata</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

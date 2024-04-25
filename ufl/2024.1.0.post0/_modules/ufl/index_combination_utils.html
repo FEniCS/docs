@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.index_combination_utils &#8212; Unified Form Language (UFL) 2024.1.0.post0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=c2f48ab3"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.index_combination_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utilities for analysing and manipulating free index tuples.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">FixedIndex</span><span class="p">,</span> <span class="n">Index</span><span class="p">,</span> <span class="n">indices</span>
+
+<span class="c1"># FIXME: Some of these might be merged into one function, some might</span>
+<span class="c1"># be optimized</span>
+
+
+<div class="viewcode-block" id="unique_sorted_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.unique_sorted_indices">[docs]</a><span class="k">def</span> <span class="nf">unique_sorted_indices</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get unique sorted indices.</span>
+
+<span class="sd">    Given a list of (id, dim) tuples already sorted by id,</span>
+<span class="sd">    return a unique list with duplicates removed.</span>
+<span class="sd">    Also checks that the dimensions of duplicates are matching.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">newindices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">prev</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">prev</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">newindices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">prev</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">prev</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Nonmatching dimensions for free indices with same id!&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">newindices</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="merge_unique_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.merge_unique_indices">[docs]</a><span class="k">def</span> <span class="nf">merge_unique_indices</span><span class="p">(</span><span class="n">afi</span><span class="p">,</span> <span class="n">afid</span><span class="p">,</span> <span class="n">bfi</span><span class="p">,</span> <span class="n">bfid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge two pairs of (index ids, index dimensions) sequences into one pair without duplicates.</span>
+
+<span class="sd">    The id tuples afi, bfi are assumed already sorted by id.</span>
+<span class="sd">    Given a list of (id, dim) tuples already sorted by id,</span>
+<span class="sd">    return a unique list with duplicates removed.</span>
+<span class="sd">    Also checks that the dimensions of duplicates are matching.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">afi</span><span class="p">)</span>
+    <span class="n">nb</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bfi</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">na</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">bfi</span><span class="p">,</span> <span class="n">bfid</span>
+    <span class="k">elif</span> <span class="n">nb</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">afi</span><span class="p">,</span> <span class="n">afid</span>
+
+    <span class="n">ak</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">bk</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">fi</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">fid</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">afi</span><span class="p">[</span><span class="n">ak</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">bfi</span><span class="p">[</span><span class="n">bk</span><span class="p">]:</span>
+            <span class="n">fi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afi</span><span class="p">[</span><span class="n">ak</span><span class="p">])</span>
+            <span class="n">fid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afid</span><span class="p">[</span><span class="n">ak</span><span class="p">])</span>
+            <span class="n">ak</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">afi</span><span class="p">[</span><span class="n">ak</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">bfi</span><span class="p">[</span><span class="n">bk</span><span class="p">]:</span>
+            <span class="n">fi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bfi</span><span class="p">[</span><span class="n">bk</span><span class="p">])</span>
+            <span class="n">fid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bfid</span><span class="p">[</span><span class="n">bk</span><span class="p">])</span>
+            <span class="n">bk</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afi</span><span class="p">[</span><span class="n">ak</span><span class="p">])</span>
+            <span class="n">fid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afid</span><span class="p">[</span><span class="n">ak</span><span class="p">])</span>
+            <span class="n">ak</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">bk</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">ak</span> <span class="o">==</span> <span class="n">na</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">bk</span> <span class="o">!=</span> <span class="n">nb</span><span class="p">:</span>
+                <span class="n">fi</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">bfi</span><span class="p">[</span><span class="n">bk</span><span class="p">:])</span>
+                <span class="n">fid</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">bfid</span><span class="p">[</span><span class="n">bk</span><span class="p">:])</span>
+            <span class="k">break</span>
+        <span class="k">elif</span> <span class="n">bk</span> <span class="o">==</span> <span class="n">nb</span><span class="p">:</span>
+            <span class="n">fi</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">afi</span><span class="p">[</span><span class="n">ak</span><span class="p">:])</span>
+            <span class="n">fid</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">afid</span><span class="p">[</span><span class="n">ak</span><span class="p">:])</span>
+            <span class="k">break</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">fi</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="remove_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.remove_indices">[docs]</a><span class="k">def</span> <span class="nf">remove_indices</span><span class="p">(</span><span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">,</span> <span class="n">rfi</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove indices.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">rfi</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span>
+
+    <span class="n">rfip</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">r</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rfi</span><span class="p">))</span>
+
+    <span class="n">nrfi</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rfi</span><span class="p">)</span>
+    <span class="n">nfi</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fi</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">nrfi</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">newfiid</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">nfi</span><span class="p">:</span>
+        <span class="n">rk</span> <span class="o">=</span> <span class="n">rfip</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Keep</span>
+        <span class="k">while</span> <span class="n">fi</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">rk</span><span class="p">:</span>
+            <span class="n">newfiid</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">fi</span><span class="p">[</span><span class="n">pos</span><span class="p">],</span> <span class="n">fid</span><span class="p">[</span><span class="n">pos</span><span class="p">]))</span>
+            <span class="n">pos</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Skip</span>
+        <span class="n">removed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">nfi</span> <span class="ow">and</span> <span class="n">fi</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">==</span> <span class="n">rk</span><span class="p">:</span>
+            <span class="n">shape</span><span class="p">[</span><span class="n">rfip</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">fid</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span>
+            <span class="n">pos</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">removed</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Expecting to find each index from rfi in fi</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">removed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Index to be removed (</span><span class="si">{</span><span class="n">rk</span><span class="si">}</span><span class="s2">) not part of indices (</span><span class="si">{</span><span class="n">fi</span><span class="si">}</span><span class="s2">).&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Next to remove</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="n">nrfi</span><span class="p">:</span>
+            <span class="c1"># No more to remove, keep the rest</span>
+            <span class="k">if</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">nfi</span><span class="p">:</span>
+                <span class="n">newfiid</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">fi</span><span class="p">[</span><span class="n">pos</span><span class="p">:],</span> <span class="n">fid</span><span class="p">[</span><span class="n">pos</span><span class="p">:]))</span>
+            <span class="k">break</span>
+
+    <span class="k">assert</span> <span class="kc">None</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">shape</span>
+
+    <span class="c1"># Unpack into two tuples</span>
+    <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">newfiid</span><span class="p">)</span> <span class="k">if</span> <span class="n">newfiid</span> <span class="k">else</span> <span class="p">((),</span> <span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_slice_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.create_slice_indices">[docs]</a><span class="k">def</span> <span class="nf">create_slice_indices</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">fi</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create slice indices.&quot;&quot;&quot;</span>
+    <span class="n">all_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">slice_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">repeated_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">free_indices</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">component</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">Index</span><span class="p">):</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ind</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="ow">in</span> <span class="n">fi</span> <span class="ow">or</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">free_indices</span><span class="p">:</span>
+                <span class="n">repeated_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+            <span class="n">free_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">shape</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">all_indices</span><span class="p">)]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Index out of bounds.&quot;</span><span class="p">)</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">shape</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">all_indices</span><span class="p">)]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Index out of bounds.&quot;</span><span class="p">)</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FixedIndex</span><span class="p">(</span><span class="n">ind</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ind</span> <span class="o">!=</span> <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only full slices (:) allowed.&quot;</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">Index</span><span class="p">()</span>
+            <span class="n">slice_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ind</span> <span class="o">==</span> <span class="bp">Ellipsis</span><span class="p">:</span>
+            <span class="n">er</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">ii</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="n">er</span><span class="p">)</span>
+            <span class="n">slice_indices</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span>
+            <span class="n">all_indices</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not expecting </span><span class="si">{</span><span class="n">ind</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_indices</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component and shape length don&#39;t match.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">all_indices</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">slice_indices</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">repeated_indices</span><span class="p">)</span></div>
+
+
+<span class="c1"># Outer etc.</span>
+<div class="viewcode-block" id="merge_nonoverlapping_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.merge_nonoverlapping_indices">[docs]</a><span class="k">def</span> <span class="nf">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge non-overlapping free indices into one representation.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">      C[i,j,r,s] = outer(A[i,s], B[j,r])</span>
+<span class="sd">      A, B -&gt; (i,j,r,s), (idim,jdim,rdim,sdim)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract input properties</span>
+    <span class="n">ai</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+    <span class="n">bi</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+    <span class="n">aid</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
+    <span class="n">bid</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
+
+    <span class="c1"># Merge lists to return</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">ai</span> <span class="o">+</span> <span class="n">bi</span><span class="p">,</span> <span class="n">aid</span> <span class="o">+</span> <span class="n">bid</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">s</span><span class="p">:</span>
+        <span class="n">free_indices</span><span class="p">,</span> <span class="n">index_dimensions</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">s</span><span class="p">)</span>
+        <span class="c1"># Consistency checks</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">free_indices</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">free_indices</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting repeated indices.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">free_indices</span><span class="p">,</span> <span class="n">index_dimensions</span> <span class="o">=</span> <span class="p">(),</span> <span class="p">()</span>
+    <span class="k">return</span> <span class="n">free_indices</span><span class="p">,</span> <span class="n">index_dimensions</span></div>
+
+
+<span class="c1"># Product</span>
+<div class="viewcode-block" id="merge_overlapping_indices"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.index_combination_utils.merge_overlapping_indices">[docs]</a><span class="k">def</span> <span class="nf">merge_overlapping_indices</span><span class="p">(</span><span class="n">afi</span><span class="p">,</span> <span class="n">afid</span><span class="p">,</span> <span class="n">bfi</span><span class="p">,</span> <span class="n">bfid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge overlapping free indices into one free and one repeated representation.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">      C[j,r] := A[i,j,k] * B[i,r,k]</span>
+<span class="sd">      A, B -&gt; (j,r), (jdim,rdim), (i,k), (idim,kdim)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract input properties</span>
+    <span class="n">an</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">afi</span><span class="p">)</span>
+    <span class="n">bn</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">bfi</span><span class="p">)</span>
+
+    <span class="c1"># Lists to return</span>
+    <span class="n">free_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">index_dimensions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">repeated_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">repeated_index_dimensions</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Find repeated indices, brute force version</span>
+    <span class="k">for</span> <span class="n">i0</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">an</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">bn</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">afi</span><span class="p">[</span><span class="n">i0</span><span class="p">]</span> <span class="o">==</span> <span class="n">bfi</span><span class="p">[</span><span class="n">i1</span><span class="p">]:</span>
+                <span class="n">repeated_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afi</span><span class="p">[</span><span class="n">i0</span><span class="p">])</span>
+                <span class="n">repeated_index_dimensions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">afid</span><span class="p">[</span><span class="n">i0</span><span class="p">])</span>
+                <span class="k">break</span>
+
+    <span class="c1"># Collect only non-repeated indices, brute force version</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">afi</span> <span class="o">+</span> <span class="n">bfi</span><span class="p">,</span> <span class="n">afid</span> <span class="o">+</span> <span class="n">bfid</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">repeated_indices</span><span class="p">:</span>
+            <span class="n">free_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="n">index_dimensions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+    <span class="c1"># Consistency checks</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">free_indices</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">free_indices</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting repeated indices left.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">free_indices</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">repeated_indices</span><span class="p">)</span> <span class="o">!=</span> <span class="n">an</span> <span class="o">+</span> <span class="n">bn</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting only twice repeated indices.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">free_indices</span><span class="p">),</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">index_dimensions</span><span class="p">),</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">repeated_indices</span><span class="p">),</span>
+        <span class="nb">tuple</span><span class="p">(</span><span class="n">repeated_index_dimensions</span><span class="p">),</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
