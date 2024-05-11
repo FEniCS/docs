@@ -59,6 +59,7 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_pml.html">Electromagnetic scattering from a wire with perfectly matched layer condition</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Electromagnetic modal analysis for a waveguide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equations-and-problem-definition">Equations and problem definition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#analytical-solutions-for-the-half-loaded-waveguide">Analytical solutions for the half-loaded waveguide</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#solve-the-problem-in-slepc">Solve the problem in SLEPc</a></li>
 </ul>
 </li>
@@ -89,6 +90,7 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_pml.html">Electromagnetic scattering from a wire with perfectly matched layer condition</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Electromagnetic modal analysis for a waveguide</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equations-and-problem-definition">Equations and problem definition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#analytical-solutions-for-the-half-loaded-waveguide">Analytical solutions for the half-loaded waveguide</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#solve-the-problem-in-slepc">Solve the problem in SLEPc</a></li>
 </ul>
 </li>
@@ -149,16 +151,34 @@ associated with a half-loaded rectangular waveguide with perfect
 electric conducting walls.</p>
 <p>First of all, let’s import the modules we need for solving the
 problem:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-
-<span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">analytical_modes</span> <span class="kn">import</span> <span class="n">verify_mode</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
+
+    <span class="kn">import</span> <span class="nn">dolfinx</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This demo requires DOLFINx to be compiled with PETSc enabled.&quot;</span><span class="p">)</span>
+        <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="ow">and</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This solver fails with PETSc and 64-bit integers becaude of memory errors in MUMPS.&quot;</span><span class="p">)</span>
+        <span class="c1"># Note: when PETSc.IntType == np.int32, superlu_dist is used</span>
+        <span class="c1"># rather than MUMPS and does not trigger memory failures.</span>
+        <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">real_type</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span>
+    <span class="n">scalar_type</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span>
+
+<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This demo requires petsc4py.&quot;</span><span class="p">)</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
 <span class="kn">import</span> <span class="nn">ufl</span>
 <span class="kn">from</span> <span class="nn">basix.ufl</span> <span class="kn">import</span> <span class="n">element</span><span class="p">,</span> <span class="n">mixed_element</span>
-<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">default_real_type</span><span class="p">,</span> <span class="n">default_scalar_type</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">plot</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">plot</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem.petsc</span> <span class="kn">import</span> <span class="n">assemble_matrix</span>
 <span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">CellType</span><span class="p">,</span> <span class="n">create_rectangle</span><span class="p">,</span> <span class="n">exterior_facet_indices</span><span class="p">,</span> <span class="n">locate_entities</span>
 
@@ -174,15 +194,92 @@ problem:</p>
     <span class="kn">from</span> <span class="nn">slepc4py</span> <span class="kn">import</span> <span class="n">SLEPc</span>
 <span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;slepc4py is required for this demo&quot;</span><span class="p">)</span>
-    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-
-<span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
-
-<span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="ow">and</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This solver fails with PETSc and 64-bit integers becaude of memory errors in MUMPS.&quot;</span><span class="p">)</span>
-    <span class="c1"># Note: when PETSc.IntType == np.int32, superlu_dist is used rather</span>
-    <span class="c1"># than MUMPS and does not trigger memory failures.</span>
-    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="analytical-solutions-for-the-half-loaded-waveguide">
+<h2>Analytical solutions for the half-loaded waveguide<a class="headerlink" href="#analytical-solutions-for-the-half-loaded-waveguide" title="Link to this heading"></a></h2>
+<p>The analytical solutions for the half-loaded waveguide with perfect
+electric conducting walls are described in Harrington’s <em>Time-harmonic
+electromagnetic fields</em>. We will skip the full derivation, and we just
+mention that the problem can be decoupled into <span class="math notranslate nohighlight">\(\mathrm{TE}_x\)</span> and
+<span class="math notranslate nohighlight">\(\mathrm{TM}_x\)</span> modes, and the possible <span class="math notranslate nohighlight">\(k_z\)</span> can be found by solving
+a set of transcendental equations, which is shown here below:</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}
+\textrm{For TE}_x \textrm{ modes}:
+\begin{cases}
+&amp;k_{x d}^{2}+\left(\frac{n \pi}{w}\right)^{2}+k_{z}^{2}=k_0^{2}
+\varepsilon_{d} \\
+&amp;k_{x v}^{2}+\left(\frac{n \pi}{w}\right)^{2}+k_{z}^{2}=k_0^{2}
+\varepsilon_{v} \\
+&amp; k_{x d} \cot k_{x d} d + k_{x v} \cot \left[k_{x v}(h-d)\right] = 0
+\end{cases}
+\end{split}\]</div>
+<div class="math notranslate nohighlight">
+\[\begin{split}
+\textrm{For TM}_x \textrm{ modes}:
+\begin{cases}
+&amp;k_{x d}^{2}+\left(\frac{n \pi}{w}\right)^{2}+k_{z}^{2}=
+k_0^{2} \varepsilon_{d} \\
+&amp;k_{x v}^{2}+\left(\frac{n \pi}{w}\right)^{2}+k_{z}^{2}=
+k_0^{2} \varepsilon_{v} \\
+&amp; \frac{k_{x d}}{\varepsilon_{d}} \tan k_{x d} d +
+\frac{k_{x v}}{\varepsilon_{v}} \tan \left[k_{x v}(h-d)\right] = 0
+\end{cases}
+\end{split}\]</div>
+<p>with:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\varepsilon_d\rightarrow\)</span> dielectric permittivity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\varepsilon_v\rightarrow\)</span> vacuum permittivity</p></li>
+<li><p><span class="math notranslate nohighlight">\(w\rightarrow\)</span> total width of the waveguide</p></li>
+<li><p><span class="math notranslate nohighlight">\(h\rightarrow\)</span> total height of the waveguide</p></li>
+<li><p><span class="math notranslate nohighlight">\(d\rightarrow\)</span> height of the dielectric fraction</p></li>
+<li><p><span class="math notranslate nohighlight">\(k_0\rightarrow\)</span> vacuum wavevector</p></li>
+<li><p><span class="math notranslate nohighlight">\(k_{xd}\rightarrow\)</span> <span class="math notranslate nohighlight">\(x\)</span> component of the wavevector in the dielectric</p></li>
+<li><p><span class="math notranslate nohighlight">\(k_{xv}\rightarrow\)</span> <span class="math notranslate nohighlight">\(x\)</span> component of the wavevector in the vacuum</p></li>
+<li><p><span class="math notranslate nohighlight">\(\frac{n \pi}{w} = k_y\rightarrow\)</span> <span class="math notranslate nohighlight">\(y\)</span> component of the wavevector
+for different <span class="math notranslate nohighlight">\(n\)</span> harmonic numbers (we assume <span class="math notranslate nohighlight">\(n=1\)</span> for the sake of
+simplicity)</p></li>
+</ul>
+<p>Let’s define the set of equations with the <span class="math notranslate nohighlight">\(\tan\)</span> and <span class="math notranslate nohighlight">\(\cot\)</span> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">TMx_condition</span><span class="p">(</span>
+    <span class="n">kx_d</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">kx_v</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">h</span><span class="p">:</span> <span class="nb">float</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">kx_d</span> <span class="o">/</span> <span class="n">eps_d</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">kx_d</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="n">kx_v</span> <span class="o">/</span> <span class="n">eps_v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">kx_v</span> <span class="o">*</span> <span class="p">(</span><span class="n">h</span> <span class="o">-</span> <span class="n">d</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">TEx_condition</span><span class="p">(</span><span class="n">kx_d</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">kx_v</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">h</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">kx_d</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">kx_d</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="n">kx_v</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">kx_v</span> <span class="o">*</span> <span class="p">(</span><span class="n">h</span> <span class="o">-</span> <span class="n">d</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Then, we can define the <code class="docutils literal notranslate"><span class="pre">verify_mode</span></code> function, to check whether a
+certain <span class="math notranslate nohighlight">\(k_z\)</span> satisfy the equations (below a certain threshold). In
+other words, we provide a certain <span class="math notranslate nohighlight">\(k_z\)</span>, together with the geometrical
+and optical parameters of the waveguide, and <code class="docutils literal notranslate"><span class="pre">verify_mode()</span></code> checks
+whether the last equations for the <span class="math notranslate nohighlight">\(\mathrm{TE}_x\)</span> or <span class="math notranslate nohighlight">\(\mathrm{TM}_x\)</span>
+modes are close to <span class="math notranslate nohighlight">\(0\)</span>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">verify_mode</span><span class="p">(</span>
+    <span class="n">kz</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span>
+    <span class="n">w</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">h</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">d</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">lmbd0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">eps_d</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span>
+    <span class="n">eps_v</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span>
+    <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">:</span>
+    <span class="n">k0</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lmbd0</span>
+    <span class="n">ky</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">w</span>  <span class="c1"># we assume n = 1</span>
+    <span class="n">kx_d_target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps_d</span> <span class="o">-</span> <span class="n">ky</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="o">-</span><span class="p">(</span><span class="n">kz</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">0</span><span class="n">j</span><span class="p">)</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">kx_d_target</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">beta</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">-</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">eps_d</span> <span class="o">-</span> <span class="n">eps_v</span><span class="p">)</span>
+    <span class="n">kx_v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+    <span class="n">kx_d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">f_tm</span> <span class="o">=</span> <span class="n">TMx_condition</span><span class="p">(</span><span class="n">kx_d</span><span class="p">,</span> <span class="n">kx_v</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+    <span class="n">f_te</span> <span class="o">=</span> <span class="n">TEx_condition</span><span class="p">(</span><span class="n">kx_d</span><span class="p">,</span> <span class="n">kx_v</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">f_tm</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">threshold</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">f_te</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">threshold</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>We now define the domain. It is a rectangular domain with width <span class="math notranslate nohighlight">\(w\)</span>
@@ -221,8 +318,8 @@ domain as <span class="math notranslate nohighlight">\(\varepsilon_r = \varepsil
 <span class="n">cells_v</span> <span class="o">=</span> <span class="n">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">Omega_v</span><span class="p">)</span>
 <span class="n">cells_d</span> <span class="o">=</span> <span class="n">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">Omega_d</span><span class="p">)</span>
 
-<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_d</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_d</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_scalar_type</span><span class="p">)</span>
-<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_v</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_v</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_scalar_type</span><span class="p">)</span>
+<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_d</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_d</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">scalar_type</span><span class="p">)</span>
+<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_v</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_v</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">scalar_type</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>In order to find the weak form of our problem, the starting point are
@@ -298,8 +395,8 @@ elements on quadrilateral cells), while for <span class="math notranslate nohigh
 Lagrange elements. This hybrid formulation is implemented with
 <code class="docutils literal notranslate"><span class="pre">mixed_element</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">degree</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="n">RTCE</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;RTCE&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_real_type</span><span class="p">)</span>
-<span class="n">Q</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_real_type</span><span class="p">)</span>
+<span class="n">RTCE</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;RTCE&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">real_type</span><span class="p">)</span>
+<span class="n">Q</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">real_type</span><span class="p">)</span>
 <span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">mixed_element</span><span class="p">([</span><span class="n">RTCE</span><span class="p">,</span> <span class="n">Q</span><span class="p">]))</span>
 </pre></div>
 </div>
