@@ -16,10 +16,11 @@ var searchData=
   ['perm_5fvtk_13',['perm_vtk',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a7ad2c7416cecb3a39648b223d545a20b',1,'dolfinx::io::cells']]],
   ['permute_14',['permute',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a869e13ef5cde67c6d3debf3c51131473',1,'dolfinx::fem::CoordinateElement::permute()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae34c915742f462093322bb19661dbb54',1,'dolfinx::fem::FiniteElement::permute()']]],
   ['permute_5finv_15',['permute_inv',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a2ba9d88fbf8b00777582579b20d19d84',1,'dolfinx::fem::CoordinateElement::permute_inv()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4985b37878a81d18f5dc5feba22d786b',1,'dolfinx::fem::FiniteElement::permute_inv()']]],
-  ['pointownershipdata_16',['PointOwnershipData',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html',1,'dolfinx::geometry']]],
-  ['preserve_17',['preserve',['../d7/de1/namespacedolfinx_1_1common.html#a85fe08b363fe014c058cdf79d502910faec4875cf2d241556a0965f7237864693',1,'dolfinx::common']]],
-  ['programmer_20s_20reference_18',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
-  ['pull_5fback_5faffine_19',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fnonaffine_20',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
-  ['push_5fforward_21',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
+  ['permute_5fsubentity_5fclosure_16',['permute_subentity_closure',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a0a14c89ecee95b8cdb0e2822bdec14d1',1,'dolfinx::fem::CoordinateElement']]],
+  ['pointownershipdata_17',['PointOwnershipData',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html',1,'dolfinx::geometry']]],
+  ['preserve_18',['preserve',['../d7/de1/namespacedolfinx_1_1common.html#a85fe08b363fe014c058cdf79d502910faec4875cf2d241556a0965f7237864693',1,'dolfinx::common']]],
+  ['programmer_20s_20reference_19',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
+  ['pull_5fback_5faffine_20',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fnonaffine_21',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
+  ['push_5fforward_22',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];
