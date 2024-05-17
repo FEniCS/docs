@@ -60,5 +60,5 @@ var searchData=
   ['dolfinx_3a_3arefinement_57',['refinement',['../d9/dd6/namespacedolfinx_1_1refinement.html',1,'dolfinx']]],
   ['dolfinx_3a_3arefinement_3a_3aplaza_58',['plaza',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html',1,'dolfinx::refinement']]],
   ['dolfinx_3a_3ascalar_59',['scalar',['../da/d5d/conceptdolfinx_1_1scalar.html',1,'dolfinx']]],
-  ['domain_60',['domain',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a6c9d7585bf78dd14a654538f94ee4e85',1,'dolfinx::fem::Form::domain(IntegralType type, int i) const'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a457879a9f8f7575146174f657f411651',1,'dolfinx::fem::Form::domain(IntegralType type, int i, const mesh::Mesh&lt; U &gt; &amp;mesh) const']]]
+  ['domain_60',['domain',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a6c9d7585bf78dd14a654538f94ee4e85',1,'dolfinx::fem::Form::domain(IntegralType type, int i) const'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a86baac66b24222eb3d513c215d287e2a',1,'dolfinx::fem::Form::domain(IntegralType type, int i, const mesh::Mesh&lt; geometry_type &gt; &amp;mesh) const']]]
 ];
