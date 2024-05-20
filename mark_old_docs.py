@@ -41,12 +41,12 @@ for library in ["ufl", "basix", "ffcx", "dolfinx"]:
 
                     with open(file, "w") as f:
                         f.write(pre)
-                        f.write("\n<!-- Outdated warning -->\n")
+                        f.write("<!-- Outdated warning -->\n")
                         f.write("<div style='width:800px;margin:auto;padding:20px;background-color:white'>")
-                        f.write("<h3 style='color:red'>Note: this is documentation for an old release. "
+                        f.write("<b>Note: this is documentation for an old release. "
                                 "View the latest documentation at "
                                 f"<a href='/{latest_link}'>docs.fenicsproject.org/{latest_link}</a>"
-                                "</h3>")
+                                "</b>")
                         f.write("</div>")
-                        f.write("\n<!-- End outdated warning -->\n")
+                        f.write("\n<!-- End outdated warning -->")
                         f.write(post)
