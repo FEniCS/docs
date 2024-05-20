@@ -5,7 +5,7 @@ def html_files(folder):
     for file in os.listdir(folder):
         if file.startswith("."):
             continue
-        file_path = os.path.join(folder, file)
+        file_path = f"{folder}/{file}"
         if os.path.isdir(file_path):
             out += html_files(file_path)
         elif file.endswith(".html"):
@@ -14,13 +14,13 @@ def html_files(folder):
 
 for library in ["ufl", "basix", "ffcx", "dolfinx"]:
     latest = max(folder for folder in os.listdir(library)
-                 if os.path.isdir(os.path.join(library, folder)) and folder != "main")
+                 if os.path.isdir(f"{library}/{folder}") and folder != "main")
 
     for folder in os.listdir(library):
         if folder != latest and folder != "main":
-            folder_path = os.path.join(library, folder)
+            folder_path = f"{library}/{folder}"
             if os.path.isdir(folder_path):
-                for file in html_files(os.path.join(library, folder)):
+                for file in html_files(f"{library}/{folder}"):
                     with open(file) as f:
                         content = f.read()
 
