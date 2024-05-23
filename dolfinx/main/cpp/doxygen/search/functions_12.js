@@ -10,7 +10,7 @@ var searchData=
   ['timelogger_7',['TimeLogger',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a0d6fac814f6ecbccf5f23f66947e4b2a',1,'dolfinx::common::TimeLogger']]],
   ['timer_8',['Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a6a8bc5014802d569f6d01c4f36121a81',1,'dolfinx::common::Timer::Timer()'],['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a361f74958b6f26d4fa4b203b1dc26569',1,'dolfinx::common::Timer::Timer(const std::string &amp;task)']]],
   ['timing_9',['timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a1b21c8a81721a61db9a44d50b9767310',1,'dolfinx::common::TimeLogger::timing()'],['../d2/dc7/namespacedolfinx.html#a36ef37917c9bb76098cd8fc0a81f658a',1,'dolfinx::timing()']]],
-  ['timings_10',['timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a3a493ef6cdf43f52ea2bdbdbf20b5e9a',1,'dolfinx::common::TimeLogger::timings()'],['../d2/dc7/namespacedolfinx.html#a3a493ef6cdf43f52ea2bdbdbf20b5e9a',1,'dolfinx::timings()']]],
+  ['timings_10',['timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a3a493ef6cdf43f52ea2bdbdbf20b5e9a',1,'dolfinx::common::TimeLogger::timings()'],['../d2/dc7/namespacedolfinx.html#aad5022f2101f47b1cb1746df5cd3acc6',1,'dolfinx::timings()']]],
   ['tinv_5fapply_11',['Tinv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a19ca3a56d5409c5b22206ff3f04e08ee',1,'dolfinx::fem::FiniteElement']]],
   ['tinv_5fapply_5fright_12',['Tinv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#af75f91a8f13b66b1ed9d245e790388c3',1,'dolfinx::fem::FiniteElement']]],
   ['to_5fdense_13',['to_dense',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a3957be66d50f9a07b0c75016759e181c',1,'dolfinx::la::MatrixCSR']]],
