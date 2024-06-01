@@ -12,7 +12,7 @@ var searchData=
   ['cell_5ftype_9',['cell_type',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#ad6f6be4d5aa4e466a829fe019270e1f5',1,'dolfinx::mesh::Topology']]],
   ['cell_5ftype_5ffrom_5fbasix_5ftype_10',['cell_type_from_basix_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#a6c079ec392bf6c24c4879a67f53f4af8',1,'dolfinx::mesh']]],
   ['cell_5ftype_5fto_5fbasix_5ftype_11',['cell_type_to_basix_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#aa44a1bbf3077eacea89cf5f62c24fe68',1,'dolfinx::mesh']]],
-  ['cellpartitionfunction_12',['CellPartitionFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#a8ed3af4878d9e57dbbe756ac12f11670',1,'dolfinx::mesh']]],
+  ['cellpartitionfunction_12',['CellPartitionFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#acab22e3b5c8ac14664c8cd8e6f53fb70',1,'dolfinx::mesh']]],
   ['cells_13',['cells',['../db/dcc/namespacedolfinx_1_1fem_1_1sparsitybuild.html#ae2f0ed66f6d1dc4a8689894c5d833007',1,'dolfinx::fem::sparsitybuild']]],
   ['celltype_14',['CellType',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac3c2cbbef08f3b7ddc3b06c6bd5a2271',1,'dolfinx::mesh']]],
   ['check_5ferror_15',['check_error',['../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e',1,'dolfinx::MPI']]],
