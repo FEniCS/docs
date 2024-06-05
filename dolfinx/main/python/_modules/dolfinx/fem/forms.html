@@ -292,10 +292,20 @@
         <span class="n">subdomain_ids</span> <span class="o">=</span> <span class="p">{</span><span class="nb">type</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
         <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">())</span>
+                <span class="c1"># Subdomain ids can be strings, its or tuples with strings and ints</span>
+                <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">sid</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="k">if</span> <span class="n">sid</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                        <span class="c1"># If not tuple, but single integer id</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+
         <span class="c1"># Chain and sort subdomain ids</span>
         <span class="k">for</span> <span class="n">itg_type</span><span class="p">,</span> <span class="n">marker_ids</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">flattened_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="n">marker_ids</span><span class="p">))</span>
+            <span class="n">flattened_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">marker_ids</span><span class="p">))</span>
             <span class="n">flattened_ids</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
             <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">itg_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">flattened_ids</span>
 
@@ -313,18 +323,13 @@
                     <span class="c1"># Compute integration domains only for each subdomain id in the integrals</span>
                     <span class="c1"># If a process has no integral entities, insert an empty array</span>
                     <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="p">:</span>
-                        <span class="k">try</span><span class="p">:</span>
-                            <span class="n">integration_entities</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">compute_integration_domains</span><span class="p">(</span>
-                                <span class="n">integral_type</span><span class="p">,</span>
-                                <span class="n">subdomain</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span>
-                                <span class="n">subdomain</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span>
-                                <span class="n">subdomain</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
-                            <span class="p">)</span>
-                            <span class="n">domains</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">id</span><span class="p">,</span> <span class="n">integration_entities</span><span class="p">))</span>
-
-                        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                            <span class="k">pass</span>  <span class="c1"># If subdomain id is &quot;everywhere&quot;</span>
-
+                        <span class="n">integration_entities</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">compute_integration_domains</span><span class="p">(</span>
+                            <span class="n">integral_type</span><span class="p">,</span>
+                            <span class="n">subdomain</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span>
+                            <span class="n">subdomain</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span>
+                            <span class="n">subdomain</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">domains</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">id</span><span class="p">,</span> <span class="n">integration_entities</span><span class="p">))</span>
                     <span class="k">return</span> <span class="p">[(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">]</span>
                 <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
                     <span class="k">return</span> <span class="p">[(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">subdomain</span><span class="p">]</span>
