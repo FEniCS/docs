@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['radix_5fsort_0',['radix_sort',['../d2/dc7/namespacedolfinx.html#af9dbb8046c83be5d186534bcf4b9a015',1,'dolfinx']]],
+  ['radix_5fsort_0',['radix_sort',['../d2/dc7/namespacedolfinx.html#a66d1a68fc8a4fd575011cfcf1332d874',1,'dolfinx']]],
   ['rank_1',['rank',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a290d348ba17e7752621ed7bd3d5e4b3a',1,'dolfinx::fem::Form::rank()'],['../da/dfe/namespacedolfinx_1_1MPI.html#ab6a01b5be2487cb6674b70ce6a89bad0',1,'dolfinx::MPI::rank()']]],
   ['read_5fcell_5ftype_2',['read_cell_type',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a8d01bb02494c74561059c5346f800182',1,'dolfinx::io::XDMFFile']]],
   ['read_5fgeometry_5fdata_3',['read_geometry_data',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a8e595285029e2867d33f457382b68cc1',1,'dolfinx::io::XDMFFile::read_geometry_data()'],['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#a16a6d5489b9caf4836aacad2f114f620',1,'dolfinx::io::xdmf_mesh::read_geometry_data()']]],
