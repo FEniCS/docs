@@ -532,8 +532,10 @@
     <span class="n">form</span><span class="p">:</span> <span class="n">CompiledForm</span><span class="p">,</span>
     <span class="n">function_spaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">function</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">],</span>
     <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">subdomains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]],</span>
     <span class="n">coefficient_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Function</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">Function</span><span class="p">],</span>
     <span class="n">constant_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">Constant</span><span class="p">],</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a Form object from a data-independent compiled form</span>
@@ -543,45 +545,24 @@
 <span class="sd">        function_spaces: List of function spaces associated with the form.</span>
 <span class="sd">            Should match the number of arguments in the form.</span>
 <span class="sd">        mesh: Mesh to associate form with</span>
+<span class="sd">        subdomains: A map from integral type to a list of pairs, where each pair corresponds to a</span>
+<span class="sd">            subdomain id and the set of of integration entities to integrate over.</span>
+<span class="sd">            Can be computed with {py:func}`dolfinx.fem.compute_integration_domains`.</span>
 <span class="sd">        coefficient_map: Map from UFL coefficient to function with data</span>
 <span class="sd">        constant_map: Map from UFL constant to constant with data</span>
+<span class="sd">        entity_map: A map where each key corresponds to a mesh different to the integration</span>
+<span class="sd">            domain `mesh`.</span>
+<span class="sd">        The value of the map is an array of integers, where the i-th entry is the entity in</span>
+<span class="sd">            the key mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">sd</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">ufl_form</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span>
-    <span class="p">(</span><span class="n">domain</span><span class="p">,)</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>  <span class="c1"># Assuming single domain</span>
+    <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">m</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-    <span class="c1"># Make map from integral_type to subdomain id</span>
-    <span class="n">subdomain_ids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nb">type</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-    <span class="p">}</span>
-    <span class="n">flattened_subdomain_ids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nb">type</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-    <span class="p">}</span>
-    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">ufl_form</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Subdomain ids can be strings, its or tuples with strings and ints</span>
-            <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">sid</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="k">if</span> <span class="n">sid</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">]</span>
-                <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                    <span class="c1"># If not tuple, but single integer id</span>
-                    <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-
-        <span class="c1"># Chain and sort subdomain ids</span>
-        <span class="k">for</span> <span class="n">itg_type</span><span class="p">,</span> <span class="n">marker_ids</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">flattened_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">marker_ids</span><span class="p">))</span>
-            <span class="n">flattened_ids</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
-            <span class="n">flattened_subdomain_ids</span><span class="p">[</span><span class="n">itg_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">flattened_ids</span>
-
-    <span class="c1"># Subdomain markers (possibly empty list for some integral types)</span>
-    <span class="n">subdomains</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">_ufl_to_dolfinx_domain</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span> <span class="n">get_integration_domains</span><span class="p">(</span>
-            <span class="n">_ufl_to_dolfinx_domain</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">subdomain_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">flattened_subdomain_ids</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-    <span class="p">}</span>
+    <span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">idomain</span> <span class="ow">in</span> <span class="n">_subdomain_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">idomain</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
     <span class="c1"># Extract name of ufl objects and map them to their corresponding C++ object</span>
     <span class="n">ufl_coefficients</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">extract_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">ufl_form</span><span class="p">)</span>
@@ -597,7 +578,8 @@
         <span class="p">[</span><span class="n">fs</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">function_spaces</span><span class="p">],</span>
         <span class="n">coefficients</span><span class="p">,</span>
         <span class="n">constants</span><span class="p">,</span>
-        <span class="n">subdomains</span><span class="p">,</span>
+        <span class="n">_subdomain_data</span><span class="p">,</span>
+        <span class="n">_entity_maps</span><span class="p">,</span>
         <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">ufcx_form</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">code</span><span class="p">)</span></div>
