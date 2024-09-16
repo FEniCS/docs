@@ -46,7 +46,7 @@ var searchData=
   ['compute_5flocal_5fto_5flocal_43',['compute_local_to_local',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#ace15f6925ed85b175a7e32ef2ad46d3a',1,'dolfinx::graph::build']]],
   ['compute_5fmidpoints_44',['compute_midpoints',['../dd/d7d/namespacedolfinx_1_1mesh.html#ad4dbbf93d4d231f00b543bf8cc9fece7',1,'dolfinx::mesh']]],
   ['compute_5fowned_5findices_45',['compute_owned_indices',['../d7/de1/namespacedolfinx_1_1common.html#a53546ac2b5250e045e91411cae1b5724',1,'dolfinx::common']]],
-  ['compute_5frefinement_5fdata_46',['compute_refinement_data',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a73874b038b12ae92f97b796b9476055d',1,'dolfinx::refinement::plaza::compute_refinement_data(const mesh::Mesh&lt; T &gt; &amp;mesh, Option option)'],['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a43144d87e44af8ebe221efa22b5776ee',1,'dolfinx::refinement::plaza::compute_refinement_data(const mesh::Mesh&lt; T &gt; &amp;mesh, std::span&lt; const std::int32_t &gt; edges, Option option)']]],
+  ['compute_5frefinement_5fdata_46',['compute_refinement_data',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#aa249aae0994eb212138ad11016150709',1,'dolfinx::refinement::plaza']]],
   ['compute_5fsquared_5fdistance_5fbbox_47',['compute_squared_distance_bbox',['../de/d27/namespacedolfinx_1_1geometry.html#a51ebde91c8a857becbe22ab096f1e940',1,'dolfinx::geometry']]],
   ['compute_5fvalue_5fshape_48',['compute_value_shape',['../d8/dbf/namespacedolfinx_1_1fem.html#ae15cc6c294a101d88fced0d14298d7fe',1,'dolfinx::fem']]],
   ['compute_5fvertex_5fcoords_49',['compute_vertex_coords',['../d0/d47/mesh_2utils_8h.html#a84f97c83c2ce148b50154b58fa8aea96',1,'dolfinx::mesh::impl']]],

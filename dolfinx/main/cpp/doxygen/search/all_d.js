@@ -7,7 +7,7 @@ var searchData=
   ['newtonsolver_4',['NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html',1,'NewtonSolver'],['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a694ffbfde5de38322954b9ff70ae9a8a',1,'dolfinx::nls::petsc::NewtonSolver::NewtonSolver(MPI_Comm comm)'],['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a32099151a15fa40f742e9719d2608785',1,'dolfinx::nls::petsc::NewtonSolver::NewtonSolver(NewtonSolver &amp;&amp;solver)=default']]],
   ['nnz_5fdiag_5',['nnz_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a5c76a6f74ef0aec646374dd6716b58e0',1,'dolfinx::la::SparsityPattern']]],
   ['nnz_5foff_5fdiag_6',['nnz_off_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a26aa980b1174e63fc8eb625f647d312e',1,'dolfinx::la::SparsityPattern']]],
-  ['none_7',['none',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html#a877dd0db8fe1b978303009fb3f473016a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement::plaza']]],
+  ['none_7',['none',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6c691bb389aec7339fcaba9d1d36f409a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'dolfinx::refinement']]],
   ['norm_8',['Norm',['../d6/dfa/namespacedolfinx_1_1la.html#a2e0f25289c14e546b4ba10dd8fc735e5',1,'dolfinx::la']]],
   ['norm_9',['norm',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#a3096af607f3b72b2a6af400621eb02d2',1,'dolfinx::la::petsc::Matrix::norm()'],['../d6/dfa/namespacedolfinx_1_1la.html#aa32f131f39f8be7ec5e7681950da35e6',1,'dolfinx::la::norm()']]],
   ['num_5fall_5frows_10',['num_all_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#acf00f9c00e0b1fb45f838cccacead71a',1,'dolfinx::la::MatrixCSR']]],
