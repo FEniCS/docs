@@ -82,7 +82,7 @@
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
-<span class="sd">&quot;&quot;&quot;Creation, refining and marking of meshes&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Creation, refining and marking of meshes.&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
@@ -106,7 +106,6 @@
     <span class="n">build_dual_graph</span><span class="p">,</span>
     <span class="n">cell_dim</span><span class="p">,</span>
     <span class="n">create_cell_partitioner</span><span class="p">,</span>
-    <span class="n">exterior_facet_indices</span><span class="p">,</span>
     <span class="n">to_string</span><span class="p">,</span>
     <span class="n">to_type</span><span class="p">,</span>
 <span class="p">)</span>
@@ -147,6 +146,155 @@
 <span class="p">]</span>
 
 
+<span class="k">class</span> <span class="nc">Topology</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Topology for a :class:`dolfinx.mesh.Mesh`&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a topology from a C++ topology.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            topology: The C++ topology object</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Topology objects should usually be constructed with the</span>
+<span class="sd">            :func:`dolfinx.cpp.mesh.create_topology` and not this class initializer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">topology</span>
+
+    <span class="k">def</span> <span class="nf">cell_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;String representation of the cell-type of the topology&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cell_type</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return connectivity from entities of dimension ``d0`` to entities of dimension ``d1``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            d0: Dimension of entity one is mapping from</span>
+<span class="sd">            d1: Dimension of entity one is mapping to</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">conn</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">conn</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Connectivity between dimension </span><span class="si">{</span><span class="n">d0</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">d1</span><span class="si">}</span><span class="s2"> has not been computed.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Please call `dolfinx.mesh.Topology.create_connectivity(</span><span class="si">{</span><span class="n">d0</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">d1</span><span class="si">}</span><span class="s2">)` first.&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">comm</span>
+
+    <span class="k">def</span> <span class="nf">create_connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create connectivity between given pair of dimensions, ``d0`` and  ``d1``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            d0: Dimension of entities one is mapping from</span>
+<span class="sd">            d1: Dimension of entities one is mapping to</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">create_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create entities of given topological dimension.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Number of newly created entities, returns -1 if entities already existed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_entities</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">create_entity_permutations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute entity permutations and reflections.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_entity_permutations</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the topological dimension of the mesh.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">entity_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">CellType</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Entity types in the topology for all topological dimensions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">entity_types</span>
+
+    <span class="k">def</span> <span class="nf">get_cell_permutation_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get permutation information.</span>
+
+<span class="sd">        The returned data is used for packing coefficients and</span>
+<span class="sd">        assembling of tensors. The bits of each integer encodes the</span>
+<span class="sd">        number of reflections and permutations for each sub-entity of</span>
+<span class="sd">        the cell to be able to map it to the reference element.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">get_cell_permutation_info</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">get_facet_permutations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the permutation integer to apply to facets.</span>
+
+<span class="sd">        The bits of each integer describes the number of reflections and</span>
+<span class="sd">        rotations that has to be applied to a facet to map between a</span>
+<span class="sd">        facet in the mesh (relative to a cell) and the corresponding</span>
+<span class="sd">        facet on the reference element. The data has the shape</span>
+<span class="sd">        ``(num_cells, num_facets_per_cell)``, flattened row-wise. The</span>
+<span class="sd">        number of cells include potential ghost cells.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The data can be unpacked with ``numpy.unpack_bits``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">get_facet_permutations</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the IndexMap that described the parallel distribution of the mesh entities.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Index map for the entities of dimension ``dim``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">imap</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">imap</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Entities of dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> has not been computed.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Call `dolfinx.mesh.Topology.create_entities(</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">) first.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">interprocess_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of inter-process facets, if facet topology has been computed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interprocess_facets</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">original_cell_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the original cell index&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">original_cell_index</span>
+
+    <span class="k">def</span> <span class="nf">set_connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set connectivity for given pair of topological dimensions.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            graph: Connectivity graph</span>
+<span class="sd">            d0: Topological dimension mapping from</span>
+<span class="sd">            d1: Topological dimension mapping to</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">set_connectivity</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">index_map</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the IndexMap for dimension ``dim``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension of entity.</span>
+<span class="sd">            index_map: Index map to store.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">set_index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">index_map</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">cell_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellType</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the cell type of the topology&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cell_type</span>
+
+
 <div class="viewcode-block" id="Geometry">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Geometry">[docs]</a>
 <span class="k">class</span> <span class="nc">Geometry</span><span class="p">:</span>
@@ -163,11 +311,11 @@
 <span class="sd">            geometry: The C++ geometry object.</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            Geometry objects should usually be constructed with the :func:`create_geometry`</span>
-<span class="sd">            and not using this class initializer. This class is combined with different base classes</span>
-<span class="sd">            that depend on the scalar type used in the Geometry.</span>
+<span class="sd">            Geometry objects should usually be constructed with the</span>
+<span class="sd">            :func:`create_geometry` and not using this class</span>
+<span class="sd">            initializer. This class is combined with different base</span>
+<span class="sd">            classes that depend on the scalar type used in the Geometry.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">geometry</span>
 
     <span class="nd">@property</span>
@@ -210,6 +358,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;A mesh.&quot;&quot;&quot;</span>
 
     <span class="n">_mesh</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span><span class="p">]</span>
+    <span class="n">_topology</span><span class="p">:</span> <span class="n">Topology</span>
     <span class="n">_geometry</span><span class="p">:</span> <span class="n">Geometry</span>
     <span class="n">_ufl_domain</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">]</span>
 
@@ -221,11 +370,13 @@
 <span class="sd">            domain: A UFL domain.</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            Mesh objects should usually be constructed using :func:`create_mesh`</span>
-<span class="sd">            and not using this class initializer. This class is combined with different base classes</span>
-<span class="sd">            that depend on the scalar type used in the Mesh.</span>
+<span class="sd">            Mesh objects should usually be constructed using</span>
+<span class="sd">            :func:`create_mesh` and not using this class initializer.</span>
+<span class="sd">            This class is combined with different base classes that</span>
+<span class="sd">            depend on the scalar type used in the Mesh.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">mesh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span> <span class="o">=</span> <span class="n">Topology</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span> <span class="o">=</span> <span class="n">Geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">geometry</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">=</span> <span class="n">domain</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -259,7 +410,8 @@
     <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the ufl domain corresponding to the mesh.</span>
 
-<span class="sd">        Domain is ``None`` if it has not been set.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The UFL domain. Is ``None`` if the domain has not been set.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            This method is required for UFL compatibility.</span>
@@ -292,9 +444,9 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Topology</span><span class="p">:</span>
         <span class="s2">&quot;Mesh topology.&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Geometry</span><span class="p">:</span>
@@ -380,8 +532,21 @@
 
 <div class="viewcode-block" id="compute_incident_entities">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.compute_incident_entities">[docs]</a>
-<span class="k">def</span> <span class="nf">compute_incident_entities</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">compute_incident_entities</span><span class="p">(</span>
+    <span class="n">topology</span><span class="p">:</span> <span class="n">Topology</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute all entities of ``d1`` connected to ``entities`` of dimension ``d0``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        topology: The topology</span>
+<span class="sd">        entities: List of entities fo dimension ``d0``.</span>
+<span class="sd">        d0: Topological dimension</span>
+<span class="sd">        d1: Topological dimension to map to</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Incident entity indices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span></div>
 
 
 
@@ -442,19 +607,6 @@
 
 
 
-<span class="n">_uflcell_to_dolfinxcell</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;interval&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span>
-    <span class="s2">&quot;interval2D&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span>
-    <span class="s2">&quot;interval3D&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span>
-    <span class="s2">&quot;triangle&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span>
-    <span class="s2">&quot;triangle3D&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span>
-    <span class="s2">&quot;quadrilateral&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">,</span>
-    <span class="s2">&quot;quadrilateral3D&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">,</span>
-    <span class="s2">&quot;tetrahedron&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span>
-    <span class="s2">&quot;hexahedron&quot;</span><span class="p">:</span> <span class="n">CellType</span><span class="o">.</span><span class="n">hexahedron</span><span class="p">,</span>
-<span class="p">}</span>
-
-
 <div class="viewcode-block" id="transfer_meshtag">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.transfer_meshtag">[docs]</a>
 <span class="k">def</span> <span class="nf">transfer_meshtag</span><span class="p">(</span>
@@ -478,12 +630,14 @@
 <span class="sd">        Mesh tags on the refined mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
-        <span class="n">mt</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">transfer_cell_meshtag</span><span class="p">(</span><span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mesh1</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">)</span>
+        <span class="n">mt</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">transfer_cell_meshtag</span><span class="p">(</span>
+            <span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mesh1</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">parent_cell</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">mt</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">assert</span> <span class="n">parent_facet</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="n">mt</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">transfer_facet_meshtag</span><span class="p">(</span>
-            <span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mesh1</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span>
+            <span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mesh1</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">mt</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -548,8 +702,8 @@
 <span class="sd">            cells across MPI ranks.</span>
 
 <span class="sd">    Note:</span>
-<span class="sd">        If required, the coordinates ``x`` will be cast to the same type</span>
-<span class="sd">        as the domain/element ``e``.</span>
+<span class="sd">        If required, the coordinates ``x`` will be cast to the same</span>
+<span class="sd">        scalar type as the domain/element ``e``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A mesh.</span>
@@ -612,16 +766,20 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        mesh: Mesh to create the sub-mesh from.</span>
-<span class="sd">        dim: Topological dimension of the entities in ``msh`` to include in the sub-mesh.</span>
-<span class="sd">        entities: Indices of entities in ``msh`` to include in the sub-mesh.</span>
+<span class="sd">        dim: Topological dimension of the entities in ``msh`` to include</span>
+<span class="sd">            in the sub-mesh.</span>
+<span class="sd">        entities: Indices of entities in ``msh`` to include in the</span>
+<span class="sd">            sub-mesh.</span>
+
 <span class="sd">    Returns:</span>
-<span class="sd">        The (1) sub mesh, (2) entity map, (3) vertex map, and (4) node map (geometry).</span>
-<span class="sd">        Each of the maps a local index of the sub mesh to a local index of ``msh``.</span>
+<span class="sd">        The (1) sub mesh, (2) entity map, (3) vertex map, and (4) node</span>
+<span class="sd">        map (geometry). Each of the maps a local index of the sub mesh</span>
+<span class="sd">        to a local index of ``msh``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">submsh</span><span class="p">,</span> <span class="n">entity_map</span><span class="p">,</span> <span class="n">vertex_map</span><span class="p">,</span> <span class="n">geom_map</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_submesh</span><span class="p">(</span>
         <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span>
     <span class="p">)</span>
-    <span class="n">submsh_ufl_cell</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="n">submsh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_name</span><span class="p">())</span>
+    <span class="n">submsh_ufl_cell</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="n">to_string</span><span class="p">(</span><span class="n">submsh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span><span class="p">))</span>
     <span class="n">submsh_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -660,9 +818,7 @@
 <span class="sd">    Note:</span>
 <span class="sd">        The type of the returned MeshTags is inferred from the type of</span>
 <span class="sd">        ``values``.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
         <span class="k">assert</span> <span class="n">values</span> <span class="o">&gt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">min</span> <span class="ow">and</span> <span class="n">values</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">max</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
@@ -681,7 +837,9 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">ftype</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">values</span><span class="p">))</span></div>
+    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span>
+        <span class="n">ftype</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">values</span><span class="p">)</span>
+    <span class="p">)</span></div>
 
 
 
@@ -715,7 +873,7 @@
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
     <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_meshtags</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">values</span><span class="p">))</span></div>
+    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_meshtags</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">values</span><span class="p">))</span></div>
 
 
 
@@ -744,7 +902,6 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        An interval mesh.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">)</span>
@@ -945,7 +1102,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A mesh of an axis-aligned unit cube with corners at ``(0, 0, 0)``</span>
-<span class="sd">            and ``(1, 1, 1)``.</span>
+<span class="sd">        and ``(1, 1, 1)``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">create_box</span><span class="p">(</span>
         <span class="n">comm</span><span class="p">,</span>
@@ -970,14 +1127,38 @@
 <span class="sd">        mesh: The mesh.</span>
 <span class="sd">        dim: Topological dimension of the entities of interest.</span>
 <span class="sd">        entities: Entity indices (local to the process).</span>
-<span class="sd">        permute: Permute the DOFs such that they are consistent with the orientation</span>
-<span class="sd">            of `dim`-dimensional mesh entities. This requires `create_entity_permutations` to</span>
-<span class="sd">            be called first.</span>
+<span class="sd">        permute: Permute the DOFs such that they are consistent with the</span>
+<span class="sd">            orientation of `dim`-dimensional mesh entities. This</span>
+<span class="sd">            requires `create_entity_permutations` to be called first.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        The geometric DOFs associated with the closure of the entities in `entities`.</span>
+<span class="sd">        The geometric DOFs associated with the closure of the entities</span>
+<span class="sd">        in `entities`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">entities_to_geometry</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">permute</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="exterior_facet_indices">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.exterior_facet_indices">[docs]</a>
+<span class="k">def</span> <span class="nf">exterior_facet_indices</span><span class="p">(</span><span class="n">topology</span><span class="p">:</span> <span class="n">Topology</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the indices of all exterior facets that are owned by the caller.</span>
+
+<span class="sd">    An exterior facet (co-dimension 1) is one that is connected globally</span>
+<span class="sd">    to only one cell of co-dimension 0).</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This is a collective operation that should be called on all</span>
+<span class="sd">        processes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        topology: The topology</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Sorted list of owned facet indices that are exterior facets of</span>
+<span class="sd">        the mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">exterior_facet_indices</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
 
 
 
@@ -993,14 +1174,15 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Geometry object.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        index_map: Index map describing the layout of the geometry points (nodes).</span>
-<span class="sd">        dofmap: The geometry (point) dofmap. For a cell, it gives the row</span>
-<span class="sd">            in the point coordinates ``x`` of each local geometry node.</span>
-<span class="sd">            ``shape=(num_cells, num_dofs_per_cell)``.</span>
+<span class="sd">        index_map: Index map describing the layout of the geometry</span>
+<span class="sd">            points (nodes).</span>
+<span class="sd">        dofmap: The geometry (point) dofmap. For a cell, it gives the</span>
+<span class="sd">            row in the point coordinates ``x`` of each local geometry</span>
+<span class="sd">            node. ``shape=(num_cells, num_dofs_per_cell)``.</span>
 <span class="sd">        element: Element that describes the cell geometry map.</span>
 <span class="sd">        x: The point coordinates. The shape is ``(num_points, geometric_dimension).``</span>
-<span class="sd">        input_global_indices: The &#39;global&#39; input index of each point, commonly</span>
-<span class="sd">            from a mesh input file.</span>
+<span class="sd">        input_global_indices: The &#39;global&#39; input index of each point,</span>
+<span class="sd">            commonly from a mesh input file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
         <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span>
@@ -1011,6 +1193,7 @@
 
     <span class="k">if</span> <span class="p">(</span><span class="n">dtype</span> <span class="o">:=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mismatch in x dtype (</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">) and coordinate element (</span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">Geometry</span><span class="p">(</span><span class="n">ftype</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span><span class="p">))</span></div>
 
 </pre></div>
