@@ -58,7 +58,6 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_scattering_boundary_conditions.html">Electromagnetic scattering from a wire with scattering boundary conditions</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Electromagnetic scattering from a wire with perfectly matched layer condition</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equations-problem-definition-and-implementation">Equations, problem definition and implementation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#implementation">Implementation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#post-processing">Post-processing</a></li>
 </ul>
 </li>
@@ -89,7 +88,6 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_scattering_boundary_conditions.html">Electromagnetic scattering from a wire with scattering boundary conditions</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Electromagnetic scattering from a wire with perfectly matched layer condition</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equations-problem-definition-and-implementation">Equations, problem definition and implementation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#implementation">Implementation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#post-processing">Post-processing</a></li>
 </ul>
 </li>
@@ -196,48 +194,43 @@ for the variational forms and the solver. It illustrates how to:</p>
 
 <span class="kn">from</span> <span class="nn">petsc4py</span> <span class="kn">import</span> <span class="n">PETSc</span>
 
-<span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="ow">and</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This solver fails with PETSc and 64-bit integers becaude of memory errors in MUMPS.&quot;</span><span class="p">)</span>
-    <span class="c1"># Note: when PETSc.IntType == np.int32, superlu_dist is used rather</span>
-    <span class="c1"># than MUMPS and does not trigger memory failures.</span>
-    <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Since we want to solve time-harmonic Maxwell’s equation, we require
-that the demo is executed with DOLFINx (PETSc) complex mode.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">default_scalar_type</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>
+<span class="c1"># Since we want to solve time-harmonic Maxwell&#39;s equation, we require</span>
+<span class="c1"># that the demo is executed with DOLFINx (PETSc) complex mode.</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">default_scalar_type</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Demo should only be executed with DOLFINx complex mode&quot;</span><span class="p">)</span>
     <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>This file defines the <code class="docutils literal notranslate"><span class="pre">generate_mesh_wire</span></code> function, which is used to
-generate the mesh used for the PML demo. The mesh is made up by a
-central circle (the wire), and an external layer (the PML) divided in
-4 rectangles and 4 squares at the corners. The <code class="docutils literal notranslate"><span class="pre">generate_mesh_wire</span></code>
-function takes as input:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">radius_wire</span></code>: the radius of the wire</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">radius_scatt</span></code>: the radius of the circle where scattering efficiency
-is calculated</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">l_dom</span></code>: length of real domain</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">l_pml</span></code>: length of PML layer</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">in_wire_size</span></code>: the mesh size at a distance <code class="docutils literal notranslate"><span class="pre">0.8</span> <span class="pre">*</span> <span class="pre">radius_wire</span></code> from
-the origin</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">on_wire_size</span></code>: the mesh size on the wire boundary</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scatt_size</span></code>: the mesh size on the circle where scattering
-efficiency is calculated</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pml_size</span></code>: the mesh size on the outer boundary of the PML</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">au_tag</span></code>: the tag of the physical group representing the wire</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bkg_tag</span></code>: the tag of the physical group representing the background</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scatt_tag</span></code>: the tag of the physical group representing the boundary
-where scattering efficiency is calculated</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pml_tag</span></code>: the tag of the physical group representing the PML
-(together with pml_tag+1 and pml_tag+2)</p></li>
-</ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_mesh_wire</span><span class="p">(</span>
+
+<span class="c1"># This file defines the `generate_mesh_wire` function, which is used to</span>
+<span class="c1"># generate the mesh used for the PML demo. The mesh is made up by a</span>
+<span class="c1"># central circle (the wire), and an external layer (the PML) divided in</span>
+<span class="c1"># 4 rectangles and 4 squares at the corners. The `generate_mesh_wire`</span>
+<span class="c1"># function takes as input:</span>
+
+<span class="c1"># - `radius_wire`: the radius of the wire</span>
+<span class="c1"># - `radius_scatt`: the radius of the circle where scattering efficiency</span>
+<span class="c1">#   is calculated</span>
+<span class="c1"># - `l_dom`: length of real domain</span>
+<span class="c1"># - `l_pml`: length of PML layer</span>
+<span class="c1"># - `in_wire_size`: the mesh size at a distance `0.8 * radius_wire` from</span>
+<span class="c1">#   the origin</span>
+<span class="c1"># - `on_wire_size`: the mesh size on the wire boundary</span>
+<span class="c1"># - `scatt_size`: the mesh size on the circle where scattering</span>
+<span class="c1">#   efficiency is calculated</span>
+<span class="c1"># - `pml_size`: the mesh size on the outer boundary of the PML</span>
+<span class="c1"># - `au_tag`: the tag of the physical group representing the wire</span>
+<span class="c1"># - `bkg_tag`: the tag of the physical group representing the background</span>
+<span class="c1"># - `scatt_tag`: the tag of the physical group representing the boundary</span>
+<span class="c1">#   where scattering efficiency is calculated</span>
+<span class="c1"># - `pml_tag`: the tag of the physical group representing the PML</span>
+<span class="c1">#   (together with pml_tag+1 and pml_tag+2)</span>
+<span class="c1">#</span>
+<span class="c1">#</span>
+
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+
+
+<span class="k">def</span> <span class="nf">generate_mesh_wire</span><span class="p">(</span>
     <span class="n">radius_wire</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">radius_scatt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">l_dom</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -251,7 +244,6 @@ where scattering efficiency is calculated</p></li>
     <span class="n">scatt_tag</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">pml_tag</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;nanowire&quot;</span><span class="p">)</span>
     <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span>
     <span class="c1"># A dummy circle for setting a finer mesh</span>
     <span class="n">c1</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">occ</span><span class="o">.</span><span class="n">addCircle</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">radius_wire</span> <span class="o">*</span> <span class="mf">0.8</span><span class="p">,</span> <span class="n">angle1</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">angle2</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
@@ -338,7 +330,7 @@ where scattering efficiency is calculated</p></li>
     <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">addPhysicalGroup</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">y_group</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="n">pml_tag</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
 
     <span class="c1"># Marker interior surface in bkg group</span>
-    <span class="n">boundaries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">tynp</span><span class="o">.</span><span class="n">ping</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">boundaries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">bkg_group</span><span class="p">:</span>
         <span class="n">boundary_pairs</span> <span class="o">=</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_boundary</span><span class="p">([(</span><span class="n">dim</span><span class="p">,</span> <span class="n">tag</span><span class="p">)],</span> <span class="n">oriented</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">boundaries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">boundary_pairs</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">))</span>
@@ -352,72 +344,84 @@ where scattering efficiency is calculated</p></li>
 
     <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">gmsh</span><span class="o">.</span><span class="n">model</span>
+
+
+<span class="c1"># This file contains a function for the calculation of the</span>
+<span class="c1"># absorption, scattering and extinction efficiencies of a wire</span>
+<span class="c1"># being hit normally by a TM-polarized electromagnetic wave.</span>
+<span class="c1">#</span>
+<span class="c1"># The formula are taken from:</span>
+<span class="c1"># Milton Kerker, &quot;The Scattering of Light and Other Electromagnetic Radiation&quot;,</span>
+<span class="c1"># Chapter 6, Elsevier, 1969.</span>
+<span class="c1">#</span>
+<span class="c1"># ## Implementation</span>
+<span class="c1"># First of all, let&#39;s define the parameters of the problem:</span>
+<span class="c1">#</span>
+<span class="c1"># - $n = \sqrt{\varepsilon}$: refractive index of the wire,</span>
+<span class="c1"># - $n_b$: refractive index of the background medium,</span>
+<span class="c1"># - $m = n/n_b$: relative refractive index of the wire,</span>
+<span class="c1"># - $\lambda_0$: wavelength of the electromagnetic wave,</span>
+<span class="c1"># - $r_w$: radius of the cross-section of the wire,</span>
+<span class="c1"># - $\alpha = 2\pi r_w n_b/\lambda_0$.</span>
+<span class="c1">#</span>
+<span class="c1"># Now, let&#39;s define the $a_\nu$ coefficients as:</span>
+<span class="c1">#</span>
+<span class="c1"># $$</span>
+<span class="c1"># \begin{equation}</span>
+<span class="c1"># a_\nu=\frac{J_\nu(\alpha) J_\nu^{\prime}(m \alpha)-m J_\nu(m \alpha)</span>
+<span class="c1"># J_\nu^{\prime}(\alpha)}{H_\nu^{(2)}(\alpha) J_\nu^{\prime}(m \alpha)</span>
+<span class="c1"># -m J_\nu(m \alpha) H_\nu^{(2){\prime}}(\alpha)}</span>
+<span class="c1"># \end{equation}</span>
+<span class="c1"># $$</span>
+<span class="c1">#</span>
+<span class="c1"># where:</span>
+<span class="c1"># - $J_\nu(x)$: $\nu$-th order Bessel function of the first kind,</span>
+<span class="c1"># - $J_\nu^{\prime}(x)$: first derivative with respect to $x$ of</span>
+<span class="c1"># the $\nu$-th order Bessel function of the first kind,</span>
+<span class="c1"># - $H_\nu^{(2)}(x)$: $\nu$-th order Hankel function of the second kind,</span>
+<span class="c1"># - $H_\nu^{(2){\prime}}(x)$: first derivative with respect to $x$ of</span>
+<span class="c1"># the $\nu$-th order Hankel function of the second kind.</span>
+<span class="c1">#</span>
+<span class="c1"># We can now calculate the scattering, extinction and absorption</span>
+<span class="c1"># efficiencies as:</span>
+<span class="c1">#</span>
+<span class="c1"># $$</span>
+<span class="c1"># &amp; q_{\mathrm{sca}}=(2 / \alpha)\left[\left|a_0\right|^{2}</span>
 </pre></div>
 </div>
-<p>This file contains a function for the calculation of the
-absorption, scattering and extinction efficiencies of a wire
-being hit normally by a TM-polarized electromagnetic wave.</p>
-<p>The formula are taken from:
-Milton Kerker, “The Scattering of Light and Other Electromagnetic Radiation”,
-Chapter 6, Elsevier, 1969.</p>
-</section>
-<section id="implementation">
-<h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading"></a></h2>
-<p>First of all, let’s define the parameters of the problem:</p>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(n = \sqrt{\varepsilon}\)</span>: refractive index of the wire,</p></li>
-<li><p><span class="math notranslate nohighlight">\(n_b\)</span>: refractive index of the background medium,</p></li>
-<li><p><span class="math notranslate nohighlight">\(m = n/n_b\)</span>: relative refractive index of the wire,</p></li>
-<li><p><span class="math notranslate nohighlight">\(\lambda_0\)</span>: wavelength of the electromagnetic wave,</p></li>
-<li><p><span class="math notranslate nohighlight">\(r_w\)</span>: radius of the cross-section of the wire,</p></li>
-<li><p><span class="math notranslate nohighlight">\(\alpha = 2\pi r_w n_b/\lambda_0\)</span>.</p></li>
-</ul>
-<p>Now, let’s define the <span class="math notranslate nohighlight">\(a_\nu\)</span> coefficients as:</p>
-<div class="math notranslate nohighlight">
-\[
-\begin{equation}
-a_\nu=\frac{J_\nu(\alpha) J_\nu^{\prime}(m \alpha)-m J_\nu(m \alpha)
-J_\nu^{\prime}(\alpha)}{H_\nu^{(2)}(\alpha) J_\nu^{\prime}(m \alpha)
--m J_\nu(m \alpha) H_\nu^{(2){\prime}}(\alpha)}
-\end{equation}
-\]</div>
-<p>where:</p>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(J_\nu(x)\)</span>: <span class="math notranslate nohighlight">\(\nu\)</span>-th order Bessel function of the first kind,</p></li>
-<li><p><span class="math notranslate nohighlight">\(J_\nu^{\prime}(x)\)</span>: first derivative with respect to <span class="math notranslate nohighlight">\(x\)</span> of
-the <span class="math notranslate nohighlight">\(\nu\)</span>-th order Bessel function of the first kind,</p></li>
-<li><p><span class="math notranslate nohighlight">\(H_\nu^{(2)}(x)\)</span>: <span class="math notranslate nohighlight">\(\nu\)</span>-th order Hankel function of the second kind,</p></li>
-<li><p><span class="math notranslate nohighlight">\(H_\nu^{(2){\prime}}(x)\)</span>: first derivative with respect to <span class="math notranslate nohighlight">\(x\)</span> of
-the <span class="math notranslate nohighlight">\(\nu\)</span>-th order Hankel function of the second kind.</p></li>
-</ul>
-<p>We can now calculate the scattering, extinction and absorption
-efficiencies as:</p>
-<div class="math notranslate nohighlight">
-\[\begin{split}
-&amp; q_{\mathrm{sca}}=(2 / \alpha)\left[\left|a_0\right|^{2}
-+2 \sum_{\nu=1}^{\infty}\left|a_\nu\right|^{2}\right] \\
-&amp; q_{\mathrm{ext}}=(2 / \alpha) \operatorname{Re}\left[ a_0
-+2 \sum_{\nu=1}^{\infty} a_\nu\right] \\
-&amp; q_{\mathrm{abs}} = q_{\mathrm{ext}} - q_{\mathrm{sca}}
-\end{split}\]</div>
-<p>The functions that we import from <code class="docutils literal notranslate"><span class="pre">scipy.special</span></code> correspond to:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">jv(nu,</span> <span class="pre">x)</span></code> ⟷ <span class="math notranslate nohighlight">\(J_\nu(x)\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">jvp(nu,</span> <span class="pre">x,</span> <span class="pre">1)</span></code> ⟷ <span class="math notranslate nohighlight">\(J_\nu^{\prime}(x)\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hankel2(nu,</span> <span class="pre">x)</span></code> ⟷ <span class="math notranslate nohighlight">\(H_\nu^{(2)}(x)\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">h2vp(nu,</span> <span class="pre">x,</span> <span class="pre">1)</span></code> ⟷ <span class="math notranslate nohighlight">\(H_\nu^{(2){\prime}}(x)\)</span>.</p></li>
-</ul>
-<p>Next, we define a function for calculating the analytical efficiencies
-in Python. The inputs of the function are:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">eps</span></code> ⟷ <span class="math notranslate nohighlight">\(\varepsilon\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">n_bkg</span></code> ⟷ <span class="math notranslate nohighlight">\(n_b\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">wl0</span></code> ⟷ <span class="math notranslate nohighlight">\(\lambda_0\)</span>,</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">radius_wire</span></code> ⟷ <span class="math notranslate nohighlight">\(r_w\)</span>.</p></li>
-</ul>
-<p>We also define a nested function for the calculation of <span class="math notranslate nohighlight">\(a_l\)</span>. For the
-final calculation of the efficiencies, the summation over the different
-orders of the Bessel functions is truncated at <span class="math notranslate nohighlight">\(\nu=50\)</span>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">:</span><span class="n">incorrectly_encoded_metadata</span><span class="p">:</span> <span class="s1">&#39;{</span><span class="se">\n</span><span class="s1">u=1}^{\infty}\left|a_</span><span class="se">\n</span><span class="s1">u</span><span class="se">\r</span><span class="s1">ight|^</span><span class="si">{2}</span><span class="se">\r</span><span class="s1">ight] </span><span class="se">\\</span><span class="s1">&#39;</span>
+<span class="p">:</span><span class="n">title</span><span class="p">:</span> <span class="mi">2</span> \<span class="n">sum_</span>
+
+<span class="c1"># &amp; q_{\mathrm{ext}}=(2 / \alpha) \operatorname{Re}\left[ a_0</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">:</span><span class="n">incorrectly_encoded_metadata</span><span class="p">:</span> <span class="s1">&#39;{</span><span class="se">\n</span><span class="s1">u=1}^{\infty} a_</span><span class="se">\n</span><span class="s1">u</span><span class="se">\r</span><span class="s1">ight] </span><span class="se">\\</span><span class="s1">&#39;</span>
+<span class="p">:</span><span class="n">title</span><span class="p">:</span> <span class="mi">2</span> \<span class="n">sum_</span>
+
+<span class="c1"># &amp; q_{\mathrm{abs}} = q_{\mathrm{ext}} - q_{\mathrm{sca}}</span>
+<span class="c1"># $$</span>
+
+
+<span class="c1"># The functions that we import from `scipy.special` correspond to:</span>
+<span class="c1">#</span>
+<span class="c1"># - `jv(nu, x)` ⟷ $J_\nu(x)$,</span>
+<span class="c1"># - `jvp(nu, x, 1)` ⟷ $J_\nu^{\prime}(x)$,</span>
+<span class="c1"># - `hankel2(nu, x)` ⟷ $H_\nu^{(2)}(x)$,</span>
+<span class="c1"># - `h2vp(nu, x, 1)` ⟷ $H_\nu^{(2){\prime}}(x)$.</span>
+<span class="c1">#</span>
+<span class="c1"># Next, we define a function for calculating the analytical efficiencies</span>
+<span class="c1"># in Python. The inputs of the function are:</span>
+<span class="c1">#</span>
+<span class="c1"># - `eps` ⟷ $\varepsilon$,</span>
+<span class="c1"># - `n_bkg` ⟷ $n_b$,</span>
+<span class="c1"># - `wl0` ⟷ $\lambda_0$,</span>
+<span class="c1"># - `radius_wire` ⟷ $r_w$.</span>
+<span class="c1">#</span>
+<span class="c1"># We also define a nested function for the calculation of $a_l$. For the</span>
+<span class="c1"># final calculation of the efficiencies, the summation over the different</span>
+<span class="c1"># orders of the Bessel functions is truncated at $\nu=50$.</span>
+</pre></div>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
 
 <span class="k">def</span> <span class="nf">compute_a</span><span class="p">(</span><span class="n">nu</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="nb">complex</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -575,7 +579,11 @@ transformation in the following way:</p>
         <span class="n">pml_tag</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">msh</span><span class="p">,</span> <span class="n">cell_tags</span><span class="p">,</span> <span class="n">facet_tags</span> <span class="o">=</span> <span class="n">gmshio</span><span class="o">.</span><span class="n">model_to_mesh</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gdim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">partitioner</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">)</span>
+
+<span class="n">msh</span><span class="p">,</span> <span class="n">cell_tags</span><span class="p">,</span> <span class="n">facet_tags</span> <span class="o">=</span> <span class="n">gmshio</span><span class="o">.</span><span class="n">model_to_mesh</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">gdim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">partitioner</span><span class="o">=</span><span class="n">partitioner</span>
+<span class="p">)</span>
 
 <span class="n">gmsh</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
 <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
@@ -797,8 +805,30 @@ here below function named <code class="docutils literal notranslate"><span class
 
 <span class="n">a</span><span class="p">,</span> <span class="n">L</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">lhs</span><span class="p">(</span><span class="n">F</span><span class="p">),</span> <span class="n">ufl</span><span class="o">.</span><span class="n">rhs</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
 
-<span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[],</span> <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span> <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">})</span>
+<span class="c1"># For factorisation prefer superlu_dist, then MUMPS, then default</span>
+<span class="n">sys</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+    <span class="n">mat_factor_backend</span> <span class="o">=</span> <span class="s2">&quot;superlu_dist&quot;</span>
+<span class="k">elif</span> <span class="n">sys</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+    <span class="n">mat_factor_backend</span> <span class="o">=</span> <span class="s2">&quot;mumps&quot;</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;This demo requires a parallel linear algebra backend.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mat_factor_backend</span> <span class="o">=</span> <span class="s2">&quot;petsc&quot;</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">,</span>
+    <span class="n">L</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="o">=</span><span class="p">[],</span>
+    <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pc_factor_mat_solver_type&quot;</span><span class="p">:</span> <span class="n">mat_factor_backend</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
 <span class="n">Esh</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">problem</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Solver did not converge!&quot;</span>
 </pre></div>
 </div>
 <p>Let’s now save the solution in a <code class="docutils literal notranslate"><span class="pre">bp</span></code>-file. In order to do so, we need
