@@ -46,6 +46,7 @@
     <span class="n">attach_coordinate_derivatives</span><span class="p">,</span>
     <span class="n">strip_coordinate_derivatives</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.renumbering</span> <span class="kn">import</span> <span class="n">renumber_indices</span>
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">Form</span>
 <span class="kn">from</span> <span class="nn">ufl.integral</span> <span class="kn">import</span> <span class="n">Integral</span>
 <span class="kn">from</span> <span class="nn">ufl.protocols</span> <span class="kn">import</span> <span class="n">id_or_none</span>
@@ -293,37 +294,16 @@
     <span class="n">itgs</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
 
     <span class="c1"># --- Merge integral data that has the same integrals,</span>
-    <span class="n">unique_integrals</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">tuple</span><span class="p">)</span>
-    <span class="n">metadata_table</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
-        <span class="n">integrand</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">()</span>
         <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
         <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
-        <span class="n">meta_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">canonicalize_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">))</span>
-        <span class="n">subdomain_id</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
-        <span class="n">subdomain_data</span> <span class="o">=</span> <span class="n">id_or_none</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">subdomain_id</span> <span class="o">==</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+        <span class="n">subdomain_ids</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">&quot;everywhere&quot;</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;&#39;everywhere&#39; not a valid subdomain id. &quot;</span>
                 <span class="s2">&quot;Did you forget to call group_form_integrals?&quot;</span>
             <span class="p">)</span>
-        <span class="n">unique_integrals</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="n">subdomain_id</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">metadata_table</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">=</span> <span class="n">metadata</span>
 
-    <span class="k">for</span> <span class="n">integral_data</span><span class="p">,</span> <span class="n">subdomain_ids</span> <span class="ow">in</span> <span class="n">unique_integrals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span> <span class="o">=</span> <span class="n">integral_data</span>
-
-        <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
-            <span class="n">integrand</span><span class="p">,</span>
-            <span class="n">integral_type</span><span class="p">,</span>
-            <span class="n">ufl_domain</span><span class="p">,</span>
-            <span class="n">subdomain_ids</span><span class="p">,</span>
-            <span class="n">metadata_table</span><span class="p">[</span><span class="n">integral_data</span><span class="p">],</span>
-            <span class="n">subdomain_data</span><span class="p">,</span>
-        <span class="p">)</span>
         <span class="c1"># Group for integral data (One integral data object for all</span>
         <span class="c1"># integrals with same domain, itype, (but possibly different metadata).</span>
         <span class="n">itgs</span><span class="p">[(</span><span class="n">ufl_domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_ids</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
@@ -411,7 +391,39 @@
                         <span class="p">)</span>
                         <span class="n">integral</span> <span class="o">=</span> <span class="n">attach_coordinate_derivatives</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
                         <span class="n">integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span></div>
+
+    <span class="c1"># Group integrals by common integrand</span>
+    <span class="c1"># u.dx(0)*dx(1) + u.dx(0)*dx(2) -&gt; u.dx(0)*dx((1,2))</span>
+    <span class="c1"># to avoid duplicate kernels generated after geometry lowering</span>
+    <span class="n">unique_integrals</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">tuple</span><span class="p">)</span>
+    <span class="n">metadata_table</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+        <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
+        <span class="n">meta_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">canonicalize_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">))</span>
+        <span class="n">subdomain_id</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="n">subdomain_data</span> <span class="o">=</span> <span class="n">id_or_none</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">())</span>
+        <span class="n">integrand</span> <span class="o">=</span> <span class="n">renumber_indices</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">())</span>
+        <span class="n">unique_integrals</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">+=</span> <span class="p">(</span>
+            <span class="n">subdomain_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">metadata_table</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">=</span> <span class="n">metadata</span>
+
+    <span class="n">grouped_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">integral_data</span><span class="p">,</span> <span class="n">subdomain_ids</span> <span class="ow">in</span> <span class="n">unique_integrals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span> <span class="o">=</span> <span class="n">integral_data</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
+            <span class="n">integrand</span><span class="p">,</span>
+            <span class="n">integral_type</span><span class="p">,</span>
+            <span class="n">ufl_domain</span><span class="p">,</span>
+            <span class="n">subdomain_ids</span><span class="p">,</span>
+            <span class="n">metadata_table</span><span class="p">[</span><span class="n">integral_data</span><span class="p">],</span>
+            <span class="n">subdomain_data</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">grouped_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">grouped_integrals</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="reconstruct_form_from_integral_data"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.domain_analysis.reconstruct_form_from_integral_data">[docs]</a><span class="k">def</span> <span class="nf">reconstruct_form_from_integral_data</span><span class="p">(</span><span class="n">integral_data</span><span class="p">):</span>

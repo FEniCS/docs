@@ -30,92 +30,62 @@
             
   <h1>Source code for ufl.algorithms.renumbering</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Algorithms for renumbering of counted objects, currently variables and indices.&quot;&quot;&quot;</span>
-<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs and Anders Logg</span>
+<span class="c1"># Copyright (C) 2008-2024 Martin Sandve Alnæs, Anders Logg, Jørgen S. Dokken and Lawrence Mitchell</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
-<span class="kn">from</span> <span class="nn">ufl.algorithms.transformer</span> <span class="kn">import</span> <span class="n">ReuseTransformer</span><span class="p">,</span> <span class="n">apply_transformer</span>
-<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Zero</span>
-<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span>
-<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">FixedIndex</span><span class="p">,</span> <span class="n">Index</span><span class="p">,</span> <span class="n">MultiIndex</span>
-<span class="kn">from</span> <span class="nn">ufl.variable</span> <span class="kn">import</span> <span class="n">Label</span><span class="p">,</span> <span class="n">Variable</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span> <span class="k">as</span> <span class="n">_count</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">Index</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span>
 
 
-<div class="viewcode-block" id="VariableRenumberingTransformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.VariableRenumberingTransformer">[docs]</a><span class="k">class</span> <span class="nc">VariableRenumberingTransformer</span><span class="p">(</span><span class="n">ReuseTransformer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Variable renumbering transformer.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
-        <span class="n">ReuseTransformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">variable_map</span> <span class="o">=</span> <span class="p">{}</span>
-
-<div class="viewcode-block" id="VariableRenumberingTransformer.variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.VariableRenumberingTransformer.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to variable.&quot;&quot;&quot;</span>
-        <span class="n">e</span><span class="p">,</span> <span class="n">l</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>  <span class="c1"># noqa: E741</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">variable_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-            <span class="n">l2</span> <span class="o">=</span> <span class="n">Label</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">variable_map</span><span class="p">))</span>
-            <span class="n">v</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">l2</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">variable_map</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
-        <span class="k">return</span> <span class="n">v</span></div></div>
-
-
-<div class="viewcode-block" id="IndexRenumberingTransformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRenumberingTransformer">[docs]</a><span class="k">class</span> <span class="nc">IndexRenumberingTransformer</span><span class="p">(</span><span class="n">VariableRenumberingTransformer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Index renumbering transformer.</span>
-
-<span class="sd">    This is a poorly designed algorithm. It is used in some tests,</span>
-<span class="sd">    please do not use for anything else.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="IndexRelabeller"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller">[docs]</a><span class="k">class</span> <span class="nc">IndexRelabeller</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renumber indices to have a consistent index numbering starting from 0.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
-        <span class="n">VariableRenumberingTransformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">index_map</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize index relabeller with a zero count.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">_count</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">Index</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">count</span><span class="p">)))</span>
 
-<div class="viewcode-block" id="IndexRenumberingTransformer.zero"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRenumberingTransformer.zero">[docs]</a>    <span class="k">def</span> <span class="nf">zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="IndexRelabeller.multi_index"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller.multi_index">[docs]</a>    <span class="k">def</span> <span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to multi-indices.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)(</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Index</span><span class="p">)</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">indices</span><span class="p">())</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndexRelabeller.zero"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller.zero">[docs]</a>    <span class="k">def</span> <span class="nf">zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to zero.&quot;&quot;&quot;</span>
         <span class="n">fi</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_free_indices</span>
         <span class="n">fid</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
-        <span class="n">mapped_fi</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">Index</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fi</span><span class="p">)</span>
-        <span class="n">paired_fid</span> <span class="o">=</span> <span class="p">[(</span><span class="n">mapped_fi</span><span class="p">[</span><span class="n">pos</span><span class="p">],</span> <span class="n">fid</span><span class="p">[</span><span class="n">pos</span><span class="p">])</span> <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">fi</span><span class="p">)]</span>
-        <span class="n">new_fi</span><span class="p">,</span> <span class="n">new_fid</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">paired_fid</span><span class="p">)))</span>
-        <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">new_fi</span><span class="p">,</span> <span class="n">new_fid</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="IndexRenumberingTransformer.index"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRenumberingTransformer.index">[docs]</a>    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to index.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">):</span>
+        <span class="n">new_indices</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span><span class="p">[</span><span class="n">Index</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fi</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fi</span> <span class="o">==</span> <span class="p">()</span> <span class="ow">and</span> <span class="n">fid</span> <span class="o">==</span> <span class="p">():</span>
             <span class="k">return</span> <span class="n">o</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">_count</span>
-            <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">i</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_map</span><span class="p">))</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">index_map</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
-            <span class="k">return</span> <span class="n">i</span></div>
-
-<div class="viewcode-block" id="IndexRenumberingTransformer.multi_index"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRenumberingTransformer.multi_index">[docs]</a>    <span class="k">def</span> <span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to multi_index.&quot;&quot;&quot;</span>
-        <span class="n">new_indices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">indices</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">MultiIndex</span><span class="p">(</span><span class="n">new_indices</span><span class="p">)</span></div></div>
+        <span class="n">new_fi</span><span class="p">,</span> <span class="n">new_fid</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">new_indices</span><span class="p">,</span> <span class="n">fid</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_fi</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_fid</span><span class="p">))</span></div></div>
 
 
-<div class="viewcode-block" id="renumber_indices"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.renumber_indices">[docs]</a><span class="k">def</span> <span class="nf">renumber_indices</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renumber indices.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
-        <span class="n">num_free_indices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">)</span>
+<div class="viewcode-block" id="renumber_indices"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.renumber_indices">[docs]</a><span class="k">def</span> <span class="nf">renumber_indices</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renumber indices to have a consistent index numbering starting from 0.</span>
 
-    <span class="n">result</span> <span class="o">=</span> <span class="n">apply_transformer</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">IndexRenumberingTransformer</span><span class="p">())</span>
+<span class="sd">    This is useful to avoid multiple kernels for the same integrand,</span>
+<span class="sd">    but with different subdomain ids.</span>
 
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">num_free_indices</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The number of free indices left in expression &quot;</span>
-                <span class="s2">&quot;should be invariant w.r.t. renumbering.&quot;</span>
-            <span class="p">)</span>
-    <span class="k">return</span> <span class="n">result</span></div>
+<span class="sd">    Args:</span>
+<span class="sd">        form: A UFL form, integral or expression.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A new form, integral or expression with renumbered indices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reindexer</span> <span class="o">=</span> <span class="n">IndexRelabeller</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">reindexer</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span></div>
 </pre></div>
 
           </div>
