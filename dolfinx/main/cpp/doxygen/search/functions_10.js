@@ -10,7 +10,7 @@ var searchData=
   ['reduce_7',['reduce',['../db/d97/classdolfinx_1_1Table.html#aec673cb60c49c7e56f303497d244fa31',1,'dolfinx::Table']]],
   ['reference_5fvalue_5fshape_8',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac85b474aba9b599383d29245e3ab27fa',1,'dolfinx::fem::FiniteElement']]],
   ['reference_5fvalue_5fsize_9',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
-  ['refine_10',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#aa9ed5481e922cf66bb84a9fd0f74435d',1,'dolfinx::refinement']]],
+  ['refine_10',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a0280000a517fc2e759b8ce4e4e9f6afd',1,'dolfinx::refinement']]],
   ['register_5ftiming_11',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#aae33b160ef031ac5b72fc415d3ceb01e',1,'dolfinx::common::TimeLogger']]],
   ['regular_5fadjacency_5flist_12',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#ad873078857d3a5e5c78de413f7996bef',1,'dolfinx::graph']]],
   ['remote_5fbuffer_5fsize_13',['remote_buffer_size',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a33e220dfb4400b7ed260dba7fff25220',1,'dolfinx::common::Scatterer']]],
