@@ -1,0 +1,636 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.fem.forms &mdash; DOLFINx 0.9.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=7ab3649f" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=39bb1c6d"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../fem.html">dolfinx.fem</a></li>
+      <li class="breadcrumb-item active">dolfinx.fem.forms</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.fem.forms</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2017-2024 Chris N. Richardson, Garth N. Wells, Michal Habera and Jørgen S. Dokken</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">types</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">numpy.typing</span> <span class="k">as</span> <span class="nn">npt</span>
+
+<span class="kn">import</span> <span class="nn">ffcx</span>
+<span class="kn">import</span> <span class="nn">ufl</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span> <span class="nn">dolfinx</span> <span class="kn">import</span> <span class="n">default_scalar_type</span><span class="p">,</span> <span class="n">jit</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="n">IntegralType</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem.function</span> <span class="kn">import</span> <span class="n">FunctionSpace</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+
+    <span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="n">function</span>
+    <span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">MeshTags</span>
+
+
+<div class="viewcode-block" id="Form">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Form">[docs]</a>
+<span class="k">class</span> <span class="nc">Form</span><span class="p">:</span>
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex64</span><span class="p">,</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex128</span><span class="p">,</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float32</span><span class="p">,</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float64</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">_code</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex64</span><span class="p">,</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex128</span><span class="p">,</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float32</span><span class="p">,</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float64</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">ufcx_form</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">code</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">module</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">types</span><span class="o">.</span><span class="n">ModuleType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A finite element form.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Forms should normally be constructed using :func:`form` and</span>
+<span class="sd">            not using this class initialiser. This class is combined</span>
+<span class="sd">            with different base classes that depend on the scalar type</span>
+<span class="sd">            used in the Form.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            form: Compiled form object.</span>
+<span class="sd">            ufcx_form: UFCx form.</span>
+<span class="sd">            code: Form C++ code.</span>
+<span class="sd">            module: CFFI module.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_code</span> <span class="o">=</span> <span class="n">code</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_form</span> <span class="o">=</span> <span class="n">ufcx_form</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">form</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module</span> <span class="o">=</span> <span class="n">module</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufcx_form</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled ufcx_form object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_form</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;C code strings.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_code</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">module</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">types</span><span class="o">.</span><span class="n">ModuleType</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The CFFI module&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">rank</span>  <span class="c1"># type: ignore</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">function_spaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">FunctionSpace</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function spaces on which this form is defined.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">function_spaces</span>  <span class="c1"># type: ignore</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scalar type of this form.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">mesh</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh on which this form is defined.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">mesh</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">integral_types</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Integral types in the form.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">integral_types</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">get_integration_domains</span><span class="p">(</span>
+    <span class="n">integral_type</span><span class="p">:</span> <span class="n">IntegralType</span><span class="p">,</span>
+    <span class="n">subdomain</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">MeshTags</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]],</span>
+    <span class="n">subdomain_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get integration domains from subdomain data.</span>
+
+<span class="sd">    The subdomain data is a meshtags object consisting of markers, or a</span>
+<span class="sd">    None object. If it is a None object we do not pack any integration</span>
+<span class="sd">    entities. Integration domains are defined as a list of tuples, where</span>
+<span class="sd">    each input `subdomain_ids` is mapped to an array of integration</span>
+<span class="sd">    entities, where an integration entity for a cell integral is the</span>
+<span class="sd">    list of cells. For an exterior facet integral each integration</span>
+<span class="sd">    entity is a tuple (cell_index, local_facet_index). For an interior</span>
+<span class="sd">    facet integral each integration entity is a uple (cell_index0,</span>
+<span class="sd">    local_facet_index0, cell_index1, local_facet_index1). Where the</span>
+<span class="sd">    first cell-facet pair is the &#39;+&#39; restriction, the second the &#39;-&#39;</span>
+<span class="sd">    restriction.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        integral_type: The type of integral to pack integration</span>
+<span class="sd">            entities for.</span>
+<span class="sd">        subdomain: A meshtag with markers or manually specified</span>
+<span class="sd">            integration domains.</span>
+<span class="sd">        subdomain_ids: List of ids to integrate over.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">subdomain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">domains</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">IntegralType</span><span class="o">.</span><span class="n">exterior_facet</span><span class="p">,</span> <span class="n">IntegralType</span><span class="o">.</span><span class="n">interior_facet</span><span class="p">):</span>
+                <span class="n">tdim</span> <span class="o">=</span> <span class="n">subdomain</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span>  <span class="c1"># type: ignore</span>
+                <span class="n">subdomain</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">create_connectivity</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tdim</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+                <span class="n">subdomain</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">create_connectivity</span><span class="p">(</span><span class="n">tdim</span><span class="p">,</span> <span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+            <span class="c1"># Compute integration domains only for each subdomain id in</span>
+            <span class="c1"># the integrals</span>
+            <span class="c1"># If a process has no integral entities, insert an empty</span>
+            <span class="c1"># array</span>
+            <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="p">:</span>
+                <span class="n">integration_entities</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">compute_integration_domains</span><span class="p">(</span>
+                    <span class="n">integral_type</span><span class="p">,</span>
+                    <span class="n">subdomain</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">subdomain</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">id</span><span class="p">),</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">subdomain</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+                <span class="p">)</span>
+                <span class="n">domains</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="nb">id</span><span class="p">,</span> <span class="n">integration_entities</span><span class="p">))</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">subdomain</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+
+
+<div class="viewcode-block" id="form_cpp_class">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.form_cpp_class">[docs]</a>
+<span class="k">def</span> <span class="nf">form_cpp_class</span><span class="p">(</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float32</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float64</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex64</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex128</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the wrapped C++ class of a variational form of a specific scalar type.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dtype: Scalar type of the required form class.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Wrapped C++ form class of the requested type.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This function is for advanced usage, typically when writing</span>
+<span class="sd">        custom kernels using Numba or C.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float32</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="n">_ufl_to_dolfinx_domain</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">IntegralType</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet&quot;</span><span class="p">:</span> <span class="n">IntegralType</span><span class="o">.</span><span class="n">exterior_facet</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet&quot;</span><span class="p">:</span> <span class="n">IntegralType</span><span class="o">.</span><span class="n">interior_facet</span><span class="p">,</span>
+    <span class="s2">&quot;vertex&quot;</span><span class="p">:</span> <span class="n">IntegralType</span><span class="o">.</span><span class="n">vertex</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="form">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.form">[docs]</a>
+<span class="k">def</span> <span class="nf">form</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_scalar_type</span><span class="p">,</span>
+    <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Form or an array of Forms.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        form: A UFL form or list(s) of UFL forms.</span>
+<span class="sd">        dtype: Scalar type to use for the compiled form.</span>
+<span class="sd">        form_compiler_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`</span>
+<span class="sd">        jit_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`.</span>
+<span class="sd">        entity_maps: If any trial functions, test functions, or</span>
+<span class="sd">            coefficients in the form are not defined over the same mesh</span>
+<span class="sd">            as the integration domain, `entity_maps` must be supplied.</span>
+<span class="sd">            For each key (a mesh, different to the integration domain</span>
+<span class="sd">            mesh) a map should be provided relating the entities in the</span>
+<span class="sd">            integration domain mesh to the entities in the key mesh e.g.</span>
+<span class="sd">            for a key-value pair (msh, emap) in `entity_maps`, `emap[i]`</span>
+<span class="sd">            is the entity in `msh` corresponding to entity `i` in the</span>
+<span class="sd">            integration domain mesh.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Compiled finite element Form.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This function is responsible for the compilation of a UFL form</span>
+<span class="sd">        (using FFCx) and attaching coefficients and domains specific</span>
+<span class="sd">        data to the underlying C++ form. It dynamically create a</span>
+<span class="sd">        :class:`Form` instance with an appropriate base class for the</span>
+<span class="sd">        scalar type, e.g. :func:`_cpp.fem.Form_float64`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">form_compiler_options</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">form_compiler_options</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">form_compiler_options</span><span class="p">[</span><span class="s2">&quot;scalar_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dtype</span>
+    <span class="n">ftype</span> <span class="o">=</span> <span class="n">form_cpp_class</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_form</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile a single UFL form.&quot;&quot;&quot;</span>
+        <span class="c1"># Extract subdomain data from UFL form</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span>
+        <span class="p">(</span><span class="n">domain</span><span class="p">,)</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>  <span class="c1"># Assuming single domain</span>
+
+        <span class="c1"># Check that subdomain data for each integral type is the same</span>
+        <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">d</span> <span class="ow">is</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">])</span>
+
+        <span class="n">mesh</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cargo</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mesh</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expecting to find a Mesh in the form.&quot;</span><span class="p">)</span>
+        <span class="n">ufcx_form</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="n">form</span><span class="p">,</span> <span class="n">form_compiler_options</span><span class="o">=</span><span class="n">form_compiler_options</span><span class="p">,</span> <span class="n">jit_options</span><span class="o">=</span><span class="n">jit_options</span>
+        <span class="p">)</span>
+
+        <span class="c1"># For each argument in form extract its function space</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()]</span>
+
+        <span class="c1"># Prepare coefficients data. For every coefficient in form take</span>
+        <span class="c1"># its C++ object.</span>
+        <span class="n">original_coeffs</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">coefficients</span><span class="p">()</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">original_coeffs</span><span class="p">[</span><span class="n">ufcx_form</span><span class="o">.</span><span class="n">original_coefficient_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="o">.</span><span class="n">_cpp_object</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ufcx_form</span><span class="o">.</span><span class="n">num_coefficients</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">constants</span><span class="p">()]</span>
+
+        <span class="c1"># Make map from integral_type to subdomain id</span>
+        <span class="n">subdomain_ids</span> <span class="o">=</span> <span class="p">{</span><span class="nb">type</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="nb">type</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+        <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Subdomain ids can be strings, its or tuples with</span>
+                <span class="c1"># strings and ints</span>
+                <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">sid</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span> <span class="k">if</span> <span class="n">sid</span> <span class="o">!=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                        <span class="c1"># If not tuple, but single integer id</span>
+                        <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+
+        <span class="c1"># Chain and sort subdomain ids</span>
+        <span class="k">for</span> <span class="n">itg_type</span><span class="p">,</span> <span class="n">marker_ids</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">flattened_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">marker_ids</span><span class="p">))</span>
+            <span class="n">flattened_ids</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+            <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">itg_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">flattened_ids</span>
+
+        <span class="c1"># Subdomain markers (possibly empty list for some integral</span>
+        <span class="c1"># types)</span>
+        <span class="n">subdomains</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">_ufl_to_dolfinx_domain</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span> <span class="n">get_integration_domains</span><span class="p">(</span>
+                <span class="n">_ufl_to_dolfinx_domain</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">subdomain_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">subdomain_ids</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="n">f</span> <span class="o">=</span> <span class="n">ftype</span><span class="p">(</span>
+            <span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="n">ufcx_form</span><span class="p">)),</span>
+            <span class="n">V</span><span class="p">,</span>
+            <span class="n">coeffs</span><span class="p">,</span>
+            <span class="n">constants</span><span class="p">,</span>
+            <span class="n">subdomains</span><span class="p">,</span>
+            <span class="n">_entity_maps</span><span class="p">,</span>
+            <span class="n">mesh</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">ufcx_form</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_create_form</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recursively convert ufl.Forms to dolfinx.fem.Form.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            form: UFL form or list of UFL forms to extract DOLFINx forms</span>
+<span class="sd">                from.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A ``dolfinx.fem.Form`` or a list of ``dolfinx.fem.Form``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">Iterable</span><span class="p">):</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sub_form</span><span class="p">:</span> <span class="n">_create_form</span><span class="p">(</span><span class="n">sub_form</span><span class="p">),</span> <span class="n">form</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">form</span>
+
+    <span class="k">return</span> <span class="n">_create_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="extract_function_spaces">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.extract_function_spaces">[docs]</a>
+<span class="k">def</span> <span class="nf">extract_function_spaces</span><span class="p">(</span>
+    <span class="n">forms</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>  <span class="c1"># type: ignore [return]</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="p">],</span>
+    <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract common function spaces from an array of forms.</span>
+
+<span class="sd">    If `forms` is a list of linear form, this function returns of list</span>
+<span class="sd">    of the corresponding test functions. If `forms` is a 2D array of</span>
+<span class="sd">    bilinear forms, for index=0 the list common test function space for</span>
+<span class="sd">    each row is returned, and if index=1 the common trial function</span>
+<span class="sd">    spaces for each column are returned.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_forms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_forms</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expected an array for forms, not a single form&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">_forms</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">_forms</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">form</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Expected linear form&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>  <span class="c1"># type: ignore[union-attr]</span>
+    <span class="k">elif</span> <span class="n">_forms</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">extract_spaces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">form</span><span class="p">:</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">extract_spaces</span><span class="p">(</span><span class="n">_forms</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">unique_spaces</span><span class="p">(</span><span class="n">V</span><span class="p">):</span>
+            <span class="c1"># Pick spaces from first column</span>
+            <span class="n">V0</span> <span class="o">=</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># Iterate over each column</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">V</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="c1"># Iterate over entry in column, updating if current</span>
+                <span class="c1"># space is None, or where both spaces are not None check</span>
+                <span class="c1"># that they are the same</span>
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">V0</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">V</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">V0</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">V</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="n">V0</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">V</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="n">V0</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="ow">is</span> <span class="n">V</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">],</span> <span class="s2">&quot;Cannot extract unique function spaces&quot;</span>
+            <span class="k">return</span> <span class="n">V0</span>
+
+        <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">unique_spaces</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">unique_spaces</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">transpose</span><span class="p">()))</span>
+
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Unsupported array of forms&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">CompiledForm</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compiled UFL form without associated DOLFINx data.&quot;&quot;&quot;</span>
+
+    <span class="n">ufl_form</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span>  <span class="c1"># The original ufl form</span>
+    <span class="n">ufcx_form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span>  <span class="c1"># The compiled form</span>
+    <span class="n">module</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span>  <span class="c1">#  The module</span>
+    <span class="n">code</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># The source code</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span>  <span class="c1"># data type used for the `ufcx_form`</span>
+
+
+<div class="viewcode-block" id="compile_form">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.compile_form">[docs]</a>
+<span class="k">def</span> <span class="nf">compile_form</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">MPI</span><span class="o">.</span><span class="n">Intracomm</span><span class="p">,</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
+    <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;scalar_type&quot;</span><span class="p">:</span> <span class="n">default_scalar_type</span><span class="p">},</span>
+    <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CompiledForm</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compile UFL form without associated DOLFINx data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: The MPI communicator used when compiling the form</span>
+<span class="sd">        form: The UFL form to compile</span>
+<span class="sd">        form_compiler_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`</span>
+<span class="sd">        jit_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p_ffcx</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">get_options</span><span class="p">(</span><span class="n">form_compiler_options</span><span class="p">)</span>
+    <span class="n">p_jit</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">get_options</span><span class="p">(</span><span class="n">jit_options</span><span class="p">)</span>
+    <span class="n">ufcx_form</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">code</span> <span class="o">=</span> <span class="n">jit</span><span class="o">.</span><span class="n">ffcx_jit</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">form</span><span class="p">,</span> <span class="n">p_ffcx</span><span class="p">,</span> <span class="n">p_jit</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">CompiledForm</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">ufcx_form</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">p_ffcx</span><span class="p">[</span><span class="s2">&quot;scalar_type&quot;</span><span class="p">])</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">form_cpp_creator</span><span class="p">(</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float32</span><span class="p">,</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_float64</span><span class="p">,</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex64</span><span class="p">,</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form_complex128</span><span class="p">,</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the wrapped C++ constructor for creating a variational form of a specific scalar type.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dtype: Scalar type of the required form class.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Wrapped C++ form class of the requested type.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This function is for advanced usage, typically when writing</span>
+<span class="sd">        custom kernels using Numba or C.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_float32</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_float64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_complex64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">create_form_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="create_form">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_form">[docs]</a>
+<span class="k">def</span> <span class="nf">create_form</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">CompiledForm</span><span class="p">,</span>
+    <span class="n">function_spaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">function</span><span class="o">.</span><span class="n">FunctionSpace</span><span class="p">],</span>
+    <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">subdomains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]],</span>
+    <span class="n">coefficient_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Function</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">Function</span><span class="p">],</span>
+    <span class="n">constant_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">Constant</span><span class="p">],</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a Form object from a data-independent compiled form.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        form: Compiled ufl form</span>
+<span class="sd">        function_spaces: List of function spaces associated with the</span>
+<span class="sd">            form. Should match the number of arguments in the form.</span>
+<span class="sd">        mesh: Mesh to associate form with</span>
+<span class="sd">        subdomains: A map from integral type to a list of pairs, where</span>
+<span class="sd">            each pair corresponds to a subdomain id and the set of of</span>
+<span class="sd">            integration entities to integrate over. Can be computed with</span>
+<span class="sd">            {py:func}`dolfinx.fem.compute_integration_domains`.</span>
+<span class="sd">        coefficient_map: Map from UFL coefficient to function with data.</span>
+<span class="sd">        constant_map: Map from UFL constant to constant with data.</span>
+<span class="sd">        entity_map: A map where each key corresponds to a mesh different</span>
+<span class="sd">            to the integration domain `mesh`. The value of the map is an</span>
+<span class="sd">            array of integers, where the i-th entry is the entity in the</span>
+<span class="sd">            key mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">m</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">idomain</span> <span class="ow">in</span> <span class="n">_subdomain_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">idomain</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Extract name of ufl objects and map them to their corresponding C++ object</span>
+    <span class="n">ufl_coefficients</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">extract_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">ufl_form</span><span class="p">)</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sa">f</span><span class="s2">&quot;w</span><span class="si">{</span><span class="n">ufl_coefficients</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">uh</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">uh</span><span class="p">)</span> <span class="ow">in</span> <span class="n">coefficient_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">ufl_constants</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">analysis</span><span class="o">.</span><span class="n">extract_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">ufl_form</span><span class="p">)</span>
+    <span class="n">constants</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="n">ufl_constants</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">u</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">uh</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">uh</span><span class="p">)</span> <span class="ow">in</span> <span class="n">constant_map</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="n">ftype</span> <span class="o">=</span> <span class="n">form_cpp_creator</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">ftype</span><span class="p">(</span>
+        <span class="n">form</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">ufcx_form</span><span class="p">)),</span>
+        <span class="p">[</span><span class="n">fs</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">function_spaces</span><span class="p">],</span>
+        <span class="n">coefficients</span><span class="p">,</span>
+        <span class="n">constants</span><span class="p">,</span>
+        <span class="n">_subdomain_data</span><span class="p">,</span>
+        <span class="n">_entity_maps</span><span class="p">,</span>
+        <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">ufcx_form</span><span class="p">,</span> <span class="n">form</span><span class="o">.</span><span class="n">code</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
