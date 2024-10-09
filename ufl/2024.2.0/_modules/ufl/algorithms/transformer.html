@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.transformer &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.transformer</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Transformer.</span>
+
+<span class="sd">This module defines the Transformer base class and some</span>
+<span class="sd">basic specializations to further base other algorithms upon,</span>
+<span class="sd">as well as some utilities for easier application of such</span>
+<span class="sd">algorithms.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs and Anders Logg</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009-2010</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrands</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Variable</span><span class="p">,</span> <span class="n">all_ufl_classes</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLType</span>
+
+
+<div class="viewcode-block" id="is_post_handler"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.is_post_handler">[docs]</a><span class="k">def</span> <span class="nf">is_post_handler</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if function is a handler that expects transformed children as input.&quot;&quot;&quot;</span>
+    <span class="n">insp</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getfullargspec</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+    <span class="n">num_args</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">insp</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">insp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">visit_children_first</span> <span class="o">=</span> <span class="n">num_args</span> <span class="o">&gt;</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">visit_children_first</span></div>
+
+
+<div class="viewcode-block" id="Transformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer">[docs]</a><span class="k">class</span> <span class="nc">Transformer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transformer.</span>
+
+<span class="sd">    Base class for a visitor-like algorithm design pattern used to</span>
+<span class="sd">    transform expression trees from one representation to another.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_handlers_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable_cache</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">variable_cache</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">variable_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_variable_cache</span> <span class="o">=</span> <span class="n">variable_cache</span>
+
+        <span class="c1"># Analyse class properties and cache handler data the</span>
+        <span class="c1"># first time this is run for a particular class</span>
+        <span class="n">cache_data</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">_handlers_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cache_data</span><span class="p">:</span>
+            <span class="n">cache_data</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_ufl_classes</span><span class="p">)</span>
+            <span class="c1"># For all UFL classes</span>
+            <span class="k">for</span> <span class="n">classobject</span> <span class="ow">in</span> <span class="n">all_ufl_classes</span><span class="p">:</span>
+                <span class="c1"># Iterate over the inheritance chain</span>
+                <span class="c1"># (NB! This assumes that all UFL classes inherits a single</span>
+                <span class="c1"># Expr subclass and that this is the first superclass!)</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">classobject</span><span class="o">.</span><span class="n">mro</span><span class="p">():</span>
+                    <span class="c1"># Register classobject with handler for the first</span>
+                    <span class="c1"># encountered superclass</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">handler_name</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">_ufl_handler_name_</span>
+                    <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">attribute_error</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">classobject</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">UFLType</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">attribute_error</span>
+                        <span class="c1"># Default handler name for UFL types</span>
+                        <span class="n">handler_name</span> <span class="o">=</span> <span class="n">UFLType</span><span class="o">.</span><span class="n">_ufl_handler_name_</span>
+                    <span class="n">function</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">function</span><span class="p">:</span>
+                        <span class="n">cache_data</span><span class="p">[</span><span class="n">classobject</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">handler_name</span><span class="p">,</span>
+                            <span class="n">is_post_handler</span><span class="p">(</span><span class="n">function</span><span class="p">),</span>
+                        <span class="p">)</span>
+                        <span class="k">break</span>
+            <span class="n">Transformer</span><span class="o">.</span><span class="n">_handlers_cache</span><span class="p">[</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)]</span> <span class="o">=</span> <span class="n">cache_data</span>
+
+        <span class="c1"># Build handler list for this particular class (get functions</span>
+        <span class="c1"># bound to self)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handlers</span> <span class="o">=</span> <span class="p">[(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">post</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">post</span><span class="p">)</span> <span class="ow">in</span> <span class="n">cache_data</span><span class="p">]</span>
+        <span class="c1"># Keep a stack of objects visit is called on, to ease</span>
+        <span class="c1"># backtracking</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_visit_stack</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Transformer.print_visit_stack"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.print_visit_stack">[docs]</a>    <span class="k">def</span> <span class="nf">print_visit_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Print visit stack.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;/&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Visit stack in Transformer:&quot;</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">sstr</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Format.&quot;&quot;&quot;</span>
+            <span class="n">ss</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; ; &quot;</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">160</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">ss</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ss</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)[:</span><span class="n">n</span><span class="p">]</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sstr</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_visit_stack</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Transformer.visit"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.visit">[docs]</a>    <span class="k">def</span> <span class="nf">visit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visit.&quot;&quot;&quot;</span>
+        <span class="c1"># Update stack</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_visit_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+
+        <span class="c1"># Get handler for the UFL class of o (type(o) may be an</span>
+        <span class="c1"># external subclass of the actual UFL class)</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">visit_children_first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handlers</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_typecode_</span><span class="p">]</span>
+
+        <span class="c1"># Is this a handler that expects transformed children as</span>
+        <span class="c1"># input?</span>
+        <span class="k">if</span> <span class="n">visit_children_first</span><span class="p">:</span>
+            <span class="c1"># Yes, visit all children first and then call h.</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No, this is a handler that handles its own children</span>
+            <span class="c1"># (arguments self and o, where self is already bound)</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+
+        <span class="c1"># Update stack and return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_visit_stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+<div class="viewcode-block" id="Transformer.undefined"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.undefined">[docs]</a>    <span class="k">def</span> <span class="nf">undefined</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger error.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No handler defined for </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Transformer.reuse"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.reuse">[docs]</a>    <span class="k">def</span> <span class="nf">reuse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reuse Expr (ignore children).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+<div class="viewcode-block" id="Transformer.reuse_if_untouched"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.reuse_if_untouched">[docs]</a>    <span class="k">def</span> <span class="nf">reuse_if_untouched</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reuse object if operands are the same objects.</span>
+
+<span class="sd">        Use in your own subclass by setting e.g. `expr = MultiFunction.reuse_if_untouched`</span>
+<span class="sd">        as a default rule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">,</span> <span class="n">ops</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">o</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">ops</span><span class="p">)</span></div>
+
+    <span class="c1"># It&#39;s just so slow to compare all operands, avoiding it now</span>
+    <span class="n">reuse_if_possible</span> <span class="o">=</span> <span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="Transformer.always_reconstruct"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.always_reconstruct">[docs]</a>    <span class="k">def</span> <span class="nf">always_reconstruct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">operands</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct expr.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">operands</span><span class="p">)</span></div>
+
+    <span class="c1"># Set default behaviour for any UFLType</span>
+    <span class="n">ufl_type</span> <span class="o">=</span> <span class="n">undefined</span>
+
+    <span class="c1"># Set default behaviour for any Terminal</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">reuse</span>
+
+<div class="viewcode-block" id="Transformer.reuse_variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.reuse_variable">[docs]</a>    <span class="k">def</span> <span class="nf">reuse_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reuse variable.&quot;&quot;&quot;</span>
+        <span class="c1"># Check variable cache to reuse previously transformed</span>
+        <span class="c1"># variable if possible</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">l</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>  <span class="c1"># noqa: E741</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variable_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">v</span>
+
+        <span class="c1"># Visit the expression our variable represents</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="c1"># If the expression is the same, reuse Variable object</span>
+        <span class="k">if</span> <span class="n">e</span> <span class="o">==</span> <span class="n">e2</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">o</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Recreate Variable (with same label)</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">e2</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
+
+        <span class="c1"># Cache variable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_variable_cache</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+<div class="viewcode-block" id="Transformer.reconstruct_variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.Transformer.reconstruct_variable">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct variable.&quot;&quot;&quot;</span>
+        <span class="c1"># Check variable cache to reuse previously transformed</span>
+        <span class="c1"># variable if possible</span>
+        <span class="n">e</span><span class="p">,</span> <span class="n">l</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>  <span class="c1"># noqa: E741</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variable_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">v</span>
+
+        <span class="c1"># Visit the expression our variable represents</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+
+        <span class="c1"># Always reconstruct Variable (with same label)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="n">e2</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_variable_cache</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">return</span> <span class="n">v</span></div></div>
+
+
+<div class="viewcode-block" id="ReuseTransformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.ReuseTransformer">[docs]</a><span class="k">class</span> <span class="nc">ReuseTransformer</span><span class="p">(</span><span class="n">Transformer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reuse transformer.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable_cache</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Transformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable_cache</span><span class="p">)</span>
+
+    <span class="c1"># Set default behaviour for any Expr</span>
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+    <span class="c1"># Set default behaviour for any Terminal</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">reuse</span>
+
+    <span class="c1"># Set default behaviour for Variable</span>
+    <span class="n">variable</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">reuse_variable</span></div>
+
+
+<div class="viewcode-block" id="CopyTransformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.CopyTransformer">[docs]</a><span class="k">class</span> <span class="nc">CopyTransformer</span><span class="p">(</span><span class="n">Transformer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Copy transformer.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable_cache</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Transformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable_cache</span><span class="p">)</span>
+
+    <span class="c1"># Set default behaviour for any Expr</span>
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">always_reconstruct</span>
+
+    <span class="c1"># Set default behaviour for any Terminal</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">reuse</span>
+
+    <span class="c1"># Set default behaviour for Variable</span>
+    <span class="n">variable</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">reconstruct_variable</span></div>
+
+
+<div class="viewcode-block" id="VariableStripper"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.VariableStripper">[docs]</a><span class="k">class</span> <span class="nc">VariableStripper</span><span class="p">(</span><span class="n">ReuseTransformer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Variable stripper.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">ReuseTransformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="VariableStripper.variable"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.VariableStripper.variable">[docs]</a>    <span class="k">def</span> <span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Visit a variable.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div></div>
+
+
+<div class="viewcode-block" id="apply_transformer"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.apply_transformer">[docs]</a><span class="k">def</span> <span class="nf">apply_transformer</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">transformer</span><span class="p">,</span> <span class="n">integral_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply transforms.</span>
+
+<span class="sd">    Apply transformer.visit(expression) to each integrand expression in</span>
+<span class="sd">    form, or to form if it is an Expr.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">map_integrands</span><span class="p">(</span><span class="k">lambda</span> <span class="n">expr</span><span class="p">:</span> <span class="n">transformer</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">expr</span><span class="p">),</span> <span class="n">e</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="strip_variables"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.transformer.strip_variables">[docs]</a><span class="k">def</span> <span class="nf">strip_variables</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replace all Variable instances with the expression they represent.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">apply_transformer</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">VariableStripper</span><span class="p">())</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

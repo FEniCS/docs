@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.apply_integral_scaling &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.apply_integral_scaling</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm for replacing gradients in an expression.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2013-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.apply_geometry_lowering</span> <span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
+<span class="kn">from</span> <span class="nn">ufl.algorithms.estimate_degrees</span> <span class="kn">import</span> <span class="n">estimate_total_polynomial_degree</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FacetJacobianDeterminant</span><span class="p">,</span>
+    <span class="n">Form</span><span class="p">,</span>
+    <span class="n">Integral</span><span class="p">,</span>
+    <span class="n">JacobianDeterminant</span><span class="p">,</span>
+    <span class="n">QuadratureWeight</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">ufl.differentiation</span> <span class="kn">import</span> <span class="n">CoordinateDerivative</span>
+<span class="kn">from</span> <span class="nn">ufl.measure</span> <span class="kn">import</span> <span class="n">custom_integral_types</span><span class="p">,</span> <span class="n">point_integral_types</span>
+
+
+<div class="viewcode-block" id="compute_integrand_scaling_factor"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_integral_scaling.compute_integrand_scaling_factor">[docs]</a><span class="k">def</span> <span class="nf">compute_integrand_scaling_factor</span><span class="p">(</span><span class="n">integral</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change integrand geometry to the right representations.&quot;&quot;&quot;</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+    <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+    <span class="c1"># co = CellOrientation(domain)</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">QuadratureWeight</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+    <span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">()</span>
+    <span class="c1"># gdim = domain.geometric_dimension()</span>
+
+    <span class="c1"># Polynomial degree of integrand scaling</span>
+    <span class="n">degree</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">integral_type</span> <span class="o">==</span> <span class="s2">&quot;cell&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">detJ</span> <span class="o">=</span> <span class="n">JacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">degree</span> <span class="o">=</span> <span class="n">estimate_total_polynomial_degree</span><span class="p">(</span><span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">detJ</span><span class="p">))</span>
+            <span class="c1"># Despite the abs, |detJ| is polynomial except for</span>
+            <span class="c1"># self-intersecting cells, where we have other problems.</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">detJ</span><span class="p">)</span> <span class="o">*</span> <span class="n">weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No need to scale &#39;integral&#39; over a vertex</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">elif</span> <span class="n">integral_type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;exterior_facet&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Scaling integral by facet jacobian determinant and</span>
+            <span class="c1"># quadrature weight</span>
+            <span class="n">detFJ</span> <span class="o">=</span> <span class="n">FacetJacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">degree</span> <span class="o">=</span> <span class="n">estimate_total_polynomial_degree</span><span class="p">(</span><span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">detFJ</span><span class="p">))</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">detFJ</span> <span class="o">*</span> <span class="n">weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No need to scale &#39;integral&#39; over a vertex</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">elif</span> <span class="n">integral_type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tdim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Scaling integral by facet jacobian determinant from one</span>
+            <span class="c1"># side and quadrature weight</span>
+            <span class="n">detFJ</span> <span class="o">=</span> <span class="n">FacetJacobianDeterminant</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="n">degree</span> <span class="o">=</span> <span class="n">estimate_total_polynomial_degree</span><span class="p">(</span><span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">detFJ</span><span class="p">))</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">detFJ</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">)</span> <span class="o">*</span> <span class="n">weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># No need to scale &#39;integral&#39; over a vertex</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">elif</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">custom_integral_types</span><span class="p">:</span>
+        <span class="c1"># Scaling with custom weight, which includes eventual volume</span>
+        <span class="c1"># scaling</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">weight</span>
+
+    <span class="k">elif</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">point_integral_types</span><span class="p">:</span>
+        <span class="c1"># No need to scale &#39;integral&#39; over a point</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown integral type </span><span class="si">{</span><span class="n">integral_type</span><span class="si">}</span><span class="s2">, don&#39;t know how to scale.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">scale</span><span class="p">,</span> <span class="n">degree</span></div>
+
+
+<div class="viewcode-block" id="apply_integral_scaling"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_integral_scaling.apply_integral_scaling">[docs]</a><span class="k">def</span> <span class="nf">apply_integral_scaling</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Multiply integrands by a factor to scale the integral to reference frame.&quot;&quot;&quot;</span>
+    <span class="c1"># TODO: Consider adding an in_reference_frame property to Integral</span>
+    <span class="c1">#       and checking it here and setting it in the returned form</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="n">newintegrals</span> <span class="o">=</span> <span class="p">[</span><span class="n">apply_integral_scaling</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span> <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">()]</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">newintegrals</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Integral</span><span class="p">):</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">form</span>
+        <span class="n">integrand</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">()</span>
+        <span class="c1"># Compute and apply integration scaling factor since we want to compute</span>
+        <span class="c1"># coordinate derivatives at the end, the scaling factor has to be moved</span>
+        <span class="c1"># inside those</span>
+        <span class="n">scale</span><span class="p">,</span> <span class="n">degree</span> <span class="o">=</span> <span class="n">compute_integrand_scaling_factor</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">md</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">metadata</span><span class="p">())</span>
+        <span class="n">new_degree</span> <span class="o">=</span> <span class="n">degree</span>
+        <span class="n">cur_degree</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;estimated_polynomial_degree&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cur_degree</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cur_degree</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">degree</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">new_degree</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cur_degree</span><span class="p">,</span> <span class="n">degree</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cur_degree</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">new_degree</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="n">degree</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">cur_degree</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">degree</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">new_degree</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">cur_degree</span> <span class="o">+</span> <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">degree</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_degree</span> <span class="o">=</span> <span class="n">cur_degree</span> <span class="o">+</span> <span class="n">degree</span>
+        <span class="n">md</span><span class="p">[</span><span class="s2">&quot;estimated_polynomial_degree&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_degree</span>
+
+        <span class="k">def</span> <span class="nf">scale_coordinate_derivative</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">scale</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Scale the coordinate derivative.&quot;&quot;&quot;</span>
+            <span class="n">o_</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">CoordinateDerivative</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">CoordinateDerivative</span><span class="p">(</span>
+                    <span class="n">scale_coordinate_derivative</span><span class="p">(</span><span class="n">o_</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">scale</span><span class="p">),</span> <span class="n">o_</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">o_</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">o_</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">o</span>
+
+        <span class="n">newintegrand</span> <span class="o">=</span> <span class="n">scale_coordinate_derivative</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">newintegrand</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">md</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid type </span><span class="si">{</span><span class="n">form</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

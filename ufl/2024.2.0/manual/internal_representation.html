@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Internal representation details &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Algorithms" href="algorithms.html" />
+    <link rel="prev" title="Example forms" href="examples.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="internal-representation-details">
+<h1>Internal representation details<a class="headerlink" href="#internal-representation-details" title="Permalink to this heading">¶</a></h1>
+<p>This chapter explains how UFL forms and expressions are represented
+in detail. Most operations are mirrored by a representation class,
+e.g., <code class="docutils literal notranslate"><span class="pre">Sum</span></code> and <code class="docutils literal notranslate"><span class="pre">Product</span></code>, which are subclasses
+of <code class="docutils literal notranslate"><span class="pre">Expr</span></code>.  You can import all of them from the submodule
+<code class="docutils literal notranslate"><span class="pre">ufl.classes</span></code> by</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="o">*</span>
+</pre></div>
+</div>
+<section id="structure-of-a-form">
+<h2>Structure of a form<a class="headerlink" href="#structure-of-a-form" title="Permalink to this heading">¶</a></h2>
+<p>Each <code class="docutils literal notranslate"><span class="pre">Form</span></code> owns multiple <code class="docutils literal notranslate"><span class="pre">Integral</span></code> instances, each associated
+with a different <code class="docutils literal notranslate"><span class="pre">Measure</span></code>.  An <code class="docutils literal notranslate"><span class="pre">Integral</span></code> owns a <code class="docutils literal notranslate"><span class="pre">Measure</span></code>
+and an <code class="docutils literal notranslate"><span class="pre">Expr</span></code>, which represents the integrand expression. The
+<code class="docutils literal notranslate"><span class="pre">Expr</span></code> is the base class of all expressions.  It has two direct
+subclasses <code class="docutils literal notranslate"><span class="pre">Terminal</span></code> and <code class="docutils literal notranslate"><span class="pre">Operator</span></code>.</p>
+<p>Subclasses of <code class="docutils literal notranslate"><span class="pre">Terminal</span></code> represent atomic quantities which
+terminate the expression tree, e.g. they have no subexpressions.
+Subclasses of <code class="docutils literal notranslate"><span class="pre">Operator</span></code> represent operations on one or more
+other expressions, which may usually be <code class="docutils literal notranslate"><span class="pre">Expr</span></code> subclasses of
+arbitrary type. Different <code class="docutils literal notranslate"><span class="pre">Operator</span></code>s may have restrictions
+on some properties of their arguments.</p>
+<p>All the types mentioned here are conceptually immutable, i.e. they
+should never be modified over the course of their entire lifetime. When a
+modified expression, measure, integral, or form is needed, a new instance
+must be created, possibly sharing some data with the old one. Since the
+shared data is also immutable, sharing can cause no problems.</p>
+</section>
+<section id="general-properties-of-expressions">
+<h2>General properties of expressions<a class="headerlink" href="#general-properties-of-expressions" title="Permalink to this heading">¶</a></h2>
+<p>Any UFL expression has certain properties, defined by functions that
+every <code class="docutils literal notranslate"><span class="pre">Expr</span></code> subclass must implement. In the following, <code class="docutils literal notranslate"><span class="pre">u</span></code>
+represents an arbitrary UFL expression, i.e. an instance of an
+arbitrary <code class="docutils literal notranslate"><span class="pre">Expr</span></code> subclass.</p>
+<section id="operands">
+<h3><code class="docutils literal notranslate"><span class="pre">operands</span></code><a class="headerlink" href="#operands" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.operands()</span></code> returns a tuple with all the operands of u, which should
+all be <code class="docutils literal notranslate"><span class="pre">Expr</span></code> instances.</p>
+</section>
+<section id="reconstruct">
+<h3><code class="docutils literal notranslate"><span class="pre">reconstruct</span></code><a class="headerlink" href="#reconstruct" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.reconstruct(operands)</span></code> returns a new <code class="docutils literal notranslate"><span class="pre">Expr</span></code> instance
+representing the same operation as <code class="docutils literal notranslate"><span class="pre">u</span></code> but with other
+operands. Terminal objects may simply return <code class="docutils literal notranslate"><span class="pre">self</span></code> since all
+<code class="docutils literal notranslate"><span class="pre">Expr</span></code> instance are immutable.  An important invariant is that
+<code class="docutils literal notranslate"><span class="pre">u.reconstruct(u.operands())</span> <span class="pre">==</span> <span class="pre">u</span></code>.</p>
+</section>
+<section id="cell">
+<h3><code class="docutils literal notranslate"><span class="pre">cell</span></code><a class="headerlink" href="#cell" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.cell()</span></code> returns the first <code class="docutils literal notranslate"><span class="pre">Cell</span></code> instance found in <code class="docutils literal notranslate"><span class="pre">u</span></code>. It
+is currently assumed in UFL that no two different cells are used in
+a single form. Not all expression define a cell, in which case this
+returns <code class="docutils literal notranslate"><span class="pre">None</span></code> and <code class="docutils literal notranslate"><span class="pre">u</span></code> is spatially constant.  Note that this
+property is used in some algorithms.</p>
+</section>
+<section id="shape">
+<h3><code class="docutils literal notranslate"><span class="pre">shape</span></code><a class="headerlink" href="#shape" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.shape()</span></code> returns a tuple of integers, which is the tensor shape
+of <code class="docutils literal notranslate"><span class="pre">u</span></code>.</p>
+</section>
+<section id="free-indices">
+<h3><code class="docutils literal notranslate"><span class="pre">free_indices</span></code><a class="headerlink" href="#free-indices" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.free_indices()</span></code> returns a tuple of <code class="docutils literal notranslate"><span class="pre">Index</span></code> objects, which
+are the unassigned, free indices of <code class="docutils literal notranslate"><span class="pre">u</span></code>.</p>
+</section>
+<section id="index-dimensions">
+<h3><code class="docutils literal notranslate"><span class="pre">index_dimensions</span></code><a class="headerlink" href="#index-dimensions" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u.index_dimensions()</span></code> returns a <code class="docutils literal notranslate"><span class="pre">dict</span></code> mapping from each
+<code class="docutils literal notranslate"><span class="pre">Index</span></code> instance in <code class="docutils literal notranslate"><span class="pre">u.free_indices()</span></code> to the integer dimension
+of the value space each index can range over.</p>
+</section>
+<section id="str-u">
+<h3><code class="docutils literal notranslate"><span class="pre">str(u)</span></code><a class="headerlink" href="#str-u" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">str(u)</span></code> returns a human-readable string representation of <code class="docutils literal notranslate"><span class="pre">u</span></code>.</p>
+</section>
+<section id="repr-u">
+<h3><code class="docutils literal notranslate"><span class="pre">repr(u)</span></code><a class="headerlink" href="#repr-u" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">repr(u)</span></code> returns a Python string representation of <code class="docutils literal notranslate"><span class="pre">u</span></code>, such
+that <code class="docutils literal notranslate"><span class="pre">eval(repr(u))</span> <span class="pre">==</span> <span class="pre">u</span></code> holds in Python.</p>
+</section>
+<section id="hash-u">
+<h3><code class="docutils literal notranslate"><span class="pre">hash(u)</span></code><a class="headerlink" href="#hash-u" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hash(u)</span></code> returns a hash code for <code class="docutils literal notranslate"><span class="pre">u</span></code>, which is used extensively
+(indirectly) in algorithms whenever <code class="docutils literal notranslate"><span class="pre">u</span></code> is placed in a Python
+<code class="docutils literal notranslate"><span class="pre">dict</span></code> or <code class="docutils literal notranslate"><span class="pre">set</span></code>.</p>
+</section>
+<section id="u-v">
+<h3><code class="docutils literal notranslate"><span class="pre">u</span> <span class="pre">==</span> <span class="pre">v</span></code><a class="headerlink" href="#u-v" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">u</span> <span class="pre">==</span> <span class="pre">v</span></code> returns true if and only if <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">v</span></code> represents
+the same expression in the exact same way.  This is used extensively
+(indirectly) in algorithms whenever <code class="docutils literal notranslate"><span class="pre">u</span></code> is placed in a Python
+<code class="docutils literal notranslate"><span class="pre">dict</span></code> or <code class="docutils literal notranslate"><span class="pre">set</span></code>.</p>
+</section>
+<section id="about-other-relational-operators">
+<h3>About other relational operators<a class="headerlink" href="#about-other-relational-operators" title="Permalink to this heading">¶</a></h3>
+<p>In general, UFL expressions are not possible to fully evaluate since the
+cell and the values of form arguments are not available. Implementing
+relational operators for immediate evaluation is therefore impossible.</p>
+<p>Overloading relational operators as a part of the form language is not
+possible either, since it interferes with the correct use of container
+types in Python like <code class="docutils literal notranslate"><span class="pre">dict</span></code> or <code class="docutils literal notranslate"><span class="pre">set</span></code>.</p>
+</section>
+</section>
+<section id="elements">
+<h2>Elements<a class="headerlink" href="#elements" title="Permalink to this heading">¶</a></h2>
+<p>All finite element classes have a common base class
+<code class="docutils literal notranslate"><span class="pre">FiniteElementBase</span></code>. The class hierarchy looks like this:</p>
+<p>TODO: Class figure.
+..
+TODO: Describe all FiniteElementBase subclasses here.</p>
+</section>
+<section id="terminals">
+<h2>Terminals<a class="headerlink" href="#terminals" title="Permalink to this heading">¶</a></h2>
+<p>All <code class="docutils literal notranslate"><span class="pre">Terminal</span></code> subclasses have some non-<code class="docutils literal notranslate"><span class="pre">Expr</span></code> data attached
+to them. <code class="docutils literal notranslate"><span class="pre">ScalarValue</span></code> has a Python scalar, <code class="docutils literal notranslate"><span class="pre">Coefficient</span></code>
+has a <code class="docutils literal notranslate"><span class="pre">FiniteElement</span></code>, etc.</p>
+<p>Therefore, a unified implementation of <code class="docutils literal notranslate"><span class="pre">reconstruct</span></code> is
+not possible, but since all <code class="docutils literal notranslate"><span class="pre">Expr</span></code> instances are immutable,
+<code class="docutils literal notranslate"><span class="pre">reconstruct</span></code> for terminals can simply return self. This feature
+and the immutability property is used extensively in algorithms.</p>
+</section>
+<section id="operators">
+<h2>Operators<a class="headerlink" href="#operators" title="Permalink to this heading">¶</a></h2>
+<p>All instances of <code class="docutils literal notranslate"><span class="pre">Operator</span></code> subclasses are fully specified
+by their type plus the tuple of <code class="docutils literal notranslate"><span class="pre">Expr</span></code> instances that are
+the operands. Their constructors should take these operands as the
+positional arguments, and only that. This way, a unified implementation
+of <code class="docutils literal notranslate"><span class="pre">reconstruct</span></code> is possible, by simply calling the constructor
+with new operands. This feature is used extensively in algorithms.</p>
+</section>
+<section id="extending-ufl">
+<h2>Extending UFL<a class="headerlink" href="#extending-ufl" title="Permalink to this heading">¶</a></h2>
+<p>Adding new types to the UFL class hierarchy must be done with care. If
+you can get away with implementing a new operator as a combination of
+existing ones, that is the easiest route. The reason is that only some
+of the properties of an operator is represented by the <code class="docutils literal notranslate"><span class="pre">Expr</span></code>
+subclass. Other properties are part of the various algorithms in UFL.
+One example is derivatives, which are defined in the differentiation
+algorithm, and how to render a type to the dot formats. These properties
+could be merged into the class hierarchy, but other properties like how
+to map a UFL type to some <code class="docutils literal notranslate"><span class="pre">ffc</span></code> or <code class="docutils literal notranslate"><span class="pre">dolfin</span></code> type cannot be part of
+UFL. So before adding a new class, consider that doing so may require
+changes in multiple algorithms and even other projects.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../manual.html">User manual</a><ul>
+      <li>Previous: <a href="examples.html" title="previous chapter">Example forms</a></li>
+      <li>Next: <a href="algorithms.html" title="next chapter">Algorithms</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="../_sources/manual/internal_representation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.apply_function_pullbacks &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.apply_function_pullbacks</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm for replacing gradients in an expression.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.map_integrands</span> <span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">ReferenceValue</span>
+<span class="kn">from</span> <span class="nn">ufl.corealg.multifunction</span> <span class="kn">import</span> <span class="n">MultiFunction</span><span class="p">,</span> <span class="n">memoized_handler</span>
+
+
+<div class="viewcode-block" id="FunctionPullbackApplier"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.FunctionPullbackApplier">[docs]</a><span class="k">class</span> <span class="nc">FunctionPullbackApplier</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A pull back applier.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initalise.&quot;&quot;&quot;</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="FunctionPullbackApplier.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.FunctionPullbackApplier.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a terminal.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">t</span></div>
+
+    <span class="nd">@memoized_handler</span>
+    <span class="k">def</span> <span class="nf">form_argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a form_argument.&quot;&quot;&quot;</span>
+        <span class="c1"># Represent 0-derivatives of form arguments on reference</span>
+        <span class="c1"># element</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">ReferenceValue</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+        <span class="n">space</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+        <span class="n">element</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Expecting reference space expression with shape &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="si">}</span><span class="s2">&#39;, got &#39;</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+            <span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">space</span><span class="o">.</span><span class="n">value_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expecting pulled back expression with shape &#39;</span><span class="si">{</span><span class="n">space</span><span class="o">.</span><span class="n">value_shape</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">==</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">return</span> <span class="n">f</span></div>
+
+
+<div class="viewcode-block" id="apply_function_pullbacks"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_function_pullbacks.apply_function_pullbacks">[docs]</a><span class="k">def</span> <span class="nf">apply_function_pullbacks</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Change representation of coefficients and arguments in an expression.</span>
+
+<span class="sd">    Applies Piola mappings where applicable and represents all</span>
+<span class="sd">    form arguments in reference value.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        expr: An Expression</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">FunctionPullbackApplier</span><span class="p">(),</span> <span class="n">expr</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

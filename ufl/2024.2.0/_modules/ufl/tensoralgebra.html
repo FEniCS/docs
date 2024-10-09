@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.tensoralgebra &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.tensoralgebra</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Compound tensor algebra operations.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algebra</span> <span class="kn">import</span> <span class="n">Conj</span><span class="p">,</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.index_combination_utils</span> <span class="kn">import</span> <span class="n">merge_nonoverlapping_indices</span>
+<span class="kn">from</span> <span class="nn">ufl.precedence</span> <span class="kn">import</span> <span class="n">parstr</span>
+<span class="kn">from</span> <span class="nn">ufl.sorting</span> <span class="kn">import</span> <span class="n">sorted_expr</span>
+
+<span class="c1"># Algebraic operations on tensors:</span>
+<span class="c1"># FloatValues:</span>
+<span class="c1">#   dot(a,b)      = a*b</span>
+<span class="c1">#   inner(a,b)    = a*b</span>
+<span class="c1">#   outer(a,b)    = a*b</span>
+<span class="c1"># Vectors:</span>
+<span class="c1">#   dot(u,v)      = u_i v_i</span>
+<span class="c1">#   inner(u,v)    = u_i v_i</span>
+<span class="c1">#   outer(u,v)    = A | A_ij = u_i v_j</span>
+<span class="c1"># Matrices:</span>
+<span class="c1">#   dot(A,B)      = C | C_ij = A_{ik} B_{kj}</span>
+<span class="c1">#   inner(A,B)    = A_{ij} B_{ij}</span>
+<span class="c1">#   outer(A,B)    = C | C_ijkl = A_ij B_kl</span>
+<span class="c1"># Combined:</span>
+<span class="c1">#   dot(A,u)      = v | v_i = A_{ik} u_k</span>
+<span class="c1">#   inner(A,u)    = v | v_i = A_{ik} u_k</span>
+<span class="c1">#   outer(A,u)    = C | C_ijk = B_ij u_k</span>
+<span class="c1">#   dot(u,B)      = v | v_i = u_k B_{ki}</span>
+<span class="c1">#   inner(u,B)    = v | v_i = u_k B_{ki}</span>
+<span class="c1">#   outer(u,B)    = C | C_ijk = u_i B_jk</span>
+<span class="c1">#</span>
+<span class="c1"># Argument requirements:</span>
+<span class="c1">#   dot(x,y):   last index of x has same dimension as first index of y</span>
+<span class="c1">#   inner(x,y): shape of x equals the shape of y</span>
+
+
+<span class="c1"># --- Classes representing compound tensor algebra operations ---</span>
+
+
+<div class="viewcode-block" id="CompoundTensorOperator"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.CompoundTensorOperator">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_abstract</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">CompoundTensorOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compount tensor operator.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operands</span><span class="p">)</span></div>
+
+
+<span class="c1"># TODO: Use this and make Sum handle scalars only?</span>
+<span class="c1">#       This would simplify some algorithms. The only</span>
+<span class="c1">#       problem is we can&#39;t use + in many algorithms because</span>
+<span class="c1">#       this type should be expanded by expand_compounds.</span>
+<span class="c1"># class TensorSum(CompoundTensorOperator):</span>
+<span class="c1">#     &quot;Sum of nonscalar expressions.&quot;</span>
+<span class="c1">#     pass</span>
+
+<span class="c1"># TODO: Use this similarly to TensorSum?</span>
+<span class="c1">#       This would simplify some algorithms. The only</span>
+<span class="c1">#       problem is we can&#39;t use / in many algorithms because</span>
+<span class="c1">#       this type should be expanded by expand_compounds.</span>
+<span class="c1"># class TensorDivision(CompoundTensorOperator):</span>
+<span class="c1">#     &quot;Division of nonscalar expression with a scalar expression.&quot;</span>
+<span class="c1">#     pass</span>
+
+<span class="c1"># TODO: Use this similarly to TensorSum?</span>
+<span class="c1">#       This would simplify some algorithms. The only</span>
+<span class="c1">#       problem is we can&#39;t use * in many algorithms because</span>
+<span class="c1">#       this type should be expanded by expand_compounds.</span>
+<span class="c1"># class MatrixProduct(CompoundTensorOperator):</span>
+<span class="c1">#     &quot;Product of a matrix with a matrix or vector.&quot;</span>
+<span class="c1">#     pass</span>
+
+<span class="c1"># TODO: Use this similarly to TensorSum?</span>
+<span class="c1">#       This would simplify some algorithms. The only</span>
+<span class="c1">#       problem is we can&#39;t use abs in many algorithms because</span>
+<span class="c1">#       this type should be expanded by expand_compounds.</span>
+<span class="c1"># class TensorAbs(CompoundTensorOperator):</span>
+<span class="c1">#     &quot;Absolute value of nonscalar expression.&quot;</span>
+<span class="c1">#     pass</span>
+
+
+<div class="viewcode-block" id="Transposed"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Transposed">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_shaping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Transposed</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Transposed tensor.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Transposed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Transposed is only defined for rank 2 tensors.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">^T&quot;</span> <span class="o">%</span> <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Outer"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Outer">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Outer</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Outer.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Outer.&quot;&quot;&quot;</span>
+        <span class="n">ash</span><span class="p">,</span> <span class="n">bsh</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">ash</span> <span class="o">+</span> <span class="n">bsh</span><span class="p">,</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ash</span> <span class="o">==</span> <span class="p">()</span> <span class="ow">or</span> <span class="n">bsh</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="k">return</span> <span class="n">Conj</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="n">b</span>
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+        <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> (X) </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">),</span>
+            <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Inner"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Inner">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Inner</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Inner.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Inner.&quot;&quot;&quot;</span>
+        <span class="c1"># Checks</span>
+        <span class="n">ash</span><span class="p">,</span> <span class="n">bsh</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="n">ash</span> <span class="o">!=</span> <span class="n">bsh</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Shapes do not match: </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((),</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ash</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">Conj</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="c1"># sort operands for unique representation,</span>
+        <span class="c1"># must be independent of various counts etc.</span>
+        <span class="c1"># as explained in cmp_expr</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sorted_expr</span><span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))):</span>
+            <span class="k">return</span> <span class="n">Conj</span><span class="p">(</span><span class="n">Inner</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+
+        <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> : </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">),</span> <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Dot"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Dot">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Dot</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dot.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Dot.&quot;&quot;&quot;</span>
+        <span class="n">ash</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">bsh</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">ar</span><span class="p">,</span> <span class="n">br</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ash</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">bsh</span><span class="p">)</span>
+        <span class="n">scalar</span> <span class="o">=</span> <span class="n">ar</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">br</span> <span class="o">==</span> <span class="mi">0</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">((</span><span class="n">ar</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">br</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">scalar</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Dot product requires non-scalar arguments, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got arguments with ranks </span><span class="si">{</span><span class="n">ar</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">br</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">scalar</span> <span class="ow">or</span> <span class="n">ash</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">bsh</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dimension mismatch in dot product.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="n">ash</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">bsh</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">scalar</span><span class="p">:</span>  <span class="c1"># TODO: Move this to def dot()?</span>
+            <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+        <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> . </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">),</span> <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Perp"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Perp">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_index_free</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Perp</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perp.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Perp.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Perp requires arguments of rank 1, got </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Perp can only work on 2D vectors, got </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">A</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">sh</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;perp(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Cross"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Cross">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cross</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cross.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Cross.&quot;&quot;&quot;</span>
+        <span class="n">ash</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">bsh</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ash</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">ash</span> <span class="o">==</span> <span class="n">bsh</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cross product requires arguments of rank 1, got </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;and </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">ash</span><span class="p">,</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span>
+        <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span> <span class="o">=</span> <span class="n">merge_nonoverlapping_indices</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> x </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">),</span> <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="Trace"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Trace">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Trace</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Trace.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Trace.&quot;&quot;&quot;</span>
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Trace of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((),</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="n">ufl_shape</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;tr(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Determinant"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Determinant">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_scalar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Determinant</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determinant.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Determinant.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>
+        <span class="n">Afi</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Determinant of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot take determinant of rectangular rank 2 tensor.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">Afi</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in determinant.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">((),</span> <span class="n">Afi</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">A</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;det(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<span class="c1"># TODO: Drop Inverse and represent it as product of Determinant and</span>
+<span class="c1"># Cofactor?</span>
+<div class="viewcode-block" id="Inverse"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Inverse">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_index_free</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Inverse</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Inverse.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Inverse.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in Inverse.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Division by zero!&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">A</span>
+
+        <span class="c1"># More checks</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inverse of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot take inverse of rectangular matrix with dimensions </span><span class="si">{</span><span class="n">sh</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">^-1&quot;</span> <span class="o">%</span> <span class="n">parstr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Cofactor"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Cofactor">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">is_index_free</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Cofactor</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cofactor.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+        <span class="c1"># Checks</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cofactor of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot take cofactor of rectangular matrix with dimensions </span><span class="si">{</span><span class="n">sh</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in Cofactor.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot take cofactor of zero matrix.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the UFL shape.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;cofactor(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Deviatoric"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Deviatoric">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Deviatoric</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Deviatoric.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Deviatoric.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Deviatoric part of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot take deviatoric part of rectangular matrix with dimensions </span><span class="si">{</span><span class="n">sh</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in Deviatoric.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;dev(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Skew"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Skew">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Skew</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Skew.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Skew.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">Afi</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Skew symmetric part of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot take skew part of rectangular matrix with dimensions </span><span class="si">{</span><span class="n">sh</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">Afi</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in Skew.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">Afi</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;skew(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Sym"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Sym">[docs]</a><span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inherit_shape_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inherit_indices_from_operand</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Sym</span><span class="p">(</span><span class="n">CompoundTensorOperator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sym.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create new Sym.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="n">Afi</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+
+        <span class="c1"># Checks</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Symmetric part of tensor with rank != 2 is undefined.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sh</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">sh</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Cannot take symmetric part of rectangular matrix with dimensions </span><span class="si">{</span><span class="n">sh</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">Afi</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting free indices in Sym.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Simplification</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="n">Afi</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">CompoundTensorOperator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">(</span><span class="n">A</span><span class="p">,))</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;sym(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

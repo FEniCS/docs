@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.precedence &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.precedence</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Precedence handling.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="c1"># FIXME: This code is crap...</span>
+
+
+<div class="viewcode-block" id="parstr"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.precedence.parstr">[docs]</a><span class="k">def</span> <span class="nf">parstr</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">post</span><span class="o">=</span><span class="s2">&quot;)&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parstr.&quot;&quot;&quot;</span>
+    <span class="c1"># Execute when needed instead of on import, which leads to all</span>
+    <span class="c1"># kinds of circular trouble.  Fixing this could be an optimization</span>
+    <span class="c1"># of str(expr) though.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="s2">&quot;_precedence&quot;</span><span class="p">):</span>
+        <span class="n">assign_precedences</span><span class="p">(</span><span class="n">build_precedence_list</span><span class="p">())</span>
+
+    <span class="c1"># We want child to be evaluated fully first, and if the parent has</span>
+    <span class="c1"># higher precedence we later wrap in ().</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="nb">format</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+
+    <span class="c1"># Operators where operands are always parenthesized because</span>
+    <span class="c1"># precedence is not defined below</span>
+    <span class="k">if</span> <span class="n">parent</span><span class="o">.</span><span class="n">_precedence</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pre</span> <span class="o">+</span> <span class="n">s</span> <span class="o">+</span> <span class="n">post</span>
+
+    <span class="c1"># If parent operator binds stronger than child, must parenthesize</span>
+    <span class="c1"># child</span>
+    <span class="c1"># FIXME: Is this correct for all possible positions of () in a + b + c?</span>
+    <span class="c1"># FIXME: Left-right rule</span>
+    <span class="k">if</span> <span class="n">parent</span><span class="o">.</span><span class="n">_precedence</span> <span class="o">&gt;</span> <span class="n">child</span><span class="o">.</span><span class="n">_precedence</span><span class="p">:</span>  <span class="c1"># parent = indexed, child = terminal</span>
+        <span class="k">return</span> <span class="n">pre</span> <span class="o">+</span> <span class="n">s</span> <span class="o">+</span> <span class="n">post</span>
+
+    <span class="c1"># Nothing needed</span>
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="build_precedence_list"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.precedence.build_precedence_list">[docs]</a><span class="k">def</span> <span class="nf">build_precedence_list</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build precedence list.&quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">Abs</span><span class="p">,</span>
+        <span class="n">BesselFunction</span><span class="p">,</span>
+        <span class="n">Division</span><span class="p">,</span>
+        <span class="n">Indexed</span><span class="p">,</span>
+        <span class="n">IndexSum</span><span class="p">,</span>
+        <span class="n">MathFunction</span><span class="p">,</span>
+        <span class="n">Operator</span><span class="p">,</span>
+        <span class="n">Power</span><span class="p">,</span>
+        <span class="n">Product</span><span class="p">,</span>
+        <span class="n">Sum</span><span class="p">,</span>
+        <span class="n">Terminal</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># TODO: Fill in other types...</span>
+    <span class="c1"># Power &lt;= Transposed</span>
+
+    <span class="n">precedence_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Default operator behaviour: should always add parentheses</span>
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Operator</span><span class="p">,))</span>
+
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Sum</span><span class="p">,))</span>
+
+    <span class="c1"># sum_i a + b = (sum_i a) + b != sum_i (a + b), sum_i binds</span>
+    <span class="c1"># stronger than +, but weaker than product</span>
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">IndexSum</span><span class="p">,))</span>
+
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">(</span>
+            <span class="n">Product</span><span class="p">,</span>
+            <span class="n">Division</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># NB! Depends on language!</span>
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Power</span><span class="p">,</span> <span class="n">MathFunction</span><span class="p">,</span> <span class="n">BesselFunction</span><span class="p">,</span> <span class="n">Abs</span><span class="p">))</span>
+
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Indexed</span><span class="p">,))</span>
+
+    <span class="c1"># Default terminal behaviour: should never add parentheses</span>
+    <span class="n">precedence_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Terminal</span><span class="p">,))</span>
+    <span class="k">return</span> <span class="n">precedence_list</span></div>
+
+
+<div class="viewcode-block" id="build_precedence_mapping"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.precedence.build_precedence_mapping">[docs]</a><span class="k">def</span> <span class="nf">build_precedence_mapping</span><span class="p">(</span><span class="n">precedence_list</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a precedence list, build a dict with class-&gt;int mappings.</span>
+
+<span class="sd">    Utility function used by some external code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">abstract_classes</span><span class="p">,</span> <span class="n">all_ufl_classes</span>
+
+    <span class="n">pm</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="c1"># Assign integer values for each precedence level</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">precedence_list</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
+            <span class="n">pm</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="c1"># Check for missing classes, fill in subclasses</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">all_ufl_classes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">abstract_classes</span> <span class="ow">and</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pm</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="vm">__bases__</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">while</span> <span class="n">b</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Expr</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">pm</span><span class="p">:</span>
+                    <span class="n">pm</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">pm</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
+                    <span class="k">break</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="vm">__bases__</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pm</span><span class="p">:</span>
+                <span class="n">missing</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pm</span><span class="p">,</span> <span class="n">missing</span></div>
+
+
+<div class="viewcode-block" id="assign_precedences"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.precedence.assign_precedences">[docs]</a><span class="k">def</span> <span class="nf">assign_precedences</span><span class="p">(</span><span class="n">precedence_list</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a precedence list, assign ints to class._precedence.&quot;&quot;&quot;</span>
+    <span class="n">pm</span><span class="p">,</span> <span class="n">missing</span> <span class="o">=</span> <span class="n">build_precedence_mapping</span><span class="p">(</span><span class="n">precedence_list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="p">):</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">_precedence</span> <span class="o">=</span> <span class="n">p</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;Missing precedence levels for classes:</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">missing</span><span class="p">))</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

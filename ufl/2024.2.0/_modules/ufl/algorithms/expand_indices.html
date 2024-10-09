@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.expand_indices &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.expand_indices</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;This module defines expression transformation utilities.</span>
+
+<span class="sd">These utilities are for expanding free indices in expressions to explicit fixed indices only.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009.</span>
+
+<span class="kn">from</span> <span class="nn">ufl.algorithms.transformer</span> <span class="kn">import</span> <span class="n">ReuseTransformer</span><span class="p">,</span> <span class="n">apply_transformer</span>
+<span class="kn">from</span> <span class="nn">ufl.classes</span> <span class="kn">import</span> <span class="n">Terminal</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span> <span class="nn">ufl.core.multiindex</span> <span class="kn">import</span> <span class="n">FixedIndex</span><span class="p">,</span> <span class="n">Index</span><span class="p">,</span> <span class="n">MultiIndex</span>
+<span class="kn">from</span> <span class="nn">ufl.differentiation</span> <span class="kn">import</span> <span class="n">Grad</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.stacks</span> <span class="kn">import</span> <span class="n">Stack</span><span class="p">,</span> <span class="n">StackDict</span>
+
+
+<div class="viewcode-block" id="IndexExpander"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander">[docs]</a><span class="k">class</span> <span class="nc">IndexExpander</span><span class="p">(</span><span class="n">ReuseTransformer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Index expander.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">ReuseTransformer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span> <span class="o">=</span> <span class="n">Stack</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span> <span class="o">=</span> <span class="n">StackDict</span><span class="p">()</span>
+
+<div class="viewcode-block" id="IndexExpander.component"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.component">[docs]</a>    <span class="k">def</span> <span class="nf">component</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return current component tuple.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">()</span></div>
+
+<div class="viewcode-block" id="IndexExpander.terminal"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.terminal">[docs]</a>    <span class="k">def</span> <span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to terminal.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component size mismatch.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+<div class="viewcode-block" id="IndexExpander.form_argument"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.form_argument">[docs]</a>    <span class="k">def</span> <span class="nf">form_argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to form_argument.&quot;&quot;&quot;</span>
+        <span class="n">sh</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span>
+        <span class="k">if</span> <span class="n">sh</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="k">return</span> <span class="n">x</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">space</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sh</span><span class="p">)</span>
+
+            <span class="c1"># Get component</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component size mismatch.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Map it through an eventual symmetry mapping</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">space</span><span class="o">.</span><span class="n">components</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">space</span><span class="o">.</span><span class="n">components</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">space</span><span class="o">.</span><span class="n">components</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component size mismatch after symmetry mapping.&quot;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="n">c</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="IndexExpander.zero"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.zero">[docs]</a>    <span class="k">def</span> <span class="nf">zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to zero.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component size mismatch.&quot;</span><span class="p">)</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Free index set mismatch, these indices have no value assigned: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># There is no index/shape info in this zero because that is asserted above</span>
+        <span class="k">return</span> <span class="n">Zero</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="IndexExpander.scalar_value"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.scalar_value">[docs]</a>    <span class="k">def</span> <span class="nf">scalar_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to scalar_value.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">print_visit_stack</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Component size mismatch.&quot;</span><span class="p">)</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Free index set mismatch, these indices have no value assigned: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">value</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="IndexExpander.conditional"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.conditional">[docs]</a>    <span class="k">def</span> <span class="nf">conditional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to conditional.&quot;&quot;&quot;</span>
+        <span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+        <span class="c1"># Not accepting nonscalars in condition</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting tensor in condition.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Conditional may be indexed, push empty component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">push</span><span class="p">(())</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+
+        <span class="c1"># Keep possibly non-scalar components for values</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndexExpander.division"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.division">[docs]</a>    <span class="k">def</span> <span class="nf">division</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to division.&quot;&quot;&quot;</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+        <span class="c1"># Not accepting nonscalars in division anymore</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting tensor in division.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()</span> <span class="o">!=</span> <span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting component in division.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting division by tensor.&quot;</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># self._components.push(())</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="c1"># self._components.pop()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_possible</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IndexExpander.index_sum"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.index_sum">[docs]</a>    <span class="k">def</span> <span class="nf">index_sum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to index_sum.&quot;&quot;&quot;</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">summand</span><span class="p">,</span> <span class="n">multiindex</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="p">(</span><span class="n">index</span><span class="p">,)</span> <span class="o">=</span> <span class="n">multiindex</span>
+
+        <span class="c1"># TODO: For the list tensor purging algorithm, do something like:</span>
+        <span class="c1"># if index not in self._to_expand:</span>
+        <span class="c1">#     return self.expr(x, *[self.visit(o) for o in x.ufl_operands])</span>
+
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dimension</span><span class="p">()):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="n">ops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">summand</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_multi_index_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to _multi_index_values.&quot;&quot;&quot;</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">_indices</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">):</span>
+                <span class="n">comp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Index</span><span class="p">):</span>
+                <span class="n">comp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">comp</span><span class="p">)</span>
+
+<div class="viewcode-block" id="IndexExpander.multi_index"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.multi_index">[docs]</a>    <span class="k">def</span> <span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to multi_index.&quot;&quot;&quot;</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multi_index_values</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MultiIndex</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">FixedIndex</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">comp</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="IndexExpander.indexed"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.indexed">[docs]</a>    <span class="k">def</span> <span class="nf">indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to indexed.&quot;&quot;&quot;</span>
+        <span class="n">A</span><span class="p">,</span> <span class="n">ii</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+        <span class="c1"># Push new component built from index value map</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_multi_index_values</span><span class="p">(</span><span class="n">ii</span><span class="p">))</span>
+
+        <span class="c1"># Hide index values (doing this is not correct behaviour)</span>
+        <span class="c1"># for i in ii:</span>
+        <span class="c1">#     if isinstance(i, Index):</span>
+        <span class="c1">#         self._index2value.push(i, None)</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+
+        <span class="c1"># Un-hide index values</span>
+        <span class="c1"># for i in ii:</span>
+        <span class="c1">#     if isinstance(i, Index):</span>
+        <span class="c1">#         self._index2value.pop()</span>
+
+        <span class="c1"># Reset component</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="IndexExpander.component_tensor"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.component_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">component_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to component_tensor.&quot;&quot;&quot;</span>
+        <span class="c1"># This function evaluates the tensor expression</span>
+        <span class="c1"># with indices equal to the current component tuple</span>
+        <span class="n">expression</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="n">expression</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting scalar base expression.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Update index map with component tuple values</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">comp</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Index/component mismatch.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">indices</span><span class="p">(),</span> <span class="n">comp</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">push</span><span class="p">(())</span>
+
+        <span class="c1"># Evaluate with these indices</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+
+        <span class="c1"># Revert index map</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">comp</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_index2value</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="IndexExpander.list_tensor"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.list_tensor">[docs]</a>    <span class="k">def</span> <span class="nf">list_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to list_tensor.&quot;&quot;&quot;</span>
+        <span class="c1"># Pick the right subtensor and subcomponent</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()</span>
+        <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="n">c0</span><span class="p">]</span>
+        <span class="c1"># Evaluate subtensor with this subcomponent</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">op</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+<div class="viewcode-block" id="IndexExpander.grad"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.IndexExpander.grad">[docs]</a>    <span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to grad.&quot;&quot;&quot;</span>
+        <span class="p">(</span><span class="n">f</span><span class="p">,)</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">Terminal</span><span class="p">,</span> <span class="n">Grad</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting expand_derivatives to have been applied.&quot;</span><span class="p">)</span>
+        <span class="c1"># No need to visit child as long as it is on the form [Grad]([Grad](terminal))</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">component</span><span class="p">()]</span></div></div>
+
+
+<div class="viewcode-block" id="expand_indices"><a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.expand_indices.expand_indices">[docs]</a><span class="k">def</span> <span class="nf">expand_indices</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Expand indices.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">apply_transformer</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">IndexExpander</span><span class="p">())</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

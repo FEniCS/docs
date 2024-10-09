@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.form &#8212; Unified Form Language (UFL) 2024.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=13c31088"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.form</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The Form class.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009-2011.</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016.</span>
+<span class="c1"># Modified by Cecile Daversin-Catty, 2018.</span>
+<span class="c1"># Modified by Nacime Bouziani, 2020.</span>
+<span class="c1"># Modified by Jørgen S. Dokken 2023.</span>
+
+<span class="kn">import</span> <span class="nn">numbers</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+
+<span class="kn">from</span> <span class="nn">ufl.checks</span> <span class="kn">import</span> <span class="n">is_scalar_constant_expression</span>
+<span class="kn">from</span> <span class="nn">ufl.constant</span> <span class="kn">import</span> <span class="n">Constant</span>
+<span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span> <span class="nn">ufl.core.expr</span> <span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">UFLType</span><span class="p">,</span> <span class="n">ufl_type</span>
+<span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">extract_unique_domain</span><span class="p">,</span> <span class="n">sort_domains</span>
+<span class="kn">from</span> <span class="nn">ufl.equation</span> <span class="kn">import</span> <span class="n">Equation</span>
+<span class="kn">from</span> <span class="nn">ufl.integral</span> <span class="kn">import</span> <span class="n">Integral</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.counted</span> <span class="kn">import</span> <span class="n">Counted</span>
+<span class="kn">from</span> <span class="nn">ufl.utils.sorting</span> <span class="kn">import</span> <span class="n">sorted_by_count</span>
+
+<span class="c1"># Export list for ufl.classes</span>
+<span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Form&quot;</span><span class="p">,</span> <span class="s2">&quot;BaseForm&quot;</span><span class="p">,</span> <span class="s2">&quot;ZeroBaseForm&quot;</span><span class="p">]</span>
+
+<span class="c1"># --- The Form class, representing a complete variational form or functional ---</span>
+
+
+<span class="k">def</span> <span class="nf">_sorted_integrals</span><span class="p">(</span><span class="n">integrals</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sort integrals for a stable signature computation.</span>
+
+<span class="sd">    Sort integrals by domain id, integral type, subdomain id for a more</span>
+<span class="sd">    stable signature computation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Group integrals in multilevel dict by keys</span>
+    <span class="c1"># [domain][integral_type][subdomain_id]</span>
+    <span class="n">integrals_dict</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Each integral in a form must have a uniquely defined integration domain.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">it</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+        <span class="n">si</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">si</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">integral</span><span class="p">]</span>
+
+    <span class="n">all_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">keyfunc</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+            <span class="n">sid_int</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># As subdomain ids can be either int or tuples, we need to compare them</span>
+            <span class="n">sid_int</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="s2">&quot;otherwise&quot;</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">item</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">item</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">sid_int</span><span class="p">)</span>
+
+    <span class="c1"># Order integrals canonically to increase signature stability</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">]):</span>  <span class="c1"># str is sortable</span>
+            <span class="k">for</span> <span class="n">si</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
+                <span class="n">unsorted_integrals</span> <span class="o">=</span> <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">si</span><span class="p">]</span>
+                <span class="c1"># TODO: At this point we could order integrals by</span>
+                <span class="c1">#       metadata and integrand, or even add the</span>
+                <span class="c1">#       integrands with the same metadata. This is done</span>
+                <span class="c1">#       in accumulate_integrands_with_same_metadata in</span>
+                <span class="c1">#       algorithms/domain_analysis.py and would further</span>
+                <span class="c1">#       increase the signature stability.</span>
+                <span class="n">all_integrals</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">unsorted_integrals</span><span class="p">)</span>
+                <span class="c1"># integrals_dict[d][it][si] = unsorted_integrals</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">all_integrals</span><span class="p">)</span>  <span class="c1"># integrals_dict</span>
+
+
+<div class="viewcode-block" id="BaseForm"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">BaseForm</span><span class="p">(</span><span class="nb">object</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">UFLType</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Description of an object containing arguments.&quot;&quot;&quot;</span>
+
+    <span class="c1"># Slots is kept empty to enable multiple inheritance with other</span>
+    <span class="c1"># classes</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">_ufl_is_abstract_</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_ufl_required_methods_</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_analyze_form_arguments&quot;</span><span class="p">,</span> <span class="s2">&quot;_analyze_domains&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_domains&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="c1"># Internal variables for caching form argument/coefficient data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># --- Accessor interface ---</span>
+<div class="viewcode-block" id="BaseForm.arguments"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm.arguments">[docs]</a>    <span class="k">def</span> <span class="nf">arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``Argument`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_form_arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span></div>
+
+<div class="viewcode-block" id="BaseForm.coefficients"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm.coefficients">[docs]</a>    <span class="k">def</span> <span class="nf">coefficients</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``Coefficient`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_form_arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span></div>
+
+<div class="viewcode-block" id="BaseForm.ufl_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm.ufl_domain">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the single geometric integration domain occuring in the base form.</span>
+
+<span class="sd">        Fails if multiple domains are found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">domain</span><span class="p">,)</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">())</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> must have exactly one domain.&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="c1"># Return the one and only domain</span>
+        <span class="k">return</span> <span class="n">domain</span></div>
+
+    <span class="c1"># --- Operator implementations ---</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Delayed evaluation of the == operator.</span>
+
+<span class="sd">        Just &#39;lhs_form == rhs_form&#39; gives an Equation,</span>
+<span class="sd">        while &#39;bool(lhs_form == rhs_form)&#39; delegates</span>
+<span class="sd">        to lhs_form.equals(rhs_form).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add.&quot;&quot;&quot;</span>
+        <span class="c1"># Ordering of form additions make no difference</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Allow adding 0 or 0.0 as a no-op, needed for sum([a,b])</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+            <span class="c1"># Allow adding ufl Zero as a no-op, needed for sum([a,b])</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">):</span>
+            <span class="c1"># Simplify addition with ZeroBaseForm</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="c1"># For `ZeroBaseForm(...) + B` with B a BaseForm.</span>
+        <span class="c1"># We could overwrite ZeroBaseForm.__add__ but that implies</span>
+        <span class="c1"># duplicating cases with `0` and `ufl.Zero`.</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">):</span>
+            <span class="c1"># Simplify addition with ZeroBaseForm</span>
+            <span class="k">return</span> <span class="n">other</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+            <span class="c1"># Add integrals from both forms</span>
+            <span class="k">return</span> <span class="n">FormSum</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Let python protocols do their job if we don&#39;t handle it</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtract other form from this one.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtract this form from other.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">other</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Negate all integrals in form.</span>
+
+<span class="sd">        This enables the handy &quot;-form&quot; syntax for e.g. the</span>
+<span class="sd">        linearized system (J, -F) from a nonlinear form F.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">):</span>
+            <span class="c1"># `-` doesn&#39;t change anything for ZeroBaseForm.</span>
+            <span class="c1"># This also facilitates simplifying FormSum containing ZeroBaseForm objects.</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">return</span> <span class="n">FormSum</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply all integrals in form with constant scalar value.&quot;&quot;&quot;</span>
+        <span class="c1"># This enables the handy &quot;0*form&quot; or &quot;dt*form&quot; syntax</span>
+        <span class="k">if</span> <span class="n">is_scalar_constant_expression</span><span class="p">(</span><span class="n">scalar</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">FormSum</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take the action of this form on the given coefficient.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="kn">from</span> <span class="nn">ufl.formoperators</span> <span class="kn">import</span> <span class="n">action</span>
+
+            <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Immediately evaluate the != operator (as opposed to the == operator).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Take the action of this form on ``x``.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.formoperators</span> <span class="kn">import</span> <span class="n">action</span>
+
+        <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_compute_hash_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the hash.&quot;&quot;&quot;</span>
+        <span class="c1"># Ensure compatibility with MultiFunction</span>
+        <span class="c1"># `hash(self)` will call the `__hash__` method of the subclass.</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">operands</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new object of the same type with new operands.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="o">*</span><span class="n">operands</span><span class="p">)</span>
+
+    <span class="fm">__matmul__</span> <span class="o">=</span> <span class="fm">__mul__</span></div>
+
+
+<div class="viewcode-block" id="Form"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">Form</span><span class="p">(</span><span class="n">BaseForm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Description of a weak form consisting of a sum of integrals over subdomains.&quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="c1"># --- List of Integral objects (a Form is a sum of these</span>
+        <span class="c1"># Integrals, everything else is derived)</span>
+        <span class="s2">&quot;_integrals&quot;</span><span class="p">,</span>
+        <span class="c1"># --- Internal variables for caching various data</span>
+        <span class="s2">&quot;_integration_domains&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domain_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_subdomain_data&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_base_form_operators&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficient_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_constants&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_constant_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_terminal_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_signature&quot;</span><span class="p">,</span>
+        <span class="c1"># --- Dict that external frameworks can place framework-specific</span>
+        <span class="c1">#     data in to be carried with the form</span>
+        <span class="c1">#     Never use this internally in ufl!</span>
+        <span class="s2">&quot;_cache&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integrals</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">BaseForm</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># Basic input checking (further compatibilty analysis happens</span>
+        <span class="c1"># later)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">itg</span><span class="p">,</span> <span class="n">Integral</span><span class="p">)</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting list of integrals.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store integrals sorted canonically to increase signature</span>
+        <span class="c1"># stability</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span> <span class="o">=</span> <span class="n">_sorted_integrals</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span>
+
+        <span class="c1"># Internal variables for caching domain data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Internal variables for caching subdomain data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Internal variables for caching form argument data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Internal variables for caching base form operator data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_form_operators</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_constants</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span> <span class="o">=</span> <span class="n">extract_constants</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Internal variables for caching of hash and signature after</span>
+        <span class="c1"># first request</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_signature</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Never use this internally in ufl!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># --- Accessor interface ---</span>
+
+<div class="viewcode-block" id="Form.integrals"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.integrals">[docs]</a>    <span class="k">def</span> <span class="nf">integrals</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a sequence of all integrals in form.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span></div>
+
+<div class="viewcode-block" id="Form.integrals_by_type"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.integrals_by_type">[docs]</a>    <span class="k">def</span> <span class="nf">integrals_by_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a sequence of all integrals with a particular domain type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">integral</span> <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span> <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span> <span class="o">==</span> <span class="n">integral_type</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Form.integrals_by_domain"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.integrals_by_domain">[docs]</a>    <span class="k">def</span> <span class="nf">integrals_by_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a sequence of all integrals with a particular integration domain.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">integral</span> <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span> <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="o">==</span> <span class="n">domain</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Form.empty"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.empty">[docs]</a>    <span class="k">def</span> <span class="nf">empty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns whether the form has no integrals.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span> <span class="o">==</span> <span class="p">()</span></div>
+
+<div class="viewcode-block" id="Form.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the geometric integration domains occuring in the form.</span>
+
+<span class="sd">        NB! This does not include domains of coefficients defined on</span>
+<span class="sd">        other meshes.</span>
+
+<span class="sd">        The return type is a tuple even if only a single domain exists.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_domains</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span></div>
+
+<div class="viewcode-block" id="Form.ufl_cell"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.ufl_cell">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the single cell this form is defined on.</span>
+
+<span class="sd">        Fails if multiple cells are found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Form.geometric_dimension"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.geometric_dimension">[docs]</a>    <span class="k">def</span> <span class="nf">geometric_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the geometric dimension shared by all domains and functions in this form.&quot;&quot;&quot;</span>
+        <span class="n">gdims</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span> <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdims</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Expecting all domains and functions in a form &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;to share geometric dimension, got </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">gdims</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">gdims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Form.domain_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.domain_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">domain_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering of domains in a mapping ``{domain:number}``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_domains</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span></div>
+
+<div class="viewcode-block" id="Form.subdomain_data"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.subdomain_data">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a mapping on the form ``{domain:{integral_type: subdomain_data}}``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_subdomain_data</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span></div>
+
+<div class="viewcode-block" id="Form.coefficients"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.coefficients">[docs]</a>    <span class="k">def</span> <span class="nf">coefficients</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``Coefficient`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_form_arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span></div>
+
+<div class="viewcode-block" id="Form.base_form_operators"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.base_form_operators">[docs]</a>    <span class="k">def</span> <span class="nf">base_form_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``BaseFormOperator`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_form_operators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_base_form_operators</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_form_operators</span></div>
+
+<div class="viewcode-block" id="Form.coefficient_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.coefficient_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">coefficient_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering of coefficients in a mapping ``{coefficient:number}``.&quot;&quot;&quot;</span>
+        <span class="c1"># cyclic import</span>
+        <span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">Coefficient</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">expr</span><span class="p">:</span> <span class="n">num</span>
+                <span class="k">for</span> <span class="n">expr</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_numbering</span></div>
+
+<div class="viewcode-block" id="Form.constants"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.constants">[docs]</a>    <span class="k">def</span> <span class="nf">constants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get constants.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span></div>
+
+<div class="viewcode-block" id="Form.constant_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.constant_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">constant_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering of constants in a mapping ``{constant:number}``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">expr</span><span class="p">:</span> <span class="n">num</span>
+                <span class="k">for</span> <span class="n">expr</span><span class="p">,</span> <span class="n">num</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Constant</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constant_numbering</span></div>
+
+<div class="viewcode-block" id="Form.terminal_numbering"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.terminal_numbering">[docs]</a>    <span class="k">def</span> <span class="nf">terminal_numbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a contiguous numbering for all counted objects in the form.</span>
+
+<span class="sd">        The returned object is mapping from terminal to its number (an integer).</span>
+
+<span class="sd">        The numbering is computed per type so :class:`Coefficient`s,</span>
+<span class="sd">        :class:`Constant`s, etc will each be numbered from zero.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># cyclic import</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_type</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">exprs_by_type</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">counted_expr</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Counted</span><span class="p">):</span>
+                <span class="n">exprs_by_type</span><span class="p">[</span><span class="n">counted_expr</span><span class="o">.</span><span class="n">_counted_class</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">counted_expr</span><span class="p">)</span>
+
+            <span class="n">numbering</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">exprs</span> <span class="ow">in</span> <span class="n">exprs_by_type</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">expr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_by_count</span><span class="p">(</span><span class="n">exprs</span><span class="p">)):</span>
+                    <span class="n">numbering</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span> <span class="o">=</span> <span class="n">numbering</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_terminal_numbering</span></div>
+
+<div class="viewcode-block" id="Form.signature"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.signature">[docs]</a>    <span class="k">def</span> <span class="nf">signature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Signature for use with jit cache (independent of incidental numbering of indices etc).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signature</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compute_signature</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_signature</span></div>
+
+    <span class="c1"># --- Operator implementations ---</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span>
+
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Immediate evaluation of the != operator (as opposed to the == operator).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Form.equals"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Form.equals">[docs]</a>    <span class="k">def</span> <span class="nf">equals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate ``bool(lhs_form == rhs_form)``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Form</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">_integrals</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">_integrals</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add.&quot;&quot;&quot;</span>
+        <span class="c1"># Ordering of form additions make no difference</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+            <span class="c1"># Add integrals from both forms</span>
+            <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">integrals</span><span class="p">())))</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">):</span>
+            <span class="c1"># Simplify addition with ZeroBaseForm</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+            <span class="c1"># Create form sum if form is of other type</span>
+            <span class="k">return</span> <span class="n">FormSum</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">and</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Allow adding 0 or 0.0 as a no-op, needed for sum([a,b])</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="ow">or</span> <span class="n">other</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">):</span>
+            <span class="c1"># Allow adding ufl Zero as a no-op, needed for sum([a,b])</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Let python protocols do their job if we don&#39;t handle it</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtract other form from this one.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subtract this form from other.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">other</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Negate all integrals in form.</span>
+
+<span class="sd">        This enables the handy &quot;-form&quot; syntax for e.g. the</span>
+<span class="sd">        linearized system (J, -F) from a nonlinear form F.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">([</span><span class="o">-</span><span class="n">itg</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()])</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply all integrals in form with constant scalar value.&quot;&quot;&quot;</span>
+        <span class="c1"># This enables the handy &quot;0*form&quot; or &quot;dt*form&quot; syntax</span>
+        <span class="k">if</span> <span class="n">is_scalar_constant_expression</span><span class="p">(</span><span class="n">scalar</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Form</span><span class="p">([</span><span class="n">scalar</span> <span class="o">*</span> <span class="n">itg</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()])</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL form operator: Take the action of this form on the given coefficient.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="kn">from</span> <span class="nn">ufl.formoperators</span> <span class="kn">import</span> <span class="n">action</span>
+
+            <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;UFL form operator: Evaluate form by replacing arguments and coefficients.</span>
+
+<span class="sd">        Replaces form.arguments() with given positional arguments in</span>
+<span class="sd">        same number and ordering. Number of positional arguments must</span>
+<span class="sd">        be 0 or equal to the number of Arguments in the form.</span>
+
+<span class="sd">        The optional keyword argument coefficients can be set to a dict</span>
+<span class="sd">        to replace Coefficients with expressions of matching shapes.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">          V = FiniteElement(&quot;CG&quot;, triangle, 1)</span>
+<span class="sd">          v = TestFunction(V)</span>
+<span class="sd">          u = TrialFunction(V)</span>
+<span class="sd">          f = Coefficient(V)</span>
+<span class="sd">          g = Coefficient(V)</span>
+<span class="sd">          a = g*inner(grad(u), grad(v))*dx</span>
+<span class="sd">          M = a(f, f, coefficients={ g: 1 })</span>
+
+<span class="sd">        Is equivalent to M == grad(f)**2*dx.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">repdict</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">if</span> <span class="n">args</span><span class="p">:</span>
+            <span class="n">arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Need </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span><span class="si">}</span><span class="s2"> arguments to form(), got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="n">repdict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span> <span class="n">args</span><span class="p">))</span>
+
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;coefficients&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown kwargs </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">coefficients</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">coeffs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficients</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">coeffs</span><span class="p">:</span>
+                    <span class="n">repdict</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">coefficients</span><span class="p">[</span><span class="n">f</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Coefficient </span><span class="si">%s</span><span class="s2"> is not in form.&quot;</span> <span class="o">%</span> <span class="n">ufl_err_str</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">repdict</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">ufl.formoperators</span> <span class="kn">import</span> <span class="n">replace</span>
+
+            <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">repdict</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="fm">__matmul__</span> <span class="o">=</span> <span class="fm">__mul__</span>
+
+    <span class="c1"># --- String conversion functions, for UI purposes only ---</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute shorter string representation of form. This can be huge for complicated forms.&quot;&quot;&quot;</span>
+        <span class="c1"># Warning used for making sure we don&#39;t use this in the general pipeline:</span>
+        <span class="c1"># warning(&quot;Calling str on form is potentially expensive and</span>
+        <span class="c1"># should be avoided except during debugging.&quot;) Not caching this</span>
+        <span class="c1"># because it can be huge</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  +  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">s</span> <span class="ow">or</span> <span class="s2">&quot;&lt;empty Form&gt;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute repr string of form. This can be huge for complicated forms.&quot;&quot;&quot;</span>
+        <span class="c1"># Warning used for making sure we don&#39;t use this in the general pipeline:</span>
+        <span class="c1"># warning(&quot;Calling repr on form is potentially expensive and</span>
+        <span class="c1"># should be avoided except during debugging.&quot;) Not caching this</span>
+        <span class="c1"># because it can be huge</span>
+        <span class="n">itgs</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;Form([&quot;</span> <span class="o">+</span> <span class="n">itgs</span> <span class="o">+</span> <span class="s2">&quot;])&quot;</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="c1"># --- Analysis functions, precomputation and caching of various quantities</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze domains.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">join_domains</span><span class="p">,</span> <span class="n">sort_domains</span>
+
+        <span class="c1"># Collect unique integration domains</span>
+        <span class="n">integration_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">([</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">])</span>
+
+        <span class="c1"># Make canonically ordered list of the domains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">=</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">integration_domains</span><span class="p">)</span>
+
+        <span class="c1"># TODO: Not including domains from coefficients and arguments</span>
+        <span class="c1"># here, may need that later</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">d</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze subdomain data.&quot;&quot;&quot;</span>
+        <span class="n">integration_domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span>
+        <span class="n">integrals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span>
+
+        <span class="c1"># Make clear data structures to collect subdomain data in</span>
+        <span class="n">subdomain_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">integration_domains</span><span class="p">:</span>
+            <span class="n">subdomain_data</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
+            <span class="c1"># Get integral properties</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+            <span class="n">it</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
+            <span class="n">sd</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span>
+
+            <span class="c1"># Collect subdomain data</span>
+            <span class="k">if</span> <span class="n">subdomain_data</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">it</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">subdomain_data</span><span class="p">[</span><span class="n">domain</span><span class="p">][</span><span class="n">it</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">sd</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">subdomain_data</span><span class="p">[</span><span class="n">domain</span><span class="p">][</span><span class="n">it</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomain_data</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which Argument and Coefficient objects can be found in the form.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_arguments_and_coefficients</span>
+
+        <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span> <span class="o">=</span> <span class="n">extract_arguments_and_coefficients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Define canonical numbering of arguments and coefficients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">coefficients</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_base_form_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which BaseFormOperator objects can be found in the form.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.analysis</span> <span class="kn">import</span> <span class="n">extract_base_form_operators</span>
+
+        <span class="n">base_form_ops</span> <span class="o">=</span> <span class="n">extract_base_form_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_form_operators</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">base_form_ops</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="nf">_compute_renumbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute renumbering.&quot;&quot;&quot;</span>
+        <span class="c1"># Include integration domains and coefficients in renumbering</span>
+        <span class="n">dn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_numbering</span><span class="p">()</span>
+        <span class="n">tn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span>
+        <span class="n">renumbering</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
+        <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tn</span><span class="p">)</span>
+
+        <span class="c1"># Add domains of coefficients, these may include domains not</span>
+        <span class="c1"># among integration domains</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficients</span><span class="p">():</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
+                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Add domains of arguments, these may include domains not</span>
+        <span class="c1"># among integration domains</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
+                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="c1"># Add domains of constants, these may include domains not</span>
+        <span class="c1"># among integration domains</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
+                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">renumbering</span>
+
+    <span class="k">def</span> <span class="nf">_compute_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute signature.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.algorithms.signature</span> <span class="kn">import</span> <span class="n">compute_form_signature</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_signature</span> <span class="o">=</span> <span class="n">compute_form_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_renumbering</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="as_form"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.as_form">[docs]</a><span class="k">def</span> <span class="nf">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert to form if not a form, otherwise return form.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span> <span class="ow">and</span> <span class="n">form</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unable to convert object to a UFL form: </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">form</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">form</span></div>
+
+
+<div class="viewcode-block" id="FormSum"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FormSum">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">FormSum</span><span class="p">(</span><span class="n">BaseForm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Form sum.</span>
+
+<span class="sd">    Description of a weighted sum of variational forms and form-like objects</span>
+<span class="sd">    components is the list of Forms to be summed</span>
+<span class="sd">    arg_weights is a list of tuples of component index and weight</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_weights&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_components&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domains&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domain_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">_ufl_required_methods_</span> <span class="o">=</span> <span class="s2">&quot;_analyze_form_arguments&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new FormSum.&quot;&quot;&quot;</span>
+        <span class="c1"># All the components are `ZeroBaseForm`</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">component</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
+            <span class="c1"># Assume that the arguments of all the components have</span>
+            <span class="c1"># consistent with each other  and select the first one to</span>
+            <span class="c1"># define the arguments of `ZeroBaseForm`.</span>
+            <span class="c1"># This might not always be true but `ZeroBaseForm`&#39;s</span>
+            <span class="c1"># arguments are not checked anywhere because we can&#39;t</span>
+            <span class="c1"># reliably always infer them.</span>
+            <span class="p">((</span><span class="n">arg</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="o">*</span><span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="n">args</span>
+            <span class="n">arguments</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">FormSum</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">components</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">BaseForm</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Remove `ZeroBaseForm` components</span>
+        <span class="n">filtered_components</span> <span class="o">=</span> <span class="p">[(</span><span class="n">component</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">components</span> <span class="k">if</span> <span class="n">component</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">weights</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">full_components</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">filtered_components</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">):</span>
+                <span class="n">full_components</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">component</span><span class="o">.</span><span class="n">components</span><span class="p">())</span>
+                <span class="n">weights</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">w</span> <span class="o">*</span> <span class="n">wc</span> <span class="k">for</span> <span class="n">wc</span> <span class="ow">in</span> <span class="n">component</span><span class="o">.</span><span class="n">weights</span><span class="p">()])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">full_components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+                <span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span> <span class="o">=</span> <span class="n">weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span> <span class="o">=</span> <span class="n">full_components</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sum_variational_components</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_components</span>
+
+<div class="viewcode-block" id="FormSum.components"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FormSum.components">[docs]</a>    <span class="k">def</span> <span class="nf">components</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get components.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_components</span></div>
+
+<div class="viewcode-block" id="FormSum.weights"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FormSum.weights">[docs]</a>    <span class="k">def</span> <span class="nf">weights</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get weights.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span></div>
+
+    <span class="k">def</span> <span class="nf">_sum_variational_components</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sum variational components.&quot;&quot;&quot;</span>
+        <span class="n">var_forms</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">other_components</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_weights</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">component</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">var_forms</span><span class="p">:</span>
+                    <span class="n">var_forms</span> <span class="o">=</span> <span class="n">var_forms</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">component</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">var_forms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">component</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">other_components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">component</span><span class="p">)</span>
+                <span class="n">new_weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_weights</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">var_forms</span><span class="p">:</span>
+            <span class="n">other_components</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">var_forms</span><span class="p">)</span>
+            <span class="n">new_weights</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_components</span> <span class="o">=</span> <span class="n">other_components</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_weights</span> <span class="o">=</span> <span class="n">new_weights</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``Argument`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_components</span><span class="p">:</span>
+            <span class="n">arguments</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">component</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span>
+            <span class="n">coefficients</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">component</span><span class="o">.</span><span class="n">coefficients</span><span class="p">())</span>
+        <span class="c1"># Define canonical numbering of arguments and coefficients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">coefficients</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which domains can be found in FormSum.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">join_domains</span>
+
+        <span class="c1"># Collect unique domains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">(</span>
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="FormSum.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FormSum.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all domains found in the base form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_domains</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span></div>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span>
+
+<div class="viewcode-block" id="FormSum.equals"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.FormSum.equals">[docs]</a>    <span class="k">def</span> <span class="nf">equals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate ``bool(lhs_form == rhs_form)``.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">FormSum</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">components</span><span class="p">())</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="n">a</span> <span class="o">==</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">components</span><span class="p">())</span>
+        <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute shorter string representation of form. This can be huge for complicated forms.&quot;&quot;&quot;</span>
+        <span class="c1"># Warning used for making sure we don&#39;t use this in the general pipeline:</span>
+        <span class="c1"># warning(&quot;Calling str on form is potentially expensive and</span>
+        <span class="c1"># should be avoided except during debugging.&quot;)</span>
+        <span class="c1"># Not caching this because it can be huge</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  +  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">s</span> <span class="ow">or</span> <span class="s2">&quot;&lt;empty FormSum&gt;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute repr string of form. This can be huge for complicated forms.&quot;&quot;&quot;</span>
+        <span class="c1"># Warning used for making sure we don&#39;t use this in the general pipeline:</span>
+        <span class="c1"># warning(&quot;Calling repr on form is potentially expensive and</span>
+        <span class="c1"># should be avoided except during debugging.&quot;)</span>
+        <span class="c1"># Not caching this because it can be huge</span>
+        <span class="n">itgs</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">component</span><span class="p">)</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">())</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;FormSum([&quot;</span> <span class="o">+</span> <span class="n">itgs</span> <span class="o">+</span> <span class="s2">&quot;])&quot;</span>
+        <span class="k">return</span> <span class="n">r</span></div>
+
+
+<div class="viewcode-block" id="ZeroBaseForm"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ZeroBaseForm">[docs]</a><span class="nd">@ufl_type</span><span class="p">()</span>
+<span class="k">class</span> <span class="nc">ZeroBaseForm</span><span class="p">(</span><span class="n">BaseForm</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Description of a zero base form.</span>
+
+<span class="sd">    ZeroBaseForm is idempotent with respect to assembly and is mostly</span>
+<span class="sd">    used for sake of simplifying base-form expressions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_domains&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
+        <span class="c1"># Pyadjoint compatibility</span>
+        <span class="s2">&quot;form&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">BaseForm</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="n">arguments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="n">arguments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">form</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze form arguments.&quot;&quot;&quot;</span>
+        <span class="c1"># `self._arguments` is already set in `BaseForm.__init__`</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which domains can be found in ZeroBaseForm.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">ufl.domain</span> <span class="kn">import</span> <span class="n">join_domains</span>
+
+        <span class="c1"># Collect unique domains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">(</span>
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="ZeroBaseForm.ufl_domains"><a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ZeroBaseForm.ufl_domains">[docs]</a>    <span class="k">def</span> <span class="nf">ufl_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all domains found in the base form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_domains</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span></div>
+
+    <span class="k">def</span> <span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Overwrite BaseForm.__neq__ which relies on `equals`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check equality.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ZeroBaseForm</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">other</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_arguments</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;ZeroBaseForm(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;ZeroBaseForm(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">((</span><span class="s2">&quot;ZeroBaseForm&quot;</span><span class="p">,</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, FEniCS Project.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
