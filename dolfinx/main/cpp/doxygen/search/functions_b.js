@@ -1,7 +1,7 @@
 var searchData=
 [
   ['links_0',['links',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a023258d9c5c470ae52a1418f82ae4554',1,'dolfinx::graph::AdjacencyList::links(std::size_t node)'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a3e6f43c2cea1fc983cf9a35c90d6ab64',1,'dolfinx::graph::AdjacencyList::links(std::size_t node) const']]],
-  ['list_5ftimings_1',['list_timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a1fb6f599245cf17356d265381fc2f99a',1,'dolfinx::common::TimeLogger::list_timings()'],['../d2/dc7/namespacedolfinx.html#a14bccf7b96d4b085946644c3a7251fcd',1,'dolfinx::list_timings()']]],
+  ['list_5ftimings_1',['list_timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#ab7bfa5ff509d4120216c3adf29ad0a49',1,'dolfinx::common::TimeLogger::list_timings()'],['../d2/dc7/namespacedolfinx.html#a1e8c00fdaa28a743e31011f3e83e5715',1,'dolfinx::list_timings()']]],
   ['local_5fbuffer_5fsize_2',['local_buffer_size',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a3585fed2915ee674c53ffc033dff13ea',1,'dolfinx::common::Scatterer']]],
   ['local_5findices_3',['local_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#ab2e23c4ccbb7c301affc602c91694b4a',1,'dolfinx::common::Scatterer']]],
   ['local_5frange_4',['local_range',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a63157950175341cbd1f101820161eba7',1,'dolfinx::common::IndexMap::local_range()'],['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#adbc599a073567f49262119af3f1e8aa6',1,'dolfinx::la::petsc::Vector::local_range()'],['../da/dfe/namespacedolfinx_1_1MPI.html#acb5b18fba64080a1c968fb16f556def0',1,'dolfinx::MPI::local_range()']]],

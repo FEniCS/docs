@@ -43,7 +43,7 @@ var searchData=
   ['src_40',['src',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a9b986fe6d2ee40f59fbe881ccd92b69b',1,'dolfinx::common::IndexMap']]],
   ['stack_5findex_5fmaps_41',['stack_index_maps',['../d7/de1/namespacedolfinx_1_1common.html#aed477f7f68f03a1a443a50de541cde4a',1,'dolfinx::common']]],
   ['start_42',['start',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a60de64d75454385b23995437f1d72669',1,'dolfinx::common::Timer']]],
-  ['stop_43',['stop',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a0041a7a576355baa3259e96e9f0e4eb3',1,'dolfinx::common::Timer']]],
+  ['stop_43',['stop',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a2f8d1258e5dec1d55a8c2e7bfabffec8',1,'dolfinx::common::Timer']]],
   ['str_44',['str',['../db/d97/classdolfinx_1_1Table.html#ae9b08fca99a89639cd78a91152a64d5f',1,'dolfinx::Table::str()'],['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#ae9b08fca99a89639cd78a91152a64d5f',1,'dolfinx::geometry::BoundingBoxTree::str()'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ae9b08fca99a89639cd78a91152a64d5f',1,'dolfinx::graph::AdjacencyList::str()']]],
   ['sub_45',['sub',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a6bdea53633d1c759488b53e1ca60c672',1,'dolfinx::fem::Function::sub()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a559e9ce683fb6091468e4012aeee4d99',1,'dolfinx::fem::FunctionSpace::sub()']]],
   ['sub_5felements_46',['sub_elements',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1748329b8783fbecb5641df06761445b',1,'dolfinx::fem::FiniteElement']]],

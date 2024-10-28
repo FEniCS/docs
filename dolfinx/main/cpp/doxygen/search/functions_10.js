@@ -11,7 +11,7 @@ var searchData=
   ['reference_5fvalue_5fshape_8',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac85b474aba9b599383d29245e3ab27fa',1,'dolfinx::fem::FiniteElement']]],
   ['reference_5fvalue_5fsize_9',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
   ['refine_10',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a0280000a517fc2e759b8ce4e4e9f6afd',1,'dolfinx::refinement']]],
-  ['register_5ftiming_11',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#aae33b160ef031ac5b72fc415d3ceb01e',1,'dolfinx::common::TimeLogger']]],
+  ['register_5ftiming_11',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a502474a84b92b9c5e0362788d3e2fad7',1,'dolfinx::common::TimeLogger']]],
   ['regular_5fadjacency_5flist_12',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#ad873078857d3a5e5c78de413f7996bef',1,'dolfinx::graph']]],
   ['remote_5fbuffer_5fsize_13',['remote_buffer_size',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a33e220dfb4400b7ed260dba7fff25220',1,'dolfinx::common::Scatterer']]],
   ['remote_5findices_14',['remote_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#ae20286d5873bb9136c97b95611ac2bf6',1,'dolfinx::common::Scatterer']]],
@@ -19,6 +19,5 @@ var searchData=
   ['reorder_5flist_16',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
   ['residual_17',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['residual0_18',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['resume_19',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['row_5fptr_20',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
+  ['row_5fptr_19',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
 ];
