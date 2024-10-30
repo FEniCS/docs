@@ -24,7 +24,8 @@ var searchData=
   ['report_21',['report',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#aaef1fcd30c74cb739b8e9f9c31a44b93',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['residual_22',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['residual0_23',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['row_5fptr_24',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
-  ['rowptr_5fcontainer_5ftype_25',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]],
-  ['rtol_26',['rtol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a4587afeee8941ba7c208b3690a3eeaa7',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['resume_24',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['row_5fptr_25',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
+  ['rowptr_5fcontainer_5ftype_26',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]],
+  ['rtol_27',['rtol',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a4587afeee8941ba7c208b3690a3eeaa7',1,'dolfinx::nls::petsc::NewtonSolver']]]
 ];
