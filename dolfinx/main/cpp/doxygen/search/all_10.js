@@ -14,7 +14,7 @@ var searchData=
   ['reference_5fvalue_5fshape_11',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac85b474aba9b599383d29245e3ab27fa',1,'dolfinx::fem::FiniteElement']]],
   ['reference_5fvalue_5fsize_12',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
   ['refine_13',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a0280000a517fc2e759b8ce4e4e9f6afd',1,'dolfinx::refinement']]],
-  ['register_5ftiming_14',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a502474a84b92b9c5e0362788d3e2fad7',1,'dolfinx::common::TimeLogger']]],
+  ['register_5ftiming_14',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#ab8c88b1a75b30a77dba723821b8ab422',1,'dolfinx::common::TimeLogger']]],
   ['regular_5fadjacency_5flist_15',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#ad873078857d3a5e5c78de413f7996bef',1,'dolfinx::graph']]],
   ['relaxation_5fparameter_16',['relaxation_parameter',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a0ee867c8196bc0edfe2283064defa1f8',1,'dolfinx::nls::petsc::NewtonSolver']]],
   ['remote_5fbuffer_5fsize_17',['remote_buffer_size',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a33e220dfb4400b7ed260dba7fff25220',1,'dolfinx::common::Scatterer']]],
