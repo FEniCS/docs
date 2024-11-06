@@ -252,10 +252,6 @@ single matrix</a></p></li>
 <span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">div</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
-<span class="n">opts</span><span class="p">[</span><span class="s2">&quot;mat_superlu_dist_iterrefine&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-</pre></div>
-</div>
 <p>We create a <a class="reference internal" href="../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh" title="dolfinx.mesh.Mesh"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mesh</span></code></a>, define functions for
 locating geometrically subsets of the boundary, and define a function
 for the  velocity on the lid:</p>
@@ -561,18 +557,15 @@ block-diagonal preconditioner and monolithic PETSc matrices.</p>
     <span class="c1"># handle pressure nullspace</span>
     <span class="n">pc</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
     <span class="n">pc</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;lu&quot;</span><span class="p">)</span>
-    <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
+    <span class="n">sys</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+    <span class="n">use_superlu</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">use_superlu</span><span class="p">:</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span>
         <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSetUpSolverType</span><span class="p">()</span>
-    <span class="k">except</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">ierr</span> <span class="o">==</span> <span class="mi">92</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The required PETSc solver/preconditioner is not available. Exiting.&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-            <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">e</span>
-    <span class="c1"># pc.getFactorMatrix().setMumpsIcntl(icntl=24, ival=1)  # For pressure nullspace</span>
-    <span class="c1"># pc.getFactorMatrix().setMumpsIcntl(icntl=25, ival=0)  # For pressure nullspace</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">getFactorMatrix</span><span class="p">()</span><span class="o">.</span><span class="n">setMumpsIcntl</span><span class="p">(</span><span class="n">icntl</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">ival</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">getFactorMatrix</span><span class="p">()</span><span class="o">.</span><span class="n">setMumpsIcntl</span><span class="p">(</span><span class="n">icntl</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">ival</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
 
     <span class="c1"># Create a block vector (x) to store the full solution, and solve</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">createVecLeft</span><span class="p">()</span>
@@ -640,7 +633,7 @@ used.</p>
 
     <span class="c1"># Set Dirichlet boundary condition values in the RHS</span>
     <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-        <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array_w</span><span class="p">)</span>
 
     <span class="c1"># Create and configure solver</span>
     <span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>
@@ -650,12 +643,15 @@ used.</p>
     <span class="c1"># Configure MUMPS to handle pressure nullspace</span>
     <span class="n">pc</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
     <span class="n">pc</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;lu&quot;</span><span class="p">)</span>
-    <span class="c1"># pc.setFactorSolverType(&quot;mumps&quot;)</span>
-    <span class="c1"># pc.setFactorSetUpSolverType()</span>
-    <span class="c1"># pc.getFactorMatrix().setMumpsIcntl(icntl=24, ival=1)</span>
-    <span class="c1"># pc.getFactorMatrix().setMumpsIcntl(icntl=25, ival=0)</span>
-
-    <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
+    <span class="n">sys</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+    <span class="n">use_superlu</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">use_superlu</span><span class="p">:</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSetUpSolverType</span><span class="p">()</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">getFactorMatrix</span><span class="p">()</span><span class="o">.</span><span class="n">setMumpsIcntl</span><span class="p">(</span><span class="n">icntl</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">ival</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">getFactorMatrix</span><span class="p">()</span><span class="o">.</span><span class="n">setMumpsIcntl</span><span class="p">(</span><span class="n">icntl</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">ival</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pc</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
 
     <span class="c1"># Compute the solution</span>
     <span class="n">U</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">W</span><span class="p">)</span>
