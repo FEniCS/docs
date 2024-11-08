@@ -11,7 +11,7 @@ var searchData=
   ['reduce_8',['reduce',['../db/d97/classdolfinx_1_1Table.html#aec673cb60c49c7e56f303497d244fa31',1,'dolfinx::Table']]],
   ['reduction_9',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a536aaa97b969b0acd31603703012bbff',1,'dolfinx::Table']]],
   ['reference_10',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
-  ['reference_5fvalue_5fshape_11',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac85b474aba9b599383d29245e3ab27fa',1,'dolfinx::fem::FiniteElement']]],
+  ['reference_5fvalue_5fshape_11',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aceb716e9df8e32218f50a9c8e7b178f7',1,'dolfinx::fem::FiniteElement']]],
   ['reference_5fvalue_5fsize_12',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
   ['refine_13',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a0280000a517fc2e759b8ce4e4e9f6afd',1,'dolfinx::refinement']]],
   ['register_5ftiming_14',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#ab8c88b1a75b30a77dba723821b8ab422',1,'dolfinx::common::TimeLogger']]],
