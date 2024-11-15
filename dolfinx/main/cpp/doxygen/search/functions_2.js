@@ -35,7 +35,7 @@ var searchData=
   ['compute_5fentity_5fpermutations_32',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#aeb806bcc85940ea4818196d210d7dff7',1,'dolfinx::mesh']]],
   ['compute_5ffirst_5fcolliding_5fcell_33',['compute_first_colliding_cell',['../de/d27/namespacedolfinx_1_1geometry.html#a3f865ea932e7df7e609dd52c4a7e02b0',1,'dolfinx::geometry']]],
   ['compute_5fghost_5findices_34',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a33b85b292330fd733cc87124a0e6af6d',1,'dolfinx::graph::build']]],
-  ['compute_5fgraph_5fedges_5fnbx_35',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#a5b09f29e5fab78d02fa7da69b59debed',1,'dolfinx::MPI']]],
+  ['compute_5fgraph_5fedges_5fnbx_35',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#a4e7d1ac89c2d5c531f9af95b69f69ffb',1,'dolfinx::MPI']]],
   ['compute_5fgraph_5fedges_5fpcx_36',['compute_graph_edges_pcx',['../da/dfe/namespacedolfinx_1_1MPI.html#a982ec85d3630a19909c3fbdfd1873641',1,'dolfinx::MPI']]],
   ['compute_5fincident_5fentities_37',['compute_incident_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#abec76d69eb4bf33692781bc8995c9b5f',1,'dolfinx::mesh']]],
   ['compute_5fintegration_5fdomains_38',['compute_integration_domains',['../d8/dbf/namespacedolfinx_1_1fem.html#a6a242d81ab5489446ac98a5cb216529c',1,'dolfinx::fem']]],
