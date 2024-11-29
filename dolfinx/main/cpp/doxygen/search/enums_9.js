@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['reduction_0',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a536aaa97b969b0acd31603703012bbff',1,'dolfinx::Table']]]
+  ['tag_0',['tag',['../da/dfe/namespacedolfinx_1_1MPI.html#afcd86812aa931ca4c65bcccedc27592d',1,'dolfinx::MPI']]],
+  ['type_1',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a7aead736a07eaf25623ad7bfa1f0ee2d',1,'dolfinx::common::Scatterer']]]
 ];

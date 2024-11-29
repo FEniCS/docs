@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['indexmaporder_0',['IndexMapOrder',['../d7/de1/namespacedolfinx_1_1common.html#a85fe08b363fe014c058cdf79d502910f',1,'dolfinx::common']]],
-  ['integraltype_1',['IntegralType',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962',1,'dolfinx::fem']]]
+  ['norm_0',['Norm',['../d6/dfa/namespacedolfinx_1_1la.html#a2e0f25289c14e546b4ba10dd8fc735e5',1,'dolfinx::la']]]
 ];

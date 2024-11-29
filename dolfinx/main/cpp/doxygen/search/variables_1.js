@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['coeffs_0',['coeffs',['../dc/d73/structdolfinx_1_1fem_1_1integral__data.html#ad453f76f67cd510e67900a88dad33d61',1,'dolfinx::fem::integral_data']]],
-  ['convergence_5fcriterion_1',['convergence_criterion',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a8ea088fa97a10dfa359ad00ec6fadabb',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['dest_5fcells_0',['dest_cells',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html#a3fad8fd962b1748b40379fdb84b95c00',1,'dolfinx::geometry::PointOwnershipData']]],
+  ['dest_5fowners_1',['dest_owners',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html#af72ada1a10d662faaa81844eed400f2c',1,'dolfinx::geometry::PointOwnershipData']]],
+  ['dest_5fpoints_2',['dest_points',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html#a2d73e842d2e34b1f8c5dd779c4aa4001',1,'dolfinx::geometry::PointOwnershipData']]]
 ];

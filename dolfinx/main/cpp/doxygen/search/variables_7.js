@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['max_5fit_0',['max_it',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#af0156dc2ee0edcde49c6441d56705291',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['original_5fcell_5findex_0',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a30b4770c597eeddabd420ddf4cff9f46',1,'dolfinx::mesh::Topology']]]
 ];

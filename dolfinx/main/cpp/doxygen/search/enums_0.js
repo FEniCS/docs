@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['assemblytype_0',['AssemblyType',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#ae78d8b657a736791820b89c5483bdb88',1,'dolfinx::la::petsc::Matrix']]]
+  ['blockmode_0',['BlockMode',['../d6/dfa/namespacedolfinx_1_1la.html#a95b1e1b5aab4eb54c39e0977036b7eb3',1,'dolfinx::la']]]
 ];

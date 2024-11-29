@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['newtonsolver_0',['NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html',1,'dolfinx::nls::petsc']]]
+  ['scatterer_0',['Scatterer',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html',1,'dolfinx::common']]],
+  ['sparsitypattern_1',['SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html',1,'dolfinx::la']]]
 ];

@@ -28,6 +28,5 @@ var searchData=
   ['is_5fmixed_25',['is_mixed',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a6f152d3559b409b233e7d64b13978e9a',1,'dolfinx::fem::FiniteElement']]],
   ['is_5forthonormal_26',['is_orthonormal',['../d6/dfa/namespacedolfinx_1_1la.html#ae1c972e8ab7a9ad755a4ed4a8371a5b1',1,'dolfinx::la']]],
   ['is_5fsimplex_27',['is_simplex',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac88526e97d1edbaacb8471c0e9288a03',1,'dolfinx::mesh']]],
-  ['is_5fview_28',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a5056b8074146b1c623d611bab43f2367',1,'dolfinx::fem::ElementDofLayout']]],
-  ['iteration_29',['iteration',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a8ed00a42b738cf900a8b119bc73826e9',1,'dolfinx::nls::petsc::NewtonSolver']]]
+  ['is_5fview_28',['is_view',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#a5056b8074146b1c623d611bab43f2367',1,'dolfinx::fem::ElementDofLayout']]]
 ];
