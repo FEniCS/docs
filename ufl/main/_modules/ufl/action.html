@@ -42,15 +42,14 @@
 
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
 
+<span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">matrix</span>  <span class="c1"># noqa 401</span>
 <span class="kn">from</span> <span class="nn">ufl.algebra</span> <span class="kn">import</span> <span class="n">Sum</span>
 <span class="kn">from</span> <span class="nn">ufl.argument</span> <span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span>
-<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">BaseCoefficient</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">,</span> <span class="n">Cofunction</span>
+<span class="kn">from</span> <span class="nn">ufl.coefficient</span> <span class="kn">import</span> <span class="n">BaseCoefficient</span><span class="p">,</span> <span class="n">Coefficient</span>
 <span class="kn">from</span> <span class="nn">ufl.constantvalue</span> <span class="kn">import</span> <span class="n">Zero</span>
-<span class="kn">from</span> <span class="nn">ufl.core.base_form_operator</span> <span class="kn">import</span> <span class="n">BaseFormOperator</span>
 <span class="kn">from</span> <span class="nn">ufl.core.ufl_type</span> <span class="kn">import</span> <span class="n">ufl_type</span>
 <span class="kn">from</span> <span class="nn">ufl.differentiation</span> <span class="kn">import</span> <span class="n">CoefficientDerivative</span>
 <span class="kn">from</span> <span class="nn">ufl.form</span> <span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
-<span class="kn">from</span> <span class="nn">ufl.matrix</span> <span class="kn">import</span> <span class="n">Matrix</span>
 
 <span class="c1"># --- The Action class represents the action of a numerical object that needs</span>
 <span class="c1">#     to be computed at assembly time ---</span>
@@ -73,14 +72,14 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="s2">&quot;_left&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;_right&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_arguments&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_coefficients&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_domains&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_left&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_repr&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_right&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ufl_operands&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
@@ -210,20 +209,13 @@
 
 <span class="k">def</span> <span class="nf">_check_function_spaces</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if the function spaces of left and right match.&quot;&quot;&quot;</span>
+    <span class="c1"># Action differentiation pushes differentiation through</span>
+    <span class="c1"># right as a consequence of Leibniz formula.</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">CoefficientDerivative</span><span class="p">):</span>
-        <span class="c1"># Action differentiation pushes differentiation through</span>
-        <span class="c1"># right as a consequence of Leibniz formula.</span>
         <span class="n">right</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_operands</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">CoefficientDerivative</span><span class="p">):</span>
+        <span class="n">left</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">ufl_operands</span>
 
-    <span class="c1"># `left` can also be a Coefficient in V (= V**), e.g.</span>
-    <span class="c1"># `action(Coefficient(V), Cofunction(V.dual()))`.</span>
-    <span class="n">left_arg</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span> <span class="k">else</span> <span class="n">left</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">Form</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Matrix</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">left_arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible function spaces in Action&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">(</span><span class="n">Coefficient</span><span class="p">,</span> <span class="n">Cofunction</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">left_arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible function spaces in Action&quot;</span><span class="p">)</span>
     <span class="c1"># `Zero` doesn&#39;t contain any information about the function space.</span>
     <span class="c1"># -&gt; Not a problem since Action will get simplified with a</span>
     <span class="c1">#    `ZeroBaseForm` which won&#39;t take into account the arguments on</span>
@@ -231,8 +223,22 @@
     <span class="c1"># This occurs for:</span>
     <span class="c1"># `derivative(Action(A, B), u)` with B is an `Expr` such that dB/du == 0</span>
     <span class="c1"># -&gt; `derivative(B, u)` becomes `Zero` when expanding derivatives since B is an Expr.</span>
-    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible argument in Action: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">right</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+        <span class="k">return</span>
+
+    <span class="c1"># `left` can also be a Coefficient in V (= V**), e.g.</span>
+    <span class="c1"># `action(Coefficient(V), Cofunction(V.dual()))`.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+        <span class="n">V_left</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">V_left</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+        <span class="n">V_right</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">V_right</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">V_left</span><span class="o">.</span><span class="n">dual</span><span class="p">()</span> <span class="o">!=</span> <span class="n">V_right</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Incompatible function spaces in Action&quot;</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_get_action_form_arguments</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
