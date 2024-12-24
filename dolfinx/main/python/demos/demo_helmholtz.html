@@ -121,12 +121,13 @@
   <section class="tex2jax_ignore mathjax_ignore" id="helmholtz-equation">
 <h1>Helmholtz equation<a class="headerlink" href="#helmholtz-equation" title="Link to this heading"></a></h1>
 <p>Copyright (C) 2018 Samuel Groth</p>
-<p>Helmholtz problem in both complex and real modes
-In the complex mode, the exact solution is a plane wave propagating at
+<p>Helmholtz problem in both complex and real modes</p>
+<p>In the complex mode, the exact solution is a plane wave propagating at
 an angle theta to the positive x-axis. Chosen for comparison with
 results from Ihlenburg’s book “Finite Element Analysis of Acoustic
-Scattering” p138-139. In real mode, the Method of Manufactured
-Solutions is used to produce the exact solution and source term.</p>
+Scattering” p138-139. In real mode, the exact solution corresponds to
+the real part of the plane wave (a sin function which also solves the
+homogeneous Helmholtz equation).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 </pre></div>
 </div>
@@ -147,11 +148,18 @@ Solutions is used to produce the exact solution and source term.</p>
 
 <span class="kn">import</span> <span class="nn">dolfinx</span>
 <span class="kn">import</span> <span class="nn">ufl</span>
-<span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="n">Function</span><span class="p">,</span> <span class="n">assemble_scalar</span><span class="p">,</span> <span class="n">form</span><span class="p">,</span> <span class="n">functionspace</span>
+<span class="kn">from</span> <span class="nn">dolfinx.fem</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Function</span><span class="p">,</span>
+    <span class="n">assemble_scalar</span><span class="p">,</span>
+    <span class="n">dirichletbc</span><span class="p">,</span>
+    <span class="n">form</span><span class="p">,</span>
+    <span class="n">functionspace</span><span class="p">,</span>
+    <span class="n">locate_dofs_geometrical</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">dolfinx.fem.petsc</span> <span class="kn">import</span> <span class="n">LinearProblem</span>
 <span class="kn">from</span> <span class="nn">dolfinx.io</span> <span class="kn">import</span> <span class="n">XDMFFile</span>
 <span class="kn">from</span> <span class="nn">dolfinx.mesh</span> <span class="kn">import</span> <span class="n">create_unit_square</span>
-<span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span>
+<span class="kn">from</span> <span class="nn">ufl</span> <span class="kn">import</span> <span class="n">FacetNormal</span><span class="p">,</span> <span class="n">dot</span><span class="p">,</span> <span class="n">ds</span><span class="p">,</span> <span class="n">dx</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">inner</span>
 
 <span class="c1"># Wavenumber</span>
 <span class="n">k0</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
@@ -164,21 +172,37 @@ Solutions is used to produce the exact solution and source term.</p>
 
 <span class="n">msh</span> <span class="o">=</span> <span class="n">create_unit_square</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="n">n_elem</span><span class="p">,</span> <span class="n">n_elem</span><span class="p">)</span>
 
+<span class="n">is_complex_mode</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">)</span>
+
 <span class="c1"># Source amplitude</span>
-<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">A</span> <span class="o">=</span> <span class="mi">1</span>
 
 <span class="c1"># Test and trial function space</span>
 <span class="n">V</span> <span class="o">=</span> <span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">deg</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Function space for exact solution - need it to be higher than deg</span>
+<span class="n">V_exact</span> <span class="o">=</span> <span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">deg</span> <span class="o">+</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">u_exact</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V_exact</span><span class="p">)</span>
 
-<span class="c1"># Define variational problem</span>
+<span class="c1"># Define variational problem:</span>
 <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">f</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">f</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">A</span> <span class="o">*</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">k0</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">k0</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
 <span class="n">a</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">-</span> <span class="n">k0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-<span class="n">L</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+
+<span class="c1"># solve for plane wave with mixed Dirichlet and Neumann BCs</span>
+<span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">u_exact</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">A</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">k0</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+<span class="n">n</span> <span class="o">=</span> <span class="n">FacetNormal</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="o">-</span><span class="n">dot</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">grad</span><span class="p">(</span><span class="n">u_exact</span><span class="p">))</span>
+<span class="n">L</span> <span class="o">=</span> <span class="o">-</span><span class="n">inner</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">ds</span>
+
+
+<span class="n">dofs_D</span> <span class="o">=</span> <span class="n">locate_dofs_geometrical</span><span class="p">(</span>
+    <span class="n">V</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
+<span class="p">)</span>
+<span class="n">u_bc</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">u_bc</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">u_exact</span><span class="p">)</span>
+<span class="n">bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">u_bc</span><span class="p">,</span> <span class="n">dofs_D</span><span class="p">)]</span>
 
 <span class="c1"># Compute solution</span>
 <span class="n">uh</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
@@ -186,6 +210,7 @@ Solutions is used to produce the exact solution and source term.</p>
 <span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span>
     <span class="n">a</span><span class="p">,</span>
     <span class="n">L</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">,</span>
     <span class="n">u</span><span class="o">=</span><span class="n">uh</span><span class="p">,</span>
     <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span> <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">},</span>
 <span class="p">)</span>
@@ -202,20 +227,16 @@ Solutions is used to produce the exact solution and source term.</p>
 <p>Calculate <span class="math notranslate nohighlight">\(L_2\)</span> and <span class="math notranslate nohighlight">\(H^1\)</span> errors of FEM solution and best
 approximation. This demonstrates the error bounds given in Ihlenburg.
 Pollution errors are evident for high wavenumbers.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Function space for exact solution - need it to be higher than deg</span>
-<span class="n">V_exact</span> <span class="o">=</span> <span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">deg</span> <span class="o">+</span> <span class="mi">3</span><span class="p">))</span>
-<span class="n">u_exact</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="n">V_exact</span><span class="p">)</span>
-<span class="n">u_exact</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">A</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">k0</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">k0</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-
-<span class="c1"># H1 errors</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># H1 errors</span>
 <span class="n">diff</span> <span class="o">=</span> <span class="n">uh</span> <span class="o">-</span> <span class="n">u_exact</span>
 <span class="n">H1_diff</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">form</span><span class="p">(</span><span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">diff</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)),</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 <span class="n">H1_exact</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span>
     <span class="n">assemble_scalar</span><span class="p">(</span><span class="n">form</span><span class="p">(</span><span class="n">inner</span><span class="p">(</span><span class="n">grad</span><span class="p">(</span><span class="n">u_exact</span><span class="p">),</span> <span class="n">grad</span><span class="p">(</span><span class="n">u_exact</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)),</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span>
 <span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Relative H1 error of FEM solution:&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">H1_diff</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">H1_exact</span><span class="p">)))</span>
-
-<span class="c1"># L2 errors</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># L2 errors</span>
 <span class="n">L2_diff</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">form</span><span class="p">(</span><span class="n">inner</span><span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="n">diff</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)),</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 <span class="n">L2_exact</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">assemble_scalar</span><span class="p">(</span><span class="n">form</span><span class="p">(</span><span class="n">inner</span><span class="p">(</span><span class="n">u_exact</span><span class="p">,</span> <span class="n">u_exact</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)),</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Relative L2 error of FEM solution:&quot;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">L2_diff</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">L2_exact</span><span class="p">)))</span>
