@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mixed formulation for the Poisson equation &mdash; DOLFINx 0.10.0.0 documentation</title>
+  <title>Mixed formulation of the Poisson equation with a block-preconditioner/solver &mdash; DOLFINx 0.10.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
@@ -49,7 +49,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../demos.html">Demos</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../demos.html#pdes-introductory">PDEs (introductory)</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../demos.html#pdes-advanced">PDEs (advanced)</a><ul class="current">
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Mixed formulation for the Poisson equation</a><ul>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Mixed formulation of the Poisson equation with a block-preconditioner/solver</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equation-and-problem-definition">Equation and problem definition</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#implementation">Implementation</a></li>
 </ul>
@@ -90,7 +90,7 @@
 <li class="toctree-l3"><a class="reference internal" href="demo_half_loaded_waveguide.html">Electromagnetic modal analysis for a waveguide</a></li>
 <li class="toctree-l3"><a class="reference internal" href="demo_axis.html">Electromagnetic scattering from a sphere (axisymmetric)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="demo_navier-stokes.html">Divergence conforming discontinuous Galerkin method for the Navier–Stokes equations</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Mixed formulation for the Poisson equation</a><ul>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Mixed formulation of the Poisson equation with a block-preconditioner/solver</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#equation-and-problem-definition">Equation and problem definition</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#implementation">Implementation</a></li>
 </ul>
@@ -121,7 +121,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../demos.html">Demos</a></li>
-      <li class="breadcrumb-item active">Mixed formulation for the Poisson equation</li>
+      <li class="breadcrumb-item active">Mixed formulation of the Poisson equation with a block-preconditioner/solver</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/demos/demo_mixed-poisson.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -131,13 +131,20 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section class="tex2jax_ignore mathjax_ignore" id="mixed-formulation-for-the-poisson-equation">
-<h1>Mixed formulation for the Poisson equation<a class="headerlink" href="#mixed-formulation-for-the-poisson-equation" title="Link to this heading"></a></h1>
-<p>This demo illustrates how to solve Poisson equation using a mixed
-(two-field) formulation. In particular, it illustrates how to</p>
+  <section class="tex2jax_ignore mathjax_ignore" id="mixed-formulation-of-the-poisson-equation-with-a-block-preconditioner-solver">
+<h1>Mixed formulation of the Poisson equation with a block-preconditioner/solver<a class="headerlink" href="#mixed-formulation-of-the-poisson-equation-with-a-block-preconditioner-solver" title="Link to this heading"></a></h1>
+<p>This demo illustrates how to solve the Poisson equation using a mixed
+(two-field) formulation and a block-preconditioned iterative solver.
+In particular, it illustrates how to</p>
 <ul class="simple">
 <li><p>Use mixed and non-continuous finite element spaces.</p></li>
-<li><p>Set essential boundary conditions for subspaces and <span class="math notranslate nohighlight">\(H(\mathrm{div})\)</span> spaces.</p></li>
+<li><p>Set essential boundary conditions for subspaces and
+<span class="math notranslate nohighlight">\(H(\mathrm{div})\)</span> spaces.</p></li>
+<li><p>Construct a blocked linear system.</p></li>
+<li><p>Construct a block-preconditioned iterative linear solver using
+PETSc/petsc4y.</p></li>
+<li><p>Construct a Hypre Auxiliary Maxwell Space (AMS) preconditioner for
+<span class="math notranslate nohighlight">\(H(\mathrm{div})\)</span> problems in two-dimensions.</p></li>
 </ul>
 <div class="download admonition">
 <p class="admonition-title">Download sources</p>
@@ -165,15 +172,14 @@ then read</p>
   u = u_0 \quad {\rm on} \ \Gamma_{D},  \\
   \sigma \cdot n = g \quad {\rm on} \ \Gamma_{N}.
 \end{split}\]</div>
-<p>The same equations arise in connection with flow in porous media, and are
-also referred to as Darcy flow. Here <span class="math notranslate nohighlight">\(n\)</span> denotes the outward pointing normal
-vector on the boundary. Looking at the variational form, we see that the
-boundary condition for the flux (<span class="math notranslate nohighlight">\(\sigma \cdot n = g\)</span>) is now an essential
-boundary condition (which should be enforced in the function space), while
-the other boundary condition (<span class="math notranslate nohighlight">\(u = u_0\)</span>) is a natural boundary condition
-(which should be applied to the variational form). Inserting the boundary
-conditions, this variational problem can be phrased in the general form: find
-<span class="math notranslate nohighlight">\((\sigma, u) \in \Sigma_g \times V\)</span> such that</p>
+<p>where <span class="math notranslate nohighlight">\(n\)</span> is the outward unit normal vector on the boundary. Looking
+at the variational form, we see that the boundary condition for the
+flux (<span class="math notranslate nohighlight">\(\sigma \cdot n = g\)</span>) is now an essential boundary condition
+(which should be enforced in the function space), while the other
+boundary condition (<span class="math notranslate nohighlight">\(u = u_0\)</span>) is a natural boundary condition (which
+should be applied to the variational form). Inserting the boundary
+conditions, this variational problem can be phrased in the general
+form: find <span class="math notranslate nohighlight">\((\sigma, u) \in \Sigma_g \times V\)</span> such that</p>
 <div class="math notranslate nohighlight">
 \[
    a((\sigma, u), (\tau, v)) = L((\tau, v))
@@ -182,36 +188,29 @@ conditions, this variational problem can be phrased in the general form: find
 <p>where the variational forms <span class="math notranslate nohighlight">\(a\)</span> and <span class="math notranslate nohighlight">\(L\)</span> are defined as</p>
 <div class="math notranslate nohighlight">
 \[\begin{split}
-\begin{align}
-  a((\sigma, u), (\tau, v)) &amp;=
+  a((\sigma, u), (\tau, v)) &amp;:=
     \int_{\Omega} \sigma \cdot \tau + \nabla \cdot \tau \ u
   + \nabla \cdot \sigma \ v \ {\rm d} x, \\
-  L((\tau, v)) &amp;= - \int_{\Omega} f v \ {\rm d} x
+  L((\tau, v)) &amp;:= - \int_{\Omega} f v \ {\rm d} x
   + \int_{\Gamma_D} u_0 \tau \cdot n  \ {\rm d} s,
-\end{align}
 \end{split}\]</div>
-<p>and <span class="math notranslate nohighlight">\(\Sigma_g = \{ \tau \in H({\rm div})\)</span> such that <span class="math notranslate nohighlight">\(\tau \cdot n|_{\Gamma_N}
-= g \}\)</span> and <span class="math notranslate nohighlight">\(V = L^2(\Omega)\)</span>.</p>
-<p>To discretize the above formulation, two discrete function spaces <span class="math notranslate nohighlight">\(\Sigma_h
-\subset \Sigma\)</span> and <span class="math notranslate nohighlight">\(V_h \subset V\)</span> are needed to form a mixed function space
-<span class="math notranslate nohighlight">\(\Sigma_h \times V_h\)</span>. A stable choice of finite element spaces is to let
-<span class="math notranslate nohighlight">\(\Sigma_h\)</span> be the Brezzi-Douglas-Marini elements of polynomial order
-<span class="math notranslate nohighlight">\(k\)</span> and let <span class="math notranslate nohighlight">\(V_h\)</span> be discontinuous elements of polynomial order <span class="math notranslate nohighlight">\(k-1\)</span>.</p>
-<p>We will use the same definitions of functions and boundaries as in the
-demo for <a class="reference internal" href="demo_poisson.html"><span class="doc">the Poisson equation</span></a>. These are:</p>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(\Omega = [0,1] \times [0,1]\)</span> (a unit square)</p></li>
-<li><p><span class="math notranslate nohighlight">\(\Gamma_{D} = \{(0, y) \cup (1, y) \in \partial \Omega\}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(\Gamma_{N} = \{(x, 0) \cup (x, 1) \in \partial \Omega\}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(u_0 = 0\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(g = \sin(5x)\)</span>   (flux)</p></li>
-<li><p><span class="math notranslate nohighlight">\(f = 10\exp(-((x - 0.5)^2 + (y - 0.5)^2) / 0.02)\)</span>  (source term)</p></li>
-</ul>
+<p>and <span class="math notranslate nohighlight">\(\Sigma_g := \{ \tau \in H({\rm div})\)</span> such that <span class="math notranslate nohighlight">\(\tau \cdot
+n|_{\Gamma_N} = g \}\)</span> and <span class="math notranslate nohighlight">\(V := L^2(\Omega)\)</span>.</p>
+<p>To discretize the above formulation, two discrete function spaces
+<span class="math notranslate nohighlight">\(\Sigma_h \subset \Sigma\)</span> and <span class="math notranslate nohighlight">\(V_h \subset V\)</span> are needed to form a
+mixed function space <span class="math notranslate nohighlight">\(\Sigma_h \times V_h\)</span>. A stable choice of finite
+element spaces is to let <span class="math notranslate nohighlight">\(\Sigma_h\)</span> be the Raviart-Thomas elements of
+polynomial order <span class="math notranslate nohighlight">\(k\)</span> and let <span class="math notranslate nohighlight">\(V_h\)</span> be discontinuous Lagrange elements of
+polynomial order <span class="math notranslate nohighlight">\(k-1\)</span>.</p>
+<p>To solve the linear system for the mixed problem, we will use am
+iterative method with a block-diagonal preconditioner that is based on
+the Riesz map, see for example this
+<a class="reference external" href="https://doi.org/10.1002/(SICI)1099-1506(199601/02)3:1%3C1::AID-NLA67%3E3.0.CO;2-E">paper</a>.</p>
 </section>
 <section id="implementation">
 <h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
-<span class="k">try</span><span class="p">:</span>
+<p>Import the required modules:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
 
     <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
@@ -227,91 +226,251 @@ demo for <a class="reference internal" href="demo_poisson.html"><span class="doc
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">basix.ufl</span><span class="w"> </span><span class="kn">import</span> <span class="n">element</span><span class="p">,</span> <span class="n">mixed_element</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_real_type</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">mesh</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearProblem</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Measure</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">,</span> <span class="n">TestFunctions</span><span class="p">,</span> <span class="n">TrialFunctions</span><span class="p">,</span> <span class="n">div</span><span class="p">,</span> <span class="n">exp</span><span class="p">,</span> <span class="n">inner</span>
-
-<span class="n">msh</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">create_unit_square</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">quadrilateral</span><span class="p">)</span>
-
-<span class="n">k</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="n">Q_el</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;BDMCF&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_real_type</span><span class="p">)</span>
-<span class="n">P_el</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">default_real_type</span><span class="p">)</span>
-<span class="n">V_el</span> <span class="o">=</span> <span class="n">mixed_element</span><span class="p">([</span><span class="n">Q_el</span><span class="p">,</span> <span class="n">P_el</span><span class="p">])</span>
-<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">V_el</span><span class="p">)</span>
-
-<span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="o">=</span> <span class="n">TrialFunctions</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">=</span> <span class="n">TestFunctions</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-
-<span class="n">x</span> <span class="o">=</span> <span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
-<span class="n">f</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">))</span> <span class="o">/</span> <span class="mf">0.02</span><span class="p">)</span>
-
-<span class="n">dx</span> <span class="o">=</span> <span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dx&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="p">)</span>
-<span class="n">a</span> <span class="o">=</span> <span class="n">inner</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">div</span><span class="p">(</span><span class="n">tau</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">inner</span><span class="p">(</span><span class="n">div</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-<span class="n">L</span> <span class="o">=</span> <span class="o">-</span><span class="n">inner</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
-
-<span class="c1"># Get subspace of V</span>
-<span class="n">V0</span> <span class="o">=</span> <span class="n">V</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-
-<span class="n">fdim</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span>
-<span class="n">facets_top</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">))</span>
-<span class="n">Q</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">V0</span><span class="o">.</span><span class="n">collapse</span><span class="p">()</span>
-<span class="n">dofs_top</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">locate_dofs_topological</span><span class="p">((</span><span class="n">V0</span><span class="p">,</span> <span class="n">Q</span><span class="p">),</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">facets_top</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">f1</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-    <span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">values</span>
-
-
-<span class="n">f_h1</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
-<span class="n">f_h1</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span>
-<span class="n">bc_top</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">f_h1</span><span class="p">,</span> <span class="n">dofs_top</span><span class="p">,</span> <span class="n">V0</span><span class="p">)</span>
-
-
-<span class="n">facets_bottom</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">))</span>
-<span class="n">dofs_bottom</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">locate_dofs_topological</span><span class="p">((</span><span class="n">V0</span><span class="p">,</span> <span class="n">Q</span><span class="p">),</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">facets_bottom</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">f2</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-    <span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">values</span>
-
-
-<span class="n">f_h2</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
-<span class="n">f_h2</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">f2</span><span class="p">)</span>
-<span class="n">bc_bottom</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">f_h2</span><span class="p">,</span> <span class="n">dofs_bottom</span><span class="p">,</span> <span class="n">V0</span><span class="p">)</span>
-
-
-<span class="n">bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc_top</span><span class="p">,</span> <span class="n">bc_bottom</span><span class="p">]</span>
-
-<span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">,</span>
-    <span class="n">L</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">,</span>
-    <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;ksp_type&quot;</span><span class="p">:</span> <span class="s2">&quot;preonly&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;pc_type&quot;</span><span class="p">:</span> <span class="s2">&quot;lu&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;pc_factor_mat_solver_type&quot;</span><span class="p">:</span> <span class="s2">&quot;superlu_dist&quot;</span><span class="p">,</span>
-    <span class="p">},</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">basix.ufl</span><span class="w"> </span><span class="kn">import</span> <span class="n">element</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">la</span><span class="p">,</span> <span class="n">mesh</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_gradient</span><span class="p">,</span> <span class="n">interpolation_matrix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellType</span><span class="p">,</span> <span class="n">create_unit_square</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Measure</span><span class="p">,</span>
+    <span class="n">SpatialCoordinate</span><span class="p">,</span>
+    <span class="n">TestFunction</span><span class="p">,</span>
+    <span class="n">TrialFunction</span><span class="p">,</span>
+    <span class="n">ZeroBaseForm</span><span class="p">,</span>
+    <span class="n">div</span><span class="p">,</span>
+    <span class="n">exp</span><span class="p">,</span>
+    <span class="n">inner</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">try</span><span class="p">:</span>
-    <span class="n">w_h</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
-<span class="k">except</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
-    <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">ierr</span> <span class="o">==</span> <span class="mi">92</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The required PETSc solver/preconditioner is not available. Exiting.&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-        <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># Solution scalar (e.g., float32, complex128) and geometry (float32/64)</span>
+<span class="c1"># types</span>
+<span class="n">dtype</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">default_scalar_type</span>
+<span class="n">xdtype</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">default_real_type</span>
+</pre></div>
+</div>
+<p>Create a two-dimensional mesh. The iterative solver constructed
+later requires special construction that is specific to two
+dimensions. Application in three-dimensions would require a number of
+changes to the linear solver.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">msh</span> <span class="o">=</span> <span class="n">create_unit_square</span><span class="p">(</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdtype</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Here we construct compatible function spaces for the mixed Poisson
+problem. The <code class="docutils literal notranslate"><span class="pre">V</span></code> Raviart-Thomas (<span class="math notranslate nohighlight">\(\mathbb{RT}\)</span>) space is a
+vector-valued <span class="math notranslate nohighlight">\(H({\rm div})\)</span> conforming space. The <code class="docutils literal notranslate"><span class="pre">W</span></code> space is a
+space of discontinuous Lagrange function of degree <code class="docutils literal notranslate"><span class="pre">k</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <span class="math notranslate nohighlight">\(\mathbb{RT}_{k}\)</span> element in DOLFINx/Basix is usually denoted as
+<span class="math notranslate nohighlight">\(\mathbb{RT}_{k-1}\)</span> in the literature.</p>
+</div>
+<p>In the lowest-order case <span class="math notranslate nohighlight">\(k=1\)</span>. It can be increased, by the
+convergence of the iterative solver will degrade.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">k</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;RT&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdtype</span><span class="p">))</span>
+<span class="n">W</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Discontinuous Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdtype</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Trial functions for <span class="math notranslate nohighlight">\(\sigma\)</span> and <span class="math notranslate nohighlight">\(u\)</span> are declared on the space <span class="math notranslate nohighlight">\(V\)</span> and
+<span class="math notranslate nohighlight">\(W\)</span>, with corresponding test functions <span class="math notranslate nohighlight">\(\tau\)</span> and <span class="math notranslate nohighlight">\(v\)</span>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="o">=</span> <span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">TrialFunction</span><span class="p">(</span><span class="n">W</span><span class="p">)</span>
+<span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">=</span> <span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">TestFunction</span><span class="p">(</span><span class="n">W</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The source function is set to be <span class="math notranslate nohighlight">\(f = 10\exp(-((x_{0} - 0.5)^2 +
+(x_{1} - 0.5)^2) / 0.02)\)</span>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">))</span> <span class="o">/</span> <span class="mf">0.02</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We now declare the blocked bilinear and linear forms. The rows of <code class="docutils literal notranslate"><span class="pre">a</span></code>
+and <code class="docutils literal notranslate"><span class="pre">L</span></code> correspond to the <span class="math notranslate nohighlight">\(\tau\)</span> and <span class="math notranslate nohighlight">\(v\)</span> test functions, respectively.
+The columns of <code class="docutils literal notranslate"><span class="pre">a</span></code> correspond to the <span class="math notranslate nohighlight">\(\sigma\)</span> and <span class="math notranslate nohighlight">\(u\)</span> trial functions,
+respectively. Note that <code class="docutils literal notranslate"><span class="pre">a[1][1]</span></code> is empty, which is denoted by
+<code class="docutils literal notranslate"><span class="pre">None</span></code>. This zero block is typical of a saddle-point problem. In the
+<code class="docutils literal notranslate"><span class="pre">L[0]</span></code> block, the test function <span class="math notranslate nohighlight">\(\tau\)</span> is multiplied by a zero
+<code class="docutils literal notranslate"><span class="pre">Constant</span></code>, which is evaluated at runtime. We do this to preserve
+knowledge of the test space in the block. <em>Note that the defined <code class="docutils literal notranslate"><span class="pre">L</span></code>
+corresponds to <span class="math notranslate nohighlight">\(u_{0} = 0\)</span> on <span class="math notranslate nohighlight">\(\Gamma_{D}\)</span>.</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dx</span> <span class="o">=</span> <span class="n">Measure</span><span class="p">(</span><span class="s2">&quot;dx&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="p">[[</span><span class="n">inner</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">div</span><span class="p">(</span><span class="n">tau</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span><span class="p">],</span> <span class="p">[</span><span class="n">inner</span><span class="p">(</span><span class="n">div</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]</span>
+<span class="n">L</span> <span class="o">=</span> <span class="p">[</span><span class="n">ZeroBaseForm</span><span class="p">((</span><span class="n">tau</span><span class="p">,)),</span> <span class="o">-</span><span class="n">inner</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>We now compile the abstract/symbolic forms in <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">L</span></code> into
+concrete instanced that can be assembled into matrix operators and
+vectors, respectively.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="p">,</span> <span class="n">L</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In preparation for Dirichlet boundary conditions, we use the function
+<code class="docutils literal notranslate"><span class="pre">locate_entities_boundary</span></code> to locate mesh entities (facets) with which
+degree-of-freedoms to be constrained are associated with, and then use
+<code class="docutils literal notranslate"><span class="pre">locate_dofs_topological</span></code> to get the  degree-of-freedom indices. Below
+we identify the degree-of-freedom in <code class="docutils literal notranslate"><span class="pre">V</span></code> on the (i) top (<span class="math notranslate nohighlight">\(x_{1} = 1\)</span>)
+and (ii) bottom (<span class="math notranslate nohighlight">\(x_{1} = 0\)</span>) of the mesh/domain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fdim</span> <span class="o">=</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span>
+<span class="n">facets_top</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="n">facets_bottom</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">))</span>
+<span class="n">dofs_top</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">locate_dofs_topological</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">facets_top</span><span class="p">)</span>
+<span class="n">dofs_bottom</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">locate_dofs_topological</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">facets_bottom</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, we create Dirichlet boundary objects for the condition <span class="math notranslate nohighlight">\(\sigma
+\cdot n = \sin(5 x_(0)\)</span> on the top and bottom boundaries:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cells_top_</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">facets_top</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">fdim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">cells_bottom</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">facets_bottom</span><span class="p">,</span> <span class="n">fdim</span><span class="p">,</span> <span class="n">fdim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))),</span> <span class="n">cells0</span><span class="o">=</span><span class="n">cells_top_</span><span class="p">)</span>
+<span class="n">g</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))),</span> <span class="n">cells0</span><span class="o">=</span><span class="n">cells_bottom</span><span class="p">)</span>
+<span class="n">bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">dofs_top</span><span class="p">),</span> <span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">dofs_bottom</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>Assemble the matrix operator <code class="docutils literal notranslate"><span class="pre">A</span></code> into a PETSc ‘nested matrix’, zero
+rows and columns associated with a Dirichlet boundary condition and
+placing 1 on the diagonal for Dirichlet constrained
+degrees-of-freedom:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">A</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
+<span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Assemble the RHS vector as a ‘nested’ vector and modify (apply
+lifting) to account for the effect non-zero Dirichlet boundary
+conditions. Then set Dirichlet boundary values in the RHS vector <code class="docutils literal notranslate"><span class="pre">b</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">b</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+<span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">apply_lifting_nest</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">b_sub</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+    <span class="n">b_sub</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+
+<span class="n">bcs0</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">bcs_by_block</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+<span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">set_bc_nest</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Rather than solving the linear system <span class="math notranslate nohighlight">\(A x = b\)</span>, we will solve the
+preconditioned problem <span class="math notranslate nohighlight">\(P^{-1} A x = P^{-1} b\)</span>. Commonly <span class="math notranslate nohighlight">\(P = A\)</span>, but
+this does not lead to efficient solvers for saddle point problems.</p>
+<p>For this problem, we introduce the preconditioner
+$<span class="math notranslate nohighlight">\(
+a_p((\sigma, u), (\tau, v))
+= \begin{bmatrix} \int_{\Omega} \sigma \cdot \tau + (\nabla \cdot
+\sigma) (\nabla \cdot \tau) \ {\rm d} x  &amp; 0 \\ 0 &amp;
+\int_{\Omega} u \cdot v \ {\rm d} x \end{bmatrix}
+\)</span>$
+and assemble it into the matrix <code class="docutils literal notranslate"><span class="pre">P</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">a_p</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">(</span>
+    <span class="p">[[</span><span class="n">inner</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span> <span class="o">+</span> <span class="n">inner</span><span class="p">(</span><span class="n">div</span><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">div</span><span class="p">(</span><span class="n">tau</span><span class="p">))</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">]],</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix_nest</span><span class="p">(</span><span class="n">a_p</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
+<span class="n">P</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>We now create a PETSc Krylov solver and set the preconditioner (<code class="docutils literal notranslate"><span class="pre">P</span></code>)
+and operator (<code class="docutils literal notranslate"><span class="pre">A</span></code>) matrices:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">P</span><span class="p">)</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">setMonitor</span><span class="p">(</span><span class="k">lambda</span> <span class="n">ksp</span><span class="p">,</span> <span class="n">its</span><span class="p">,</span> <span class="n">rnorm</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration: </span><span class="si">{</span><span class="n">its</span><span class="si">}</span><span class="s2">, residual: </span><span class="si">{</span><span class="n">rnorm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;gmres&quot;</span><span class="p">)</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">setTolerances</span><span class="p">(</span><span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">)</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">setGMRESRestart</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To apply different solvers/preconditioners to the blocks of <code class="docutils literal notranslate"><span class="pre">P</span></code>, we
+set the preconditioner to be a PETSc
+<a class="reference external" href="https://petsc.org/release/manual/ksp/#sec-block-matrices"><code class="docutils literal notranslate"><span class="pre">fieldsplit</span></code></a>
+(block) type and set the ‘splits’ between the <span class="math notranslate nohighlight">\(\sigma\)</span> and <span class="math notranslate nohighlight">\(u\)</span> fields.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;fieldsplit&quot;</span><span class="p">)</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span><span class="o">.</span><span class="n">setFieldSplitType</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">PC</span><span class="o">.</span><span class="n">CompositeType</span><span class="o">.</span><span class="n">ADDITIVE</span><span class="p">)</span>
+<span class="n">nested_IS</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">getNestISs</span><span class="p">()</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span><span class="o">.</span><span class="n">setFieldSplitIS</span><span class="p">((</span><span class="s2">&quot;sigma&quot;</span><span class="p">,</span> <span class="n">nested_IS</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="n">nested_IS</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">ksp_sigma</span><span class="p">,</span> <span class="n">ksp_u</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span><span class="o">.</span><span class="n">getFieldSplitSubKSP</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For the <span class="math notranslate nohighlight">\(P_{11}\)</span> block, which is the discontinuous Lagrange mass
+matrix, we let the preconditioner be the default, which is incomplete
+LU factorisation and which can solve the block exactly in one
+iteration. The <span class="math notranslate nohighlight">\(P_{00}\)</span> requires careful handling as <span class="math notranslate nohighlight">\(H({\rm div})\)</span>
+problems require special preconditioners to be efficient.</p>
+<p>If PETSc has been configured with Hypre, we use the Hypre <code class="docutils literal notranslate"><span class="pre">Auxiliary</span> <span class="pre">Maxwell</span> <span class="pre">Space</span></code> (AMS) algebraic multigrid preconditioner. We can use
+AMS for this <span class="math notranslate nohighlight">\(H({\rm div})\)</span>-type problem in two-dimensions because
+<span class="math notranslate nohighlight">\(H({\rm div})\)</span> and <span class="math notranslate nohighlight">\(H({\rm curl})\)</span> spaces are effectively the same in
+two-dimensions, just rotated by $\pi/2.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pc_sigma</span> <span class="o">=</span> <span class="n">ksp_sigma</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;hypre&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>
+    <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;hypre&quot;</span><span class="p">)</span>
+    <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setHYPREType</span><span class="p">(</span><span class="s2">&quot;ams&quot;</span><span class="p">)</span>
+
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>
+    <span class="n">opts</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ksp_sigma</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">pc_hypre_ams_cycle_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">opts</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ksp_sigma</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">pc_hypre_ams_relax_times&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="c1"># Construct and set the &#39;discrete gradient&#39; operator, which maps</span>
+    <span class="c1"># grad H1 -&gt; H(curl), i.e. the gradient of a scalar Lagrange space</span>
+    <span class="c1"># to a H(curl) space</span>
+    <span class="n">V_H1</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdtype</span><span class="p">))</span>
+    <span class="n">V_curl</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;N1curl&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">k</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xdtype</span><span class="p">))</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">discrete_gradient</span><span class="p">(</span><span class="n">V_H1</span><span class="p">,</span> <span class="n">V_curl</span><span class="p">)</span>
+    <span class="n">G</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+    <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setHYPREDiscreteGradient</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Element degree must be at least 1.&quot;</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># For the lowest order base (k=1), we can supply interpolation</span>
+        <span class="c1"># of the &#39;1&#39; vectors in the space V. Hypre can then construct</span>
+        <span class="c1"># the required operators from G and the &#39;1&#39; vectors.</span>
+        <span class="n">cvec0</span><span class="p">,</span> <span class="n">cvec1</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+        <span class="n">cvec0</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))))</span>
+        <span class="n">cvec1</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))))</span>
+        <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setHYPRESetEdgeConstantVectors</span><span class="p">(</span><span class="n">cvec0</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">petsc_vec</span><span class="p">,</span> <span class="n">cvec1</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">petsc_vec</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">e</span>
+        <span class="c1"># For high-order spaces, we must provide the (H1)^d -&gt; H(div)</span>
+        <span class="c1"># interpolation operator/matrix</span>
+        <span class="n">V_H1d</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">,)))</span>
+        <span class="n">Pi</span> <span class="o">=</span> <span class="n">interpolation_matrix</span><span class="p">(</span><span class="n">V_H1d</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>  <span class="c1"># (H1)^d -&gt; H(div)</span>
+        <span class="n">Pi</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+        <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setHYPRESetInterpolations</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Pi</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-<span class="n">sigma_h</span><span class="p">,</span> <span class="n">u_h</span> <span class="o">=</span> <span class="n">w_h</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="c1"># High-order elements generally converge less well than the</span>
+        <span class="c1"># lowest-order case with algebraic multigrid, so we perform</span>
+        <span class="c1"># extra work at the multigrid stage</span>
+        <span class="n">opts</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ksp_sigma</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">pc_hypre_ams_tol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-12</span>
+        <span class="n">opts</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ksp_sigma</span><span class="o">.</span><span class="n">prefix</span><span class="si">}</span><span class="s2">pc_hypre_ams_max_iter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span>
 
-<span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">XDMFFile</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;out_mixed_poisson/u.xdmf&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-    <span class="n">file</span><span class="o">.</span><span class="n">write_mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">)</span>
-    <span class="n">file</span><span class="o">.</span><span class="n">write_function</span><span class="p">(</span><span class="n">u_h</span><span class="p">)</span>
+    <span class="n">ksp_sigma</span><span class="o">.</span><span class="n">setFromOptions</span><span class="p">()</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c1"># If Hypre is not available, use LU factorisation on the $P_{00}$</span>
+    <span class="c1"># block</span>
+    <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;lu&quot;</span><span class="p">)</span>
+    <span class="n">use_superlu</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+    <span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">use_superlu</span><span class="p">:</span>
+        <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;mumps&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Sys</span><span class="p">()</span><span class="o">.</span><span class="n">hasExternalPackage</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">):</span>
+        <span class="n">pc_sigma</span><span class="o">.</span><span class="n">setFactorSolverType</span><span class="p">(</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We create finite element functions that will hold the <span class="math notranslate nohighlight">\(\sigma\)</span> and <span class="math notranslate nohighlight">\(u\)</span>
+solutions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sigma</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Create a PETSc ‘nested’ vector that holds reference to the <code class="docutils literal notranslate"><span class="pre">sigma</span></code> and
+<code class="docutils literal notranslate"><span class="pre">u</span></code> solution (degree-of-freedom) vectors and solve.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">()</span><span class="o">.</span><span class="n">createNest</span><span class="p">([</span><span class="n">la</span><span class="o">.</span><span class="n">create_petsc_vector_wrap</span><span class="p">(</span><span class="n">sigma</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">la</span><span class="o">.</span><span class="n">create_petsc_vector_wrap</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">x</span><span class="p">)])</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="n">reason</span> <span class="o">=</span> <span class="n">ksp</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">reason</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Krylov solver has not converged </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">.&quot;</span>
+<span class="n">ksp</span><span class="o">.</span><span class="n">view</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>We save the solution <code class="docutils literal notranslate"><span class="pre">u</span></code> in VTX format:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">VTXWriter</span>
+
+    <span class="n">u</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;u&quot;</span>
+    <span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="s2">&quot;output_mixed_poisson.bp&quot;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="s2">&quot;bp4&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ADIOS2 required for VTX output.&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
