@@ -15,7 +15,7 @@ var searchData=
   ['timings_12',['timings',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#ab04775f1180dd4df2125364ec3f214ef',1,'dolfinx::common::TimeLogger::timings()'],['../d2/dc7/namespacedolfinx.html#af7f1a8fd4769fee26b932976a14cb046',1,'dolfinx::timings()']]],
   ['tinv_5fapply_13',['Tinv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a19ca3a56d5409c5b22206ff3f04e08ee',1,'dolfinx::fem::FiniteElement']]],
   ['tinv_5fapply_5fright_14',['Tinv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#af75f91a8f13b66b1ed9d245e790388c3',1,'dolfinx::fem::FiniteElement']]],
-  ['to_5fdense_15',['to_dense',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a3957be66d50f9a07b0c75016759e181c',1,'dolfinx::la::MatrixCSR']]],
+  ['to_5fdense_15',['to_dense',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad2cdf8148afa7a37915410897fdbd3b5',1,'dolfinx::la::MatrixCSR']]],
   ['to_5fstring_16',['to_string',['../dd/d7d/namespacedolfinx_1_1mesh.html#ae1f0961be83abe152e146c14c8f8548a',1,'dolfinx::mesh']]],
   ['to_5ftype_17',['to_type',['../dd/d7d/namespacedolfinx_1_1mesh.html#aec82a925447a9da2a086b7c93739ba9c',1,'dolfinx::mesh']]],
   ['todo_20list_18',['Todo List',['../dd/da0/todo.html',1,'']]],
