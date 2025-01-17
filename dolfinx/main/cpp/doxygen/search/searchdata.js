@@ -11,7 +11,7 @@ var indexSectionsWithContent =
   8: "aceinpstv",
   9: "mt",
   10: "dlprst",
-  11: "d"
+  11: "dfms"
 };
 
 var indexSectionNames =

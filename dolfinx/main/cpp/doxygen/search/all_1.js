@@ -9,5 +9,6 @@ var searchData=
   ['bs_6',['bs',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#ae871aafbf2303beaf6b19cedb13c4179',1,'dolfinx::common::Scatterer::bs()'],['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#ae871aafbf2303beaf6b19cedb13c4179',1,'dolfinx::fem::DofMap::bs()'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a48ddad8b3b7b898f02a7e99332a2ac4e',1,'dolfinx::la::Vector::bs()']]],
   ['build_5fdofmap_5fdata_7',['build_dofmap_data',['../d8/dbf/namespacedolfinx_1_1fem.html#ae243b5f1e53ad867535767929d8847be',1,'dolfinx::fem']]],
   ['build_5fdual_5fgraph_8',['build_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac4ecab159304e7a6c7146533196aca6f',1,'dolfinx::mesh']]],
-  ['build_5flocal_5fdual_5fgraph_9',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#aab5c2d292165f0f24be6db01db324529',1,'dolfinx::mesh']]]
+  ['build_5flocal_5fdual_5fgraph_9',['build_local_dual_graph',['../dd/d7d/namespacedolfinx_1_1mesh.html#aab5c2d292165f0f24be6db01db324529',1,'dolfinx::mesh']]],
+  ['build_5fsparsity_5fpattern_10',['build_sparsity_pattern',['../d8/dbf/namespacedolfinx_1_1fem.html#afda0b4f9c1933fc5221e659290ed0700',1,'dolfinx::fem']]]
 ];
