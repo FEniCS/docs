@@ -57,7 +57,7 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ListTensor</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Wraps a list of expressions into a tensor valued expression of one higher rank.&quot;&quot;&quot;</span>
 
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_initialised&quot;</span><span class="p">,)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">expressions</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new ListTensor.&quot;&quot;&quot;</span>
@@ -123,10 +123,15 @@
             <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">indices</span><span class="p">)):</span>
                 <span class="k">return</span> <span class="n">sub</span><span class="p">(</span><span class="n">e0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="c1"># Construct a new instance to be initialised</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">expressions</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="n">Operator</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expressions</span><span class="p">)</span>
 
         <span class="c1"># Checks</span>
@@ -135,6 +140,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Can&#39;t combine subtensor expressions with different sets of free indices.&quot;</span>
             <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -158,6 +164,14 @@
             <span class="k">return</span> <span class="n">a</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">)</span></div>
 
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_simplify_indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a simplified Expr used in the constructor of Indexed(self, multiindex).&quot;&quot;&quot;</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">multiindex</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">):</span>
+            <span class="n">sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="n">Indexed</span><span class="p">(</span><span class="n">sub</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">(</span><span class="n">multiindex</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="n">_simplify_indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an item.&quot;&quot;&quot;</span>
         <span class="n">origkey</span> <span class="o">=</span> <span class="n">key</span>
@@ -166,6 +180,8 @@
             <span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">indices</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
             <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">key</span><span class="p">,)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
         <span class="n">k</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">)):</span>
             <span class="n">sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
@@ -201,11 +217,11 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ComponentTensor</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Maps the free indices of a scalar valued expression to tensor axes.&quot;&quot;&quot;</span>
 
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_shape&quot;</span><span class="p">)</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_initialised&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_free_indices&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_index_dimensions&quot;</span><span class="p">,</span> <span class="s2">&quot;ufl_shape&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new ComponentTensor.&quot;&quot;&quot;</span>
-        <span class="c1"># Simplify</span>
+        <span class="c1"># Zero-simplify</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
             <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">,</span> <span class="n">sh</span> <span class="o">=</span> <span class="n">remove_indices</span><span class="p">(</span>
                 <span class="n">expression</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
@@ -214,11 +230,21 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">sh</span><span class="p">,</span> <span class="n">fi</span><span class="p">,</span> <span class="n">fid</span><span class="p">)</span>
 
-        <span class="c1"># Construct</span>
-        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="c1"># Special case for simplification as_tensor(A[ii], ii) -&gt; A</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">):</span>
+            <span class="n">A</span><span class="p">,</span> <span class="n">ii</span> <span class="o">=</span> <span class="n">expression</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">if</span> <span class="n">indices</span> <span class="o">==</span> <span class="n">ii</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">A</span>
+
+        <span class="c1"># Construct a new instance to be initialised</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="bp">self</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span><span class="p">:</span>
+            <span class="k">return</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting ufl expression.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">expression</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="p">():</span>
@@ -238,15 +264,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_free_indices</span> <span class="o">=</span> <span class="n">fi</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_index_dimensions</span> <span class="o">=</span> <span class="n">fid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">=</span> <span class="n">sh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialised</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expressions</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconstruct.&quot;&quot;&quot;</span>
-        <span class="c1"># Special case for simplification as_tensor(A[ii], ii) -&gt; A</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expressions</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">):</span>
-            <span class="n">A</span><span class="p">,</span> <span class="n">ii</span> <span class="o">=</span> <span class="n">expressions</span><span class="o">.</span><span class="n">ufl_operands</span>
-            <span class="k">if</span> <span class="n">indices</span> <span class="o">==</span> <span class="n">ii</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">A</span>
-        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expressions</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_simplify_indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a simplified Expr used in the constructor of Indexed(self, multiindex).&quot;&quot;&quot;</span>
+        <span class="c1"># Untangle as_tensor(C[kk], jj)[ii] -&gt; C[ll]</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">jj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">):</span>
+            <span class="n">C</span><span class="p">,</span> <span class="n">kk</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">j</span> <span class="ow">in</span> <span class="n">kk</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">jj</span><span class="p">):</span>
+                <span class="n">ii</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">multiindex</span><span class="p">)</span>
+                <span class="n">rep</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">jj</span><span class="p">,</span> <span class="n">ii</span><span class="p">))</span>
+                <span class="n">Cind</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">rep</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kk</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">Indexed</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">(</span><span class="n">Cind</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="n">_simplify_indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ComponentTensor.indices">
 <a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ComponentTensor.indices">[docs]</a>
@@ -259,8 +291,7 @@
 <a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.ComponentTensor.evaluate">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">component</span><span class="p">,</span> <span class="n">index_values</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate.&quot;&quot;&quot;</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">component</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting a component matching the indices tuple.&quot;</span><span class="p">)</span>
