@@ -143,6 +143,7 @@ supported in DOLFINx.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">FunctionSpace</span><span class="p">,</span>
     <span class="n">assemble_matrix</span><span class="p">,</span>
+    <span class="n">assemble_vector</span><span class="p">,</span>
     <span class="n">coordinate_element</span><span class="p">,</span>
     <span class="n">mixed_topology_form</span><span class="p">,</span>
 <span class="p">)</span>
@@ -235,6 +236,7 @@ supported in DOLFINx.</p>
 <span class="c1"># FIXME This hack is required at the moment because UFL does not yet know about</span>
 <span class="c1"># mixed topology meshes.</span>
 <span class="n">a</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">L</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cell_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="s2">&quot;hexahedron&quot;</span><span class="p">,</span> <span class="s2">&quot;prism&quot;</span><span class="p">]):</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating form for </span><span class="si">{</span><span class="n">cell_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">element</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">wrap_element</span><span class="p">(</span><span class="n">elements</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
@@ -242,26 +244,33 @@ supported in DOLFINx.</p>
     <span class="n">V</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">Mesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">domain</span><span class="p">),</span> <span class="n">element</span><span class="p">,</span> <span class="n">V_cpp</span><span class="p">)</span>
     <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">ufl</span><span class="o">.</span><span class="n">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
     <span class="n">k</span> <span class="o">=</span> <span class="mf">12.0</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">SpatialCoordinate</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
     <span class="n">a</span> <span class="o">+=</span> <span class="p">[(</span><span class="n">ufl</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">ufl</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">-</span> <span class="n">k</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">u</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">ufl</span><span class="o">.</span><span class="n">dx</span><span class="p">]</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">ufl</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">L</span> <span class="o">+=</span> <span class="p">[</span><span class="n">f</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">ufl</span><span class="o">.</span><span class="n">dx</span><span class="p">]</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Compile the form</span>
 <span class="c1"># FIXME: For the time being, since UFL doesn&#39;t understand mixed topology meshes,</span>
 <span class="c1"># we have to call mixed_topology_form instead of form.</span>
 <span class="n">a_form</span> <span class="o">=</span> <span class="n">mixed_topology_form</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="n">L_form</span> <span class="o">=</span> <span class="n">mixed_topology_form</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assemble the matrix</span>
 <span class="n">A</span> <span class="o">=</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">a_form</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="n">L_form</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve</span>
 <span class="n">A_scipy</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">to_scipy</span><span class="p">()</span>
-<span class="n">b_scipy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">A_scipy</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">b_scipy</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">array</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">spsolve</span><span class="p">(</span><span class="n">A_scipy</span><span class="p">,</span> <span class="n">b_scipy</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solution vector norm </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Solution vector norm </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># I/O</span>
