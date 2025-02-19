@@ -1,149 +1,95 @@
+// # Mixed Poisson equation
+//
+// This demo illustrates how to solve Poisson equation using a mixed
+// (two-field) formulation. In particular, it illustrates how to
+//
+// * Create a mixed finite element problem.
+// * Extract subspaces.
+// * Apply boundary conditions to different fields in a mixed problem.
+// * Create integration domain data to execute finite element kernels.
+//   over subsets of the boundary.
+//
+// The full implementation is in
+// {download}`demo_mixed_poisson/main.cpp`.
+//
+//
+// # Mixed formulation for the Poisson equation
+//
+// ## Equation and problem definition
+//
+// A mixed formulation of Poisson equation can be formulated by
+// introducing an additional (vector) variable, namely the (negative)
+// flux: $\sigma = \nabla u$. The partial differential equations
+// then read
+//
+// $$
+// \begin{align}
+//   \sigma - \nabla u &= 0 \quad {\rm in} \ \Omega, \\
+//   \nabla \cdot \sigma &= - f \quad {\rm in} \ \Omega,
+// \end{align}
+// $$
+// with boundary conditions
+//
+// $$
+//   u = u_0 \quad {\rm on} \ \Gamma_{D},  \\
+//   \sigma \cdot n = g \quad {\rm on} \ \Gamma_{N}.
+// $$
+//
+// where $n$ denotes the outward unit normal vector on the boundary. We
+// see that the boundary condition for the flux ($\sigma \cdot n = g$)
+// is an essential boundary condition (which should be enforced in
+// the function space), while the other boundary condition ($u = u_0$)
+// is a natural boundary condition (which should be applied to the
+// variational form). Inserting the boundary conditions, this
+// variational problem can be phrased in the general form: find
+// $(\sigma, u) \in \Sigma_g \times V$ such that
+//
+// $$
+//    a((\sigma, u), (\tau, v)) = L((\tau, v))
+//    \quad \forall \ (\tau, v) \in \Sigma_0 \times V,
+// $$
+//
+// where the forms $a$ and $L$ are defined as
+//
+// $$
+// \begin{align}
+//   a((\sigma, u), (\tau, v)) &:=
+//     \int_{\Omega} \sigma \cdot \tau + \nabla \cdot \tau \ u
+//   + \nabla \cdot \sigma \ v \ {\rm d} x, \\
+//   L((\tau, v)) &:= - \int_{\Omega} f v \ {\rm d} x
+//   + \int_{\Gamma_D} u_0 \tau \cdot n  \ {\rm d} s,
+// \end{align}
+// $$
+// and $\Sigma_g := \{ \tau \in H({\rm div})$ such that $\tau \cdot
+// n|_{\Gamma_N} = g \}$ and $V := L^2(\Omega)$.
+//
+// To discretize the above formulation, discrete function spaces
+// $\Sigma_h \subset \Sigma$ and $V_h \subset V$ are needed to form a
+// mixed function space $\Sigma_h \times V_h$. A stable choice of finite
+// element spaces is to let $\Sigma_h$ be a Raviart-Thomas elements of
+// polynomial order $k$ and $V_h$ be discontinuous elements of
+// polynomial order $k-1$.
+//
+// We will use the same definitions of functions and boundaries as in the
+// demo for {doc}`the Poisson equation <demo_poisson>`. These are:
+//
+// * $\Omega = [0,1] \times [0,1]$ (a unit square)
+// * $\Gamma_{D} = \{(0, y) \cup (1, y) \in \partial \Omega\}$
+// * $\Gamma_{N} = \{(x, 0) \cup (x, 1) \in \partial \Omega\}$
+// * $u_0 = 20 y + 1$ on $\Gamma_{D}$
+// * $g = 10$ (flux) on $\Gamma_{N}$
+// * $f = \sin(5x - 0.5) + 1 (source term)
 
-# Mixed Poisson equation
+// ## UFL form file
+//
+// The UFL file is implemented in
+// {download}`demo_mixed_poisson/mixed_poisson.py`.
+// ````{admonition} UFL form implemented in python
+// :class: dropdown
+// ![ufl-code]
+// ````
+//
 
-This demo illustrates how to solve Poisson equation using a mixed
-(two-field) formulation. In particular, it illustrates how to
-
-* Create a mixed finite element problem.
-* Extract subspaces.
-* Apply boundary conditions to different fields in a mixed problem.
-* Create integration domain data to execute finite element kernels.
-  over subsets of the boundary.
-
-The full implementation is in
-{download}`demo_mixed_poisson/main.cpp`.
-
-
-# Mixed formulation for the Poisson equation
-
-## Equation and problem definition
-
-A mixed formulation of Poisson equation can be formulated by
-introducing an additional (vector) variable, namely the (negative)
-flux: $\sigma = \nabla u$. The partial differential equations
-then read
-
-$$
-\begin{align}
-  \sigma - \nabla u &= 0 \quad {\rm in} \ \Omega, \\
-  \nabla \cdot \sigma &= - f \quad {\rm in} \ \Omega,
-\end{align}
-$$
-with boundary conditions
-
-$$
-  u = u_0 \quad {\rm on} \ \Gamma_{D},  \\
-  \sigma \cdot n = g \quad {\rm on} \ \Gamma_{N}.
-$$
-
-where $n$ denotes the outward unit normal vector on the boundary. We
-see that the boundary condition for the flux ($\sigma \cdot n = g$)
-is an essential boundary condition (which should be enforced in
-the function space), while the other boundary condition ($u = u_0$)
-is a natural boundary condition (which should be applied to the
-variational form). Inserting the boundary conditions, this
-variational problem can be phrased in the general form: find
-$(\sigma, u) \in \Sigma_g \times V$ such that
-
-$$
-   a((\sigma, u), (\tau, v)) = L((\tau, v))
-   \quad \forall \ (\tau, v) \in \Sigma_0 \times V,
-$$
-
-where the forms $a$ and $L$ are defined as
-
-$$
-\begin{align}
-  a((\sigma, u), (\tau, v)) &:=
-    \int_{\Omega} \sigma \cdot \tau + \nabla \cdot \tau \ u
-  + \nabla \cdot \sigma \ v \ {\rm d} x, \\
-  L((\tau, v)) &:= - \int_{\Omega} f v \ {\rm d} x
-  + \int_{\Gamma_D} u_0 \tau \cdot n  \ {\rm d} s,
-\end{align}
-$$
-and $\Sigma_g := \{ \tau \in H({\rm div})$ such that $\tau \cdot
-n|_{\Gamma_N} = g \}$ and $V := L^2(\Omega)$.
-
-To discretize the above formulation, discrete function spaces
-$\Sigma_h \subset \Sigma$ and $V_h \subset V$ are needed to form a
-mixed function space $\Sigma_h \times V_h$. A stable choice of finite
-element spaces is to let $\Sigma_h$ be a Raviart-Thomas elements of
-polynomial order $k$ and $V_h$ be discontinuous elements of
-polynomial order $k-1$.
-
-We will use the same definitions of functions and boundaries as in the
-demo for {doc}`the Poisson equation <demo_poisson>`. These are:
-
-* $\Omega = [0,1] \times [0,1]$ (a unit square)
-* $\Gamma_{D} = \{(0, y) \cup (1, y) \in \partial \Omega\}$
-* $\Gamma_{N} = \{(x, 0) \cup (x, 1) \in \partial \Omega\}$
-* $u_0 = 20 y + 1$ on $\Gamma_{D}$
-* $g = 10$ (flux) on $\Gamma_{N}$
-* $f = \sin(5x - 0.5) + 1 (source term)
-
-+++
-
-## UFL form file
-
-The UFL file is implemented in
-{download}`demo_mixed_poisson/mixed_poisson.py`.
-````{admonition} UFL form implemented in python
-:class: dropdown
-
-The first step is to define the variational problem at hand. We define
-the variational problem in UFL terms in a separate form file
-{download}`demo_mixed_poisson/mixed_poisson.py`.  We begin by defining the
-finite element:
-
-```python
-from basix.ufl import element, mixed_element
-from ufl import (
-    Coefficient,
-    FacetNormal,
-    FunctionSpace,
-    Measure,
-    Mesh,
-    TestFunctions,
-    TrialFunctions,
-    div,
-    inner,
-)
-```
-
-```python
-shape = "triangle"
-RT = element("RT", shape, 1)
-P = element("DP", shape, 0)
-ME = mixed_element([RT, P])
-```
-
-```python
-msh = Mesh(element("Lagrange", shape, 1, shape=(2,)))
-n = FacetNormal(msh)
-V = FunctionSpace(msh, ME)
-```
-
-```python
-(sigma, u) = TrialFunctions(V)
-(tau, v) = TestFunctions(V)
-```
-
-```python
-V0 = FunctionSpace(msh, P)
-f = Coefficient(V0)
-u0 = Coefficient(V0)
-```
-
-```python
-dx = Measure("dx", msh)
-ds = Measure("ds", msh)
-a = inner(sigma, tau) * dx + inner(u, div(tau)) * dx + inner(div(sigma), v) * dx
-L = -inner(f, v) * dx + inner(u0 * n, tau) * ds(1)
-```
-
-````
-
-```cpp
 #include "mixed_poisson.h"
 #include <basix/finite-element.h>
 #include <basix/mdspan.hpp>
@@ -161,15 +107,11 @@ L = -inner(f, v) * dx + inner(u0 * n, tau) * ds(1)
 #include <span>
 #include <utility>
 #include <vector>
-```
 
-```cpp
 using namespace dolfinx;
 using T = PetscScalar;
 using U = typename dolfinx::scalar_value_type_t<T>;
-```
 
-```cpp
 int main(int argc, char* argv[])
 {
   dolfinx::init_logging(argc, argv);
@@ -367,9 +309,7 @@ int main(int argc, char* argv[])
     auto u_soln = std::make_shared<fem::Function<T>>(u->sub(1).collapse());
     io::VTKFile file(MPI_COMM_WORLD, "u.pvd", "w");
     file.write<T>({*u_soln}, 0);
-```
 
-```cpp
 #ifdef HAS_ADIOS2
     // Save solution in VTX format
     io::VTXWriter<U> vtx(MPI_COMM_WORLD, "u.bp", {u_soln}, "bp4");
@@ -381,4 +321,3 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-```
