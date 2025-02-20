@@ -247,9 +247,9 @@
         <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">constant</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">constant</span> <span class="ow">in</span> <span class="n">ufl_constants</span><span class="p">]</span>
         <span class="n">arguments</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">extract_arguments</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_argument_function_space</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_argument_space</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_argument_function_space</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_argument_space</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expressions with more that one Argument not allowed.&quot;</span><span class="p">)</span>
 
@@ -270,7 +270,7 @@
             <span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_expression</span><span class="p">)),</span>
             <span class="n">coeffs</span><span class="p">,</span>
             <span class="n">constants</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">argument_function_space</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">argument_space</span><span class="p">,</span>
         <span class="p">)</span>
 
 <div class="viewcode-block" id="Expression.eval">
@@ -285,34 +285,39 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">            mesh: Mesh to evaluate Expression on.</span>
-<span class="sd">            entities: Either an array of cells (index local to process)</span>
-<span class="sd">                or an array of integral tuples (cell index, local facet</span>
-<span class="sd">                index). The array is flattened.</span>
+<span class="sd">            entities: Entities to evaluate the Expression over. For</span>
+<span class="sd">                cells, it is a list of cell indices. For facets, it is a</span>
+<span class="sd">                2D array of (cell index, local facet index).</span>
 <span class="sd">            values: Array to fill with evaluated values. If ``None``,</span>
-<span class="sd">                storage will be allocated. Otherwise must have shape</span>
-<span class="sd">                ``(num_entities, num_points * value_size *</span>
-<span class="sd">                num_all_argument_dofs)``</span>
+<span class="sd">                storage will be allocated. Otherwise it must have shape</span>
+<span class="sd">                ``(entities.shape[0], num_points, *value_shape)`` if</span>
+<span class="sd">                there is not argument function and shape</span>
+<span class="sd">                ``(entities.shape[0], num_points, *value_shape,</span>
+<span class="sd">                argument_space_dim)`` if the Expression does have an</span>
+<span class="sd">                argument function.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Expression evaluated at points for `entities`.</span>
-
+<span class="sd">            Expression evaluated at points for ``entities``. Shape is</span>
+<span class="sd">            ``(entities.shape[0], num_points, *value_shape)`` if there</span>
+<span class="sd">            is no argument function, or shape is ``(entities.shape[0],</span>
+<span class="sd">            num_points, *value_shape, argument_space_dim)`` if the</span>
+<span class="sd">            Expression does have an argument function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_function_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">argument_space_dimension</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">argument_space_dimension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_function_space</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">space_dimension</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">tdim</span> <span class="o">:=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">expr_dim</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
             <span class="k">assert</span> <span class="n">expr_dim</span> <span class="o">==</span> <span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span>
-            <span class="k">assert</span> <span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
-            <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span> <span class="o">*</span> <span class="n">argument_space_dimension</span><span class="p">,</span>
+            <span class="k">assert</span> <span class="n">entities</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span>
+                <span class="s2">&quot;entities list should have two dimensions for expression evaluation on facets.&quot;</span>
             <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_size</span> <span class="o">*</span> <span class="n">argument_space_dimension</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">argument_space</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">space_dimension</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="c1"># Allocate memory for result if u was not provided</span>
@@ -320,10 +325,15 @@
             <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">values_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">values_shape</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Passed array values does not have correct shape.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Passed values array does not have correct shape.&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Passed array values does not have correct dtype.&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">_entities</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Passed values array does not have correct dtype.&quot;</span><span class="p">)</span>
+
+        <span class="n">constants</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">pack_constants</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">pack_coefficients</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">_entities</span><span class="p">)</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">tabulate_expression</span><span class="p">(</span>
+            <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">_entities</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="n">values</span></div>
 
 
@@ -336,27 +346,32 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufl_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Original UFL Expression&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Original UFL Expression.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_expression</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value shape of the Expression.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_shape</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">value_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value size of the expression&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value size of the expression.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_size</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">argument_function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">FunctionSpace</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The argument function space if expression has argument&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_function_space</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">argument_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">FunctionSpace</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Argument function space if Expression has argument.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_space</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufcx_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled ufcx_expression object&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled ufcx_expression object.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufcx_expression</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">code</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;C code strings&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;C code strings.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_code</span>
 
     <span class="nd">@property</span>
@@ -444,7 +459,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">function_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FunctionSpace</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The FunctionSpace that the Function is defined on&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The FunctionSpace that the Function is defined on.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_V</span>
 
 <div class="viewcode-block" id="Function.eval">
@@ -491,11 +506,12 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">interpolate_nonmatching</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">u0</span><span class="p">:</span> <span class="n">Function</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">interpolation_data</span><span class="p">:</span> <span class="n">PointOwnershipData</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate a Function defined on one mesh to a function defined on a different mesh.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interpolate a Function defined on one mesh to a function</span>
+<span class="sd">        defined on a different mesh.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            u0: The Function to interpolate.</span>
-<span class="sd">            cells: The cells to interpolate over. If `None` then all</span>
+<span class="sd">            cells: The cells to interpolate over. If ``None`` then all</span>
 <span class="sd">                cells are interpolated over.</span>
 <span class="sd">            interpolation_data: Data needed to interpolate functions</span>
 <span class="sd">                defined on other meshes. Created by</span>
@@ -605,21 +621,21 @@
 <div class="viewcode-block" id="Function.sub">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Function.sub">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Function</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a sub-function (a view into the `Function`).</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a sub-function (a view into the ``Function``).</span>
 
-<span class="sd">        Sub-functions are indexed `i = 0, ..., N-1`, where `N` is the</span>
-<span class="sd">        number of sub-spaces.</span>
+<span class="sd">        Sub-functions are indexed ``i = 0, ..., N-1``, where ``N`` is</span>
+<span class="sd">        the number of sub-spaces.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            i: Index of the sub-function to extract.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A view into the parent `Function`.</span>
+<span class="sd">            A view into the parent ``Function``.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            If the sub-Function is re-used, for performance reasons the</span>
-<span class="sd">            returned `Function` should be stored by the caller to avoid</span>
-<span class="sd">            repeated re-computation of the subspace.</span>
+<span class="sd">            returned ``Function`` should be stored by the caller to</span>
+<span class="sd">            avoid repeated re-computation of the subspace.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_V</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="si">!s}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
