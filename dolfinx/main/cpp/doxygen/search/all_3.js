@@ -45,5 +45,7 @@ var searchData=
   ['dolfinx_3a_3anls_42',['nls',['../df/d80/namespacedolfinx_1_1nls.html',1,'dolfinx']]],
   ['dolfinx_3a_3arefinement_43',['refinement',['../d9/dd6/namespacedolfinx_1_1refinement.html',1,'dolfinx']]],
   ['dolfinx_3a_3arefinement_3a_3aplaza_44',['plaza',['../df/dfe/namespacedolfinx_1_1refinement_1_1plaza.html',1,'dolfinx::refinement']]],
-  ['domain_45',['domain',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a6c9d7585bf78dd14a654538f94ee4e85',1,'dolfinx::fem::Form::domain(IntegralType type, int i) const'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a24bcd062b4a807dca956734d9d0f276b',1,'dolfinx::fem::Form::domain(IntegralType type, int i, int kernel_idx) const'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a13c9c8275ff28c723c2c303f2d0ffb06',1,'dolfinx::fem::Form::domain(IntegralType type, int i, int kernel_idx, const mesh::Mesh&lt; geometry_type &gt; &amp;mesh) const'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a86baac66b24222eb3d513c215d287e2a',1,'dolfinx::fem::Form::domain(IntegralType type, int i, const mesh::Mesh&lt; geometry_type &gt; &amp;mesh) const']]]
+  ['domain_45',['domain',['../df/d02/classdolfinx_1_1fem_1_1Form.html#af1cc374b77a7715b85166aabf5468d4f',1,'dolfinx::fem::Form']]],
+  ['domain_5farg_46',['domain_arg',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a4f56b9f7424401df89ba2407aba578d9',1,'dolfinx::fem::Form']]],
+  ['domain_5fcoeff_47',['domain_coeff',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a8cfa5ff74f551e23f38376b672843487',1,'dolfinx::fem::Form']]]
 ];
