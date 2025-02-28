@@ -149,6 +149,15 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span></div>
 
 
+<div class="viewcode-block" id="BaseForm.geometric_quantities">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm.geometric_quantities">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geometric_quantities</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return all ``GeometricQuantity`` objects found in form.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_quantities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_form_arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_quantities</span></div>
+
+
 <div class="viewcode-block" id="BaseForm.ufl_domain">
 <a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.BaseForm.ufl_domain">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -292,6 +301,7 @@
         <span class="s2">&quot;_constant_numbering&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_constants&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_domain_numbering&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;_geometric_quantities&quot;</span><span class="p">,</span>
         <span class="s2">&quot;_hash&quot;</span><span class="p">,</span>
         <span class="c1"># --- List of Integral objects (a Form is a sum of these</span>
         <span class="c1"># Integrals, everything else is derived)</span>
@@ -683,15 +693,22 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze domains.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">join_domains</span><span class="p">,</span> <span class="n">sort_domains</span>
 
-        <span class="c1"># Collect unique integration domains</span>
-        <span class="n">integration_domains</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">([</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">])</span>
-
-        <span class="c1"># Make canonically ordered list of the domains</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">=</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">integration_domains</span><span class="p">)</span>
-
-        <span class="c1"># TODO: Not including domains from coefficients and arguments</span>
-        <span class="c1"># here, may need that later</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span><span class="p">)}</span>
+        <span class="c1"># Collect integration domains.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">=</span> <span class="n">sort_domains</span><span class="p">(</span>
+            <span class="n">join_domains</span><span class="p">([</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="c1"># Collect domains in integrands.</span>
+        <span class="n">domains_in_integrands</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficients</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometric_quantities</span><span class="p">()</span>
+        <span class="p">):</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">expand_mixed_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">domains_in_integrands</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">meshes</span><span class="p">)</span>
+        <span class="n">domains_in_integrands</span> <span class="o">-=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span><span class="p">)</span>
+        <span class="n">all_domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">+</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">join_domains</span><span class="p">(</span><span class="n">domains_in_integrands</span><span class="p">))</span>
+        <span class="c1"># Let problem solving environments access all domains via</span>
+        <span class="c1"># self._domain_numbering.keys() (wrapped in extract_domains()).</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_domains</span><span class="p">)}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze subdomain data.&quot;&quot;&quot;</span>
@@ -718,13 +735,14 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which Argument and Coefficient objects can be found in the form.&quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_arguments_and_coefficients</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_terminals_with_domain</span>
 
-        <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span> <span class="o">=</span> <span class="n">extract_arguments_and_coefficients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">geometric_quantities</span> <span class="o">=</span> <span class="n">extract_terminals_with_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
         <span class="c1"># Define canonical numbering of arguments and coefficients</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">arguments</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span><span class="p">()))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">coefficients</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_geometric_quantities</span> <span class="o">=</span> <span class="n">geometric_quantities</span>  <span class="c1"># sorted by (type, domain)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_base_form_operators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Analyze which BaseFormOperator objects can be found in the form.&quot;&quot;&quot;</span>
@@ -735,38 +753,11 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_renumbering</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute renumbering.&quot;&quot;&quot;</span>
-        <span class="c1"># Include integration domains and coefficients in renumbering</span>
         <span class="n">dn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_numbering</span><span class="p">()</span>
         <span class="n">tn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminal_numbering</span><span class="p">()</span>
         <span class="n">renumbering</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
         <span class="n">renumbering</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tn</span><span class="p">)</span>
-
-        <span class="c1"># Add domains of coefficients, these may include domains not</span>
-        <span class="c1"># among integration domains</span>
-        <span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dn</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficients</span><span class="p">():</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
-                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
-                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="c1"># Add domains of arguments, these may include domains not</span>
-        <span class="c1"># among integration domains</span>
-        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arguments</span><span class="p">:</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
-                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
-                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="c1"># Add domains of constants, these may include domains not</span>
-        <span class="c1"># among integration domains</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span><span class="p">:</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">renumbering</span><span class="p">:</span>
-                <span class="n">renumbering</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
-                <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
-
         <span class="k">return</span> <span class="n">renumbering</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_signature</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

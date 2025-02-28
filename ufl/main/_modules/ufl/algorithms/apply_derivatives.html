@@ -43,6 +43,8 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.action</span><span class="w"> </span><span class="kn">import</span> <span class="n">Action</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_arguments</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrand_dags</span>
@@ -87,7 +89,7 @@
     <span class="n">BaseFormOperatorDerivative</span><span class="p">,</span>
     <span class="n">CoordinateDerivative</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeshSequence</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.operators</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">bessel_I</span><span class="p">,</span>
@@ -114,6 +116,30 @@
 <span class="c1"># - CurlRuleset</span>
 <span class="c1"># - ReferenceGradRuleset</span>
 <span class="c1"># - ReferenceDivRuleset</span>
+
+
+<div class="viewcode-block" id="flatten_domain_element">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.flatten_domain_element">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flatten_domain_element</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the flattened (domain, element) pairs for mixed domain problems.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        domain: `Mesh` or `MeshSequence`.</span>
+<span class="sd">        element: `FiniteElement`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Nested tuples of (domain, element) pairs; just ((domain, element),)</span>
+<span class="sd">        if domain is a `Mesh` (and not a `MeshSequence`).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">MeshSequence</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">((</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">),)</span>
+    <span class="n">flattened</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">):</span>
+        <span class="n">flattened</span> <span class="o">+=</span> <span class="n">flatten_domain_element</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">flattened</span></div>
+
 
 
 <div class="viewcode-block" id="GenericDerivativeRuleset">
@@ -836,16 +862,58 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Differentiate a reference_value.&quot;&quot;&quot;</span>
         <span class="c1"># grad(o) == grad(rv(f)) -&gt; K_ji*rgrad(rv(f))_rj</span>
         <span class="n">f</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">PhysicalPullback</span><span class="p">):</span>
-            <span class="c1"># TODO: Do we need to be more careful for immersed things?</span>
-            <span class="k">return</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
-
         <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">_ufl_is_terminal_</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ReferenceValue can only wrap a terminal&quot;</span><span class="p">)</span>
-        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">Do</span> <span class="o">=</span> <span class="n">grad_to_reference_grad</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Do</span></div>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">expand_mixed_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">MeshSequence</span><span class="p">):</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Get monolithic representation of rgrad(o); o might live in a mixed space.</span>
+            <span class="n">rgrad</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="n">ref_dim</span> <span class="o">=</span> <span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># Apply K_ji(d) to the corresponding components of rgrad, store them in a list,</span>
+            <span class="c1"># and put them back together at the end using as_tensor().</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">dofoffset</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">flatten_domain_element</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
+                <span class="n">esh</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">reference_value_shape</span>
+                <span class="n">ndof</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">esh</span><span class="p">))</span>
+                <span class="k">assert</span> <span class="n">ndof</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">PhysicalPullback</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">ref_dim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                            PhysicalPullback not handled for immersed domain :</span>
+<span class="s2">                            reference dim (</span><span class="si">{ref_dim}</span><span class="s2">) != physical dim (self._var_shape[0])&quot;&quot;&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ndof</span><span class="p">):</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ref_dim</span><span class="p">):</span>
+                            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rgrad</span><span class="p">[(</span><span class="n">dofoffset</span> <span class="o">+</span> <span class="n">idx</span><span class="p">,)</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span><span class="p">,)])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                    <span class="n">rdim</span><span class="p">,</span> <span class="n">gdim</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">ufl_shape</span>
+                    <span class="k">if</span> <span class="n">rdim</span> <span class="o">!=</span> <span class="n">ref_dim</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rdim</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="n">ref_dim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">gdim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gdim</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="c1"># Note that rgrad[dofoffset + [0,ndof), [0,rdim)] are the components</span>
+                    <span class="c1"># corresponding to (d, e).</span>
+                    <span class="c1"># For each row, rgrad[dofoffset + idx, [0,rdim)], we apply</span>
+                    <span class="c1"># K_ji(d)[[0,rdim), [0,gdim)].</span>
+                    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ndof</span><span class="p">):</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gdim</span><span class="p">):</span>
+                            <span class="n">temp</span> <span class="o">=</span> <span class="n">Zero</span><span class="p">()</span>
+                            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rdim</span><span class="p">):</span>
+                                <span class="n">temp</span> <span class="o">+=</span> <span class="n">rgrad</span><span class="p">[(</span><span class="n">dofoffset</span> <span class="o">+</span> <span class="n">idx</span><span class="p">,)</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span><span class="p">,)]</span> <span class="o">*</span> <span class="n">K</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+                            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+                <span class="n">dofoffset</span> <span class="o">+=</span> <span class="n">ndof</span>
+            <span class="k">return</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">components</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">PhysicalPullback</span><span class="p">):</span>
+                <span class="c1"># TODO: Do we need to be more careful for immersed things?</span>
+                <span class="k">return</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">grad_to_reference_grad</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="GradRuleset.reference_grad">
@@ -860,10 +928,50 @@
         <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_operand</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ReferenceGrad can only wrap a reference frame type!&quot;</span><span class="p">)</span>
-        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
-        <span class="n">Do</span> <span class="o">=</span> <span class="n">grad_to_reference_grad</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">Do</span></div>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">expand_mixed_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">MeshSequence</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">_ufl_is_in_reference_frame_</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expecting a reference frame type&quot;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">_ufl_is_terminal_</span><span class="p">:</span>
+                <span class="p">(</span><span class="n">f</span><span class="p">,)</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Get monolithic representation of rgrad(o); o might live in a mixed space.</span>
+            <span class="n">rgrad</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="n">ref_dim</span> <span class="o">=</span> <span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># Apply K_ji(d) to the corresponding components of rgrad, store them in a list,</span>
+            <span class="c1"># and put them back together at the end using as_tensor().</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">dofoffset</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">flatten_domain_element</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
+                <span class="n">esh</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">reference_value_shape</span>
+                <span class="n">ndof</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">esh</span><span class="p">))</span>
+                <span class="k">assert</span> <span class="n">ndof</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                <span class="n">rdim</span><span class="p">,</span> <span class="n">gdim</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">ufl_shape</span>
+                <span class="k">if</span> <span class="n">rdim</span> <span class="o">!=</span> <span class="n">ref_dim</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rdim</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="n">ref_dim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">gdim</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gdim</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="c1"># Note that rgrad[dofoffset + [0,ndof), [0,rdim), [0,rdim)] are the components</span>
+                <span class="c1"># corresponding to (d, e).</span>
+                <span class="c1"># For each row, rgrad[dofoffset + idx, [0,rdim), [0,rdim)], we apply</span>
+                <span class="c1"># K_ji(d)[[0,rdim), [0,gdim)].</span>
+                <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ndof</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">midx</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">gdim</span><span class="p">):</span>
+                            <span class="n">temp</span> <span class="o">=</span> <span class="n">Zero</span><span class="p">()</span>
+                            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rdim</span><span class="p">):</span>
+                                <span class="n">temp</span> <span class="o">+=</span> <span class="n">rgrad</span><span class="p">[(</span><span class="n">dofoffset</span> <span class="o">+</span> <span class="n">idx</span><span class="p">,)</span> <span class="o">+</span> <span class="n">midx</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span><span class="p">,)]</span> <span class="o">*</span> <span class="n">K</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
+                            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+                <span class="n">dofoffset</span> <span class="o">+=</span> <span class="n">ndof</span>
+            <span class="k">if</span> <span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dofoffset</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> != </span><span class="si">{</span><span class="n">dofoffset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">components</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">rgrad</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_var_shape</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">K</span> <span class="o">=</span> <span class="n">JacobianInverse</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">grad_to_reference_grad</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span></div>
 
 
     <span class="c1"># --- Nesting of gradients</span>
