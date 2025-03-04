@@ -1,7 +1,7 @@
 var searchData=
 [
   ['make_5fcoefficients_5fspan_0',['make_coefficients_span',['../d8/dbf/namespacedolfinx_1_1fem.html#a6d25266cbd72792f519fc92c9b9d3989',1,'dolfinx::fem']]],
-  ['map_1',['map',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#a8df977881bac042ee9b8244e10f2712e',1,'dolfinx::fem::DofMap']]],
+  ['map_1',['map',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#abb5de95edeb7506151053fd6a6ecb815',1,'dolfinx::fem::DofMap']]],
   ['map_5fident_2',['map_ident',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#affcae09c2dd151ee8690bbaf72c9501d',1,'dolfinx::fem::FiniteElement']]],
   ['map_5ftype_3',['map_type',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1ea0e3c46b6922df927b7a7f9e282543',1,'dolfinx::fem::FiniteElement']]],
   ['mappings_4',['type mappings',['../d3/d97/group__MPI.html',1,'']]],
@@ -14,7 +14,7 @@ var searchData=
   ['matset_11',['MatSet',['../dd/d8f/conceptdolfinx_1_1la_1_1MatSet.html',1,'dolfinx::la']]],
   ['mdspan_12',['MDSpan',['../de/dcb/conceptdolfinx_1_1fem_1_1MDSpan.html',1,'dolfinx::fem']]],
   ['mdspan2_13',['MDSpan2',['../da/d25/conceptdolfinx_1_1fem_1_1MDSpan2.html',1,'dolfinx::fem']]],
-  ['mdspan2_5ft_14',['mdspan2_t',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a49d500031ea8d5dde0121b298dfb5d44',1,'dolfinx::fem::CoordinateElement']]],
+  ['mdspan2_5ft_14',['mdspan2_t',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#aa3e895c2dcf02a35800a38764f7c9fed',1,'dolfinx::fem::CoordinateElement']]],
   ['mesh_15',['Mesh',['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html',1,'Mesh&lt; T &gt;'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a721db5305d75e87ce96e0f3b248c546a',1,'dolfinx::mesh::Mesh::Mesh(MPI_Comm comm, std::shared_ptr&lt; Topology &gt; topology, V &amp;&amp;geometry)'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a3c17bd158a5a57d0bce9d764f21b640e',1,'dolfinx::mesh::Mesh::Mesh(const Mesh &amp;mesh)=default'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#a77d9dd4003e0fe85e7692534b14660db',1,'dolfinx::mesh::Mesh::Mesh(Mesh &amp;&amp;mesh)=default']]],
   ['mesh_16',['mesh',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a7f54faaedc8a6694bae9509150d4bd55',1,'dolfinx::fem::Form::mesh()'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a7f54faaedc8a6694bae9509150d4bd55',1,'dolfinx::fem::FunctionSpace::mesh()']]],
   ['meshtags_17',['MeshTags',['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html',1,'MeshTags&lt; T &gt;'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#aa4854dca8c22e9717461f190a4be771b',1,'dolfinx::mesh::MeshTags::MeshTags(std::shared_ptr&lt; const Topology &gt; topology, int dim, U &amp;&amp;indices, V &amp;&amp;values)'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#a49ee656357d4a7d8453056aea75cfef0',1,'dolfinx::mesh::MeshTags::MeshTags(const MeshTags &amp;tags)=default'],['../d4/d31/classdolfinx_1_1mesh_1_1MeshTags.html#a5ffeaae5e7d7311ea5ac8f237830009d',1,'dolfinx::mesh::MeshTags::MeshTags(MeshTags &amp;&amp;tags)=default']]],
