@@ -72,7 +72,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.la</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2017-2021 Garth N. Wells</span>
+<span></span><span class="c1"># Copyright (C) 2017-2025 Garth N. Wells, Jack S. Hale</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -84,6 +84,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">BlockMode</span><span class="p">,</span> <span class="n">InsertMode</span><span class="p">,</span> <span class="n">Norm</span>
@@ -93,9 +94,9 @@
     <span class="s2">&quot;MatrixCSR&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Norm&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_petsc_vector&quot;</span><span class="p">,</span>
     <span class="s2">&quot;is_orthonormal&quot;</span><span class="p">,</span>
     <span class="s2">&quot;matrix_csr&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;norm&quot;</span><span class="p">,</span>
     <span class="s2">&quot;orthonormalize&quot;</span><span class="p">,</span>
     <span class="s2">&quot;vector&quot;</span><span class="p">,</span>
 <span class="p">]</span>
@@ -169,8 +170,12 @@
 <span class="sd">          When the object is destroyed it will destroy the underlying petsc4py</span>
 <span class="sd">          vector automatically.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc4py</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_vector_wrap</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="o">=</span> <span class="n">create_petsc_vector_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="o">=</span> <span class="n">create_vector_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span>
 
 <div class="viewcode-block" id="Vector.scatter_forward">
@@ -445,61 +450,10 @@
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">create_petsc_vector_wrap</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Vector</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a distributed DOLFINx vector as a PETSc vector.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory management</span>
-<span class="sd">        and the Python garbage collector, it is recommended that the method ``PETSc.Vec.destroy()``</span>
-<span class="sd">        is called on the returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI communicator.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        x: The vector to wrap as a PETSc vector.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc vector that shares data with ``x``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
-
-    <span class="nb">map</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">index_map</span>
-    <span class="n">ghosts</span> <span class="o">=</span> <span class="nb">map</span><span class="o">.</span><span class="n">ghosts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-    <span class="n">bs</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">block_size</span>
-    <span class="n">size</span> <span class="o">=</span> <span class="p">(</span><span class="nb">map</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">bs</span><span class="p">,</span> <span class="nb">map</span><span class="o">.</span><span class="n">size_global</span> <span class="o">*</span> <span class="n">bs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">()</span><span class="o">.</span><span class="n">createGhostWithArray</span><span class="p">(</span><span class="n">ghosts</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="n">bs</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="nb">map</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-
-
-<div class="viewcode-block" id="create_petsc_vector">
-<a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.create_petsc_vector">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_petsc_vector</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a distributed PETSc vector.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory management</span>
-<span class="sd">        and the Python garbage collector, it is recommended that the method ``PETSc.Vec.destroy()``</span>
-<span class="sd">        is called on the returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI communicator.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        map: Index map that describes the size and parallel layout of</span>
-<span class="sd">            the vector to create.</span>
-<span class="sd">        bs: Block size of the vector.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        PETSc Vec object.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
-
-    <span class="n">ghosts</span> <span class="o">=</span> <span class="nb">map</span><span class="o">.</span><span class="n">ghosts</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-    <span class="n">size</span> <span class="o">=</span> <span class="p">(</span><span class="nb">map</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">bs</span><span class="p">,</span> <span class="nb">map</span><span class="o">.</span><span class="n">size_global</span> <span class="o">*</span> <span class="n">bs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">()</span><span class="o">.</span><span class="n">createGhost</span><span class="p">(</span><span class="n">ghosts</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">bsize</span><span class="o">=</span><span class="n">bs</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="nb">map</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
-
-
-
 <div class="viewcode-block" id="orthonormalize">
 <a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.orthonormalize">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">orthonormalize</span><span class="p">(</span><span class="n">basis</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Vector</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Orthogonalise set of PETSc vectors in-place.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Orthogonalise set of vectors in-place.&quot;&quot;&quot;</span>
     <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">orthonormalize</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">])</span></div>
 
 
@@ -512,6 +466,8 @@
 
 
 
+<div class="viewcode-block" id="norm">
+<a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.norm">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Vector</span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Norm</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Norm</span><span class="o">.</span><span class="n">l2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a norm of the vector.</span>
 
@@ -522,7 +478,8 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Computed norm.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>
