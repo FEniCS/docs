@@ -47,6 +47,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">debug</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algebra</span><span class="w"> </span><span class="kn">import</span> <span class="n">Conj</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.formsplitter</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_blocks</span>
 
 <span class="c1"># Other algorithms:</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrands</span>
@@ -378,10 +379,6 @@
     <span class="k">if</span> <span class="n">arguments</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
 
-    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
-    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_with_arity cannot handle parts.&quot;</span><span class="p">)</span>
-
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">arity</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Form has no parts with arity </span><span class="si">{</span><span class="n">arity</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="mi">0</span> <span class="o">*</span> <span class="n">form</span>
@@ -394,9 +391,9 @@
     <span class="n">pe</span> <span class="o">=</span> <span class="n">PartExtracter</span><span class="p">(</span><span class="n">sub_arguments</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_transform</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
-        <span class="n">e</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="n">pe</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="n">e_visited</span><span class="p">,</span> <span class="n">provides</span> <span class="o">=</span> <span class="n">pe</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">provides</span> <span class="o">==</span> <span class="n">sub_arguments</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">e</span>
+            <span class="k">return</span> <span class="n">e_visited</span>
         <span class="k">return</span> <span class="n">Zero</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">map_integrands</span><span class="p">(</span><span class="n">_transform</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span></div>
@@ -436,7 +433,18 @@
 <span class="sd">        a = u*v*dx + f*v*dx</span>
 <span class="sd">        a = lhs(a) -&gt; u*v*dx</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+    <span class="n">parts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">part</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span> <span class="k">if</span> <span class="p">(</span><span class="n">part</span> <span class="o">:=</span> <span class="n">a</span><span class="o">.</span><span class="n">part</span><span class="p">())</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)))</span>
+    <span class="c1"># If Arguments are stemming from a MixedFunctionSpace, we have to compute this per block</span>
+    <span class="k">if</span> <span class="n">parts</span> <span class="o">==</span> <span class="p">():</span>
+        <span class="k">return</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">form_blocks</span> <span class="o">=</span> <span class="n">extract_blocks</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">arity</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">lhs</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">bi</span> <span class="ow">in</span> <span class="n">form_blocks</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">bj</span> <span class="ow">in</span> <span class="n">bi</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">bj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">lhs</span> <span class="o">+=</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">bj</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lhs</span></div>
 
 
 
@@ -449,7 +457,16 @@
 <span class="sd">        a = u*v*dx + f*v*dx</span>
 <span class="sd">        L = rhs(a) -&gt; -f*v*dx</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="o">-</span><span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+    <span class="n">parts</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">part</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span> <span class="k">if</span> <span class="p">(</span><span class="n">part</span> <span class="o">:=</span> <span class="n">a</span><span class="o">.</span><span class="n">part</span><span class="p">())</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">parts</span> <span class="o">==</span> <span class="p">():</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">form_blocks</span> <span class="o">=</span> <span class="n">extract_blocks</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">arity</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">rhs</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">bi</span> <span class="ow">in</span> <span class="n">form_blocks</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">bi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rhs</span> <span class="o">+=</span> <span class="n">compute_form_with_arity</span><span class="p">(</span><span class="n">bi</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">rhs</span></div>
 
 
 
