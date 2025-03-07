@@ -33,7 +33,7 @@
   <h1>Source code for ufl.algorithms.formtransformations</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Utilities for transforming complete Forms into new related Forms.&quot;&quot;&quot;</span>
 
-<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1"># Copyright (C) 2008-2025 Martin Sandve Alnæs</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -42,6 +42,7 @@
 <span class="c1"># Modified by Anders Logg, 2008-2009.</span>
 <span class="c1"># Modified by Garth N. Wells, 2010.</span>
 <span class="c1"># Modified by Marie E. Rognes, 2010.</span>
+<span class="c1"># Modified by Jørgen S. Dokken, 2025.</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">debug</span>
@@ -499,7 +500,26 @@
 
     <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
     <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;compute_form_action cannot handle parts.&quot;</span><span class="p">)</span>
+        <span class="c1"># We assume that for MixedFunctionSpace that the max arity can be two</span>
+        <span class="n">highest_arity_form</span> <span class="o">=</span> <span class="n">compute_form_lhs</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">highest_arity_form</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">highest_arity_form</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+            <span class="n">highest_arity_form</span> <span class="o">=</span> <span class="n">compute_form_rhs</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">highest_arity_form</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">highest_arity_form</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No arguments to replace in form.&quot;</span><span class="p">)</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">highest_arity_form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+        <span class="n">numbers</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">]</span>
+        <span class="n">max_number</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">numbers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">coefficient</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">replacement_map</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">a</span><span class="p">:</span> <span class="n">Coefficient</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span>
+                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arguments</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">==</span> <span class="n">max_number</span>
+            <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">replacement_map</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">a</span><span class="p">:</span> <span class="n">coefficient</span><span class="p">[</span><span class="n">a</span><span class="o">.</span><span class="n">part</span><span class="p">()]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arguments</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">==</span> <span class="n">max_number</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">replacement_map</span><span class="p">)</span>
 
     <span class="c1"># Pick last argument (will be replaced)</span>
     <span class="n">u</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
