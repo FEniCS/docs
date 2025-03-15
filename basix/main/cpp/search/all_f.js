@@ -3,7 +3,7 @@ var searchData=
   ['scalar_5ftype_126',['scalar_type',['../classbasix_1_1FiniteElement.html#a69874abe87cbb9a42218c987747c1fde',1,'basix::FiniteElement']]],
   ['simplex_5fmethod_127',['simplex_method',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97',1,'basix::lattice']]],
   ['sobolev_5fspace_128',['sobolev_space',['../classbasix_1_1FiniteElement.html#a9b69240399a8db8705ba4305e88e34d1',1,'basix::FiniteElement']]],
-  ['solve_129',['solve',['../namespacebasix_1_1math.html#a5256552339970ac6455a47e8c78ec314',1,'basix::math']]],
+  ['solve_129',['solve',['../namespacebasix_1_1math.html#a3e4dce3744a0781f3ab7bc732dada575',1,'basix::math']]],
   ['space_130',['space',['../namespacebasix_1_1sobolev.html#a80a5ebc47ba8d0dd2ecab4fbd43087bc',1,'basix::sobolev']]],
   ['space_5fintersection_131',['space_intersection',['../namespacebasix_1_1sobolev.html#a3014167d23250e483377ed1b2ea0bcbc',1,'basix::sobolev']]],
   ['sub_5fentity_5fconnectivity_132',['sub_entity_connectivity',['../namespacebasix_1_1cell.html#a98b2aebaf61e060096e7bb0f7d131a29',1,'basix::cell']]],
