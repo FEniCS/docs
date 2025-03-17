@@ -21,7 +21,7 @@ with open(os.path.join(web_path, "template.md"), "w") as f:
     f.write("\n")
     f.write("!!CONTENT!!\n")
 
-system(f"cd {web_path} && bundle install && bundle exec jekyll build")
+system(f"cd {web_path} && bundle config path ../.bundle-config && bundle install && bundle exec jekyll build")
 
 with open(os.path.join(web_path, "_site/template.html")) as f:
     template = f.read()
