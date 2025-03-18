@@ -169,6 +169,7 @@ degrees-of-freedom is demonstrated.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">XDMFFile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.jit</span><span class="w"> </span><span class="kn">import</span> <span class="n">ffcx_jit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">locate_entities_boundary</span><span class="p">,</span> <span class="n">meshtags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.codegeneration.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">empty_void_pointer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.codegeneration.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">numba_ufcx_kernel_signature</span> <span class="k">as</span> <span class="n">ufcx_signature</span>
 
 <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
@@ -256,7 +257,7 @@ degrees-of-freedom is demonstrated.</p>
 
 
 <span class="nd">@numba</span><span class="o">.</span><span class="n">cfunc</span><span class="p">(</span><span class="n">ufcx_signature</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span><span class="p">),</span> <span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">tabulate_A</span><span class="p">(</span><span class="n">A_</span><span class="p">,</span> <span class="n">w_</span><span class="p">,</span> <span class="n">c_</span><span class="p">,</span> <span class="n">coords_</span><span class="p">,</span> <span class="n">entity_local_index</span><span class="p">,</span> <span class="n">permutation</span><span class="o">=</span><span class="n">ffi</span><span class="o">.</span><span class="n">NULL</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">tabulate_A</span><span class="p">(</span><span class="n">A_</span><span class="p">,</span> <span class="n">w_</span><span class="p">,</span> <span class="n">c_</span><span class="p">,</span> <span class="n">coords_</span><span class="p">,</span> <span class="n">entity_local_index</span><span class="p">,</span> <span class="n">permutation</span><span class="o">=</span><span class="n">ffi</span><span class="o">.</span><span class="n">NULL</span><span class="p">,</span> <span class="n">custom_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Element kernel that applies static condensation.&quot;&quot;&quot;</span>
 
     <span class="c1"># Prepare target condensed local element tensor</span>
@@ -264,13 +265,37 @@ degrees-of-freedom is demonstrated.</p>
 
     <span class="c1"># Tabulate all sub blocks locally</span>
     <span class="n">A00</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Ssize</span><span class="p">,</span> <span class="n">Ssize</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-    <span class="n">kernel00</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A00</span><span class="p">),</span> <span class="n">w_</span><span class="p">,</span> <span class="n">c_</span><span class="p">,</span> <span class="n">coords_</span><span class="p">,</span> <span class="n">entity_local_index</span><span class="p">,</span> <span class="n">permutation</span><span class="p">)</span>
+    <span class="n">kernel00</span><span class="p">(</span>
+        <span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A00</span><span class="p">),</span>
+        <span class="n">w_</span><span class="p">,</span>
+        <span class="n">c_</span><span class="p">,</span>
+        <span class="n">coords_</span><span class="p">,</span>
+        <span class="n">entity_local_index</span><span class="p">,</span>
+        <span class="n">permutation</span><span class="p">,</span>
+        <span class="n">empty_void_pointer</span><span class="p">(),</span>
+    <span class="p">)</span>
 
     <span class="n">A01</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Ssize</span><span class="p">,</span> <span class="n">Usize</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-    <span class="n">kernel01</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A01</span><span class="p">),</span> <span class="n">w_</span><span class="p">,</span> <span class="n">c_</span><span class="p">,</span> <span class="n">coords_</span><span class="p">,</span> <span class="n">entity_local_index</span><span class="p">,</span> <span class="n">permutation</span><span class="p">)</span>
+    <span class="n">kernel01</span><span class="p">(</span>
+        <span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A01</span><span class="p">),</span>
+        <span class="n">w_</span><span class="p">,</span>
+        <span class="n">c_</span><span class="p">,</span>
+        <span class="n">coords_</span><span class="p">,</span>
+        <span class="n">entity_local_index</span><span class="p">,</span>
+        <span class="n">permutation</span><span class="p">,</span>
+        <span class="n">empty_void_pointer</span><span class="p">(),</span>
+    <span class="p">)</span>
 
     <span class="n">A10</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Usize</span><span class="p">,</span> <span class="n">Ssize</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-    <span class="n">kernel10</span><span class="p">(</span><span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A10</span><span class="p">),</span> <span class="n">w_</span><span class="p">,</span> <span class="n">c_</span><span class="p">,</span> <span class="n">coords_</span><span class="p">,</span> <span class="n">entity_local_index</span><span class="p">,</span> <span class="n">permutation</span><span class="p">)</span>
+    <span class="n">kernel10</span><span class="p">(</span>
+        <span class="n">ffi</span><span class="o">.</span><span class="n">from_buffer</span><span class="p">(</span><span class="n">A10</span><span class="p">),</span>
+        <span class="n">w_</span><span class="p">,</span>
+        <span class="n">c_</span><span class="p">,</span>
+        <span class="n">coords_</span><span class="p">,</span>
+        <span class="n">entity_local_index</span><span class="p">,</span>
+        <span class="n">permutation</span><span class="p">,</span>
+        <span class="n">empty_void_pointer</span><span class="p">(),</span>
+    <span class="p">)</span>
 
     <span class="c1"># A = - A10 * A00^{-1} * A01</span>
     <span class="n">A</span><span class="p">[:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="o">-</span><span class="n">A10</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">A00</span><span class="p">,</span> <span class="n">A01</span><span class="p">)</span>
