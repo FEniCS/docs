@@ -82,7 +82,15 @@
 
 <span class="sd">Functions in this module generally apply functions in :mod:`dolfinx.fem`</span>
 <span class="sd">to PETSc linear algebra objects and handle any PETSc-specific</span>
-<span class="sd">preparation.&quot;&quot;&quot;</span>
+<span class="sd">preparation.</span>
+
+<span class="sd">Note:</span>
+<span class="sd">    Due to subtle issues in the interaction between petsc4py memory</span>
+<span class="sd">    management and the Python garbage collector, it is recommended that</span>
+<span class="sd">    the PETSc method ``destroy()`` is called on returned PETSc objects</span>
+<span class="sd">    once the object is no longer required. Note that ``destroy()`` may</span>
+<span class="sd">    be collective over the object&#39;s MPI communicator.</span>
+<span class="sd">&quot;&quot;&quot;</span>
 
 <span class="c1"># mypy: ignore-errors</span>
 
@@ -91,7 +99,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
 
@@ -132,11 +140,7 @@
     <span class="s2">&quot;assemble_vector_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assign&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_matrix&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_matrix_block&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_matrix_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_vector_block&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_vector_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;discrete_curl&quot;</span><span class="p">,</span>
     <span class="s2">&quot;discrete_gradient&quot;</span><span class="p">,</span>
     <span class="s2">&quot;interpolation_matrix&quot;</span><span class="p">,</span>
@@ -145,7 +149,7 @@
 <span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]]):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;From a rectangular array of bilinear forms, extract the function</span>
 <span class="sd">    spaces for each block row and block column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -180,76 +184,41 @@
 
 <div class="viewcode-block" id="create_vector">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_vector">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">Form</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector that is compatible with a linear form.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_vector</span><span class="p">(</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span> <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector that is compatible with a linear form(s).</span>
 
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory management</span>
-<span class="sd">        and the Python garbage collector, it is recommended that the method ``PETSc.Vec.destroy()``</span>
-<span class="sd">        is called on the returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI communicator.</span>
+<span class="sd">    If the vector type is not specified (``kind=None``) or is</span>
+<span class="sd">    ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is compatible</span>
+<span class="sd">    with ``L`` is created. If the vector type is</span>
+<span class="sd">    ``PETSc.Vec.Type.NEST``, a PETSc nested vector (a nest of ghosted</span>
+<span class="sd">    PETSc vectors) which is compatible with ``L`` is created.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: A linear form.</span>
+<span class="sd">        L: Linear form or a list of linear forms.</span>
+<span class="sd">        kind: PETSc vector type (``VecType``) to create.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A PETSc vector with a layout that is compatible with ``L``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">dofmap</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span></div>
-
-
-
-<div class="viewcode-block" id="create_vector_block">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_vector_block">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_vector_block</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector (blocked) that is compatible with a list of linear forms.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory management</span>
-<span class="sd">        and the Python garbage collector, it is recommended that the method ``PETSc.Vec.destroy()``</span>
-<span class="sd">        is called on the returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI communicator.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        L: List of linear forms.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc vector with a layout that is compatible with ``L``.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-    <span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
-
-
-
-<div class="viewcode-block" id="create_vector_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_vector_nest">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc nested vector (``VecNest``) that is compatible</span>
-<span class="sd">    with a list of linear forms.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        L: List of linear forms.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc nested vector (``VecNest``) with a layout that is</span>
-<span class="sd">        compatible with ``L``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-    <span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span></div>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">dofmap</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Single form case</span>
+        <span class="k">return</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span>
+                <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
+                <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">MPI</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Vector type &#39;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&#39; not supported.&quot;</span><span class="p">)</span></div>
 
 
 
@@ -258,77 +227,35 @@
 
 <div class="viewcode-block" id="create_matrix">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_matrix">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Form</span><span class="p">,</span> <span class="n">mat_type</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix that is compatible with a bilinear form.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_matrix</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix that is compatible with the (sequence) of bilinear form(s).</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        a: A bilinear form.</span>
-<span class="sd">        mat_type: The PETSc matrix type (``MatType``).</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc matrix with a layout that is compatible with ``a``.</span>
+<span class="sd">        a: A bilinear form or a nested list of bilinear forms.</span>
+<span class="sd">        kind: The PETSc matrix type (``MatType``). If not supplied</span>
+<span class="sd">            and the bilinear form ``a`` is not a nested list, create a</span>
+<span class="sd">            standard PETSc matrix. If both ``a`` and ``kind`` are a</span>
+<span class="sd">            nested lists, create a nested PETSc matrix where each block</span>
+<span class="sd">            ``A[i][j]`` is of type ``kind[i][j]``. If ``kind`` is</span>
+<span class="sd">            ``PETSc.Mat.Type.NEST``, create a PETSc nest matrix. If</span>
+<span class="sd">            ``kind`` is not supplied and ``a`` is a nested list create a</span>
+<span class="sd">            blocked matrix.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">mat_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">mat_type</span><span class="p">)</span></div>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>  <span class="c1"># Single form</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># ``a``` is a nested list</span>
+        <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
 
-
-
-<div class="viewcode-block" id="create_matrix_block">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_matrix_block">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_matrix_block</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix that is compatible with a rectangular array of bilinear forms.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        a: Rectangular array of bilinear forms.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc matrix with a blocked layout that is compatible with</span>
-<span class="sd">        ``a``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_a</span><span class="p">)</span></div>
-
-
-
-<div class="viewcode-block" id="create_matrix_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_matrix_nest">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_matrix_nest</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix (``MatNest``) that is compatible with an array of bilinear forms.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        a: Rectangular array of bilinear forms.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A PETSc matrix (``MatNest``) that is compatible with ``a``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>  <span class="c1"># Create nest matrix with default types</span>
+            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>  <span class="c1"># Single &#39;kind&#39; type</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>  <span class="c1"># Array of &#39;kind&#39; types</span></div>
 
 
 
@@ -344,12 +271,6 @@
 <span class="sd">    Note:</span>
 <span class="sd">        The returned vector is not finalised, i.e. ghost values are not</span>
 <span class="sd">        accumulated on the owning processes.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory management</span>
-<span class="sd">        and the Python garbage collector, it is recommended that the method ``PETSc.Vec.destroy()``</span>
-<span class="sd">        is called on the returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI communicator.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        L: A linear form.</span>
@@ -395,14 +316,6 @@
 
 <span class="sd">    The returned vector is not finalised, i.e. ghost values are not</span>
 <span class="sd">    accumulated on the owning processes.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Vec.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">(</span>
@@ -421,7 +334,7 @@
 
 <span class="nd">@assemble_vector_nest</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_nest_vec</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a nested PETSc (``VecNest``) vector.</span>
 
@@ -441,9 +354,9 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_vector_block">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector_block</span><span class="p">(</span>
-    <span class="n">L</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">constants_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -454,14 +367,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector.</span>
 
 <span class="sd">    The vector is not finalised, i.e. ghost values are not accumulated.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Vec.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Vec.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">(</span>
@@ -482,9 +387,9 @@
 <span class="nd">@assemble_vector_block</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_block_vec</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">L</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">constants_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -504,6 +409,7 @@
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
     <span class="p">]</span>
+
     <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">x0_local</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
         <span class="n">x0_sub</span> <span class="o">=</span> <span class="n">x0_local</span>
@@ -516,6 +422,7 @@
         <span class="k">if</span> <span class="n">constants_L</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="k">else</span> <span class="n">constants_L</span>
     <span class="p">)</span>
+
     <span class="n">coeffs_L</span> <span class="o">=</span> <span class="p">(</span>
         <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">coeffs_L</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -575,7 +482,11 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
 
@@ -585,14 +496,6 @@
 <span class="sd">    Note:</span>
 <span class="sd">        The returned matrix is not &#39;assembled&#39;, i.e. ghost contributions</span>
 <span class="sd">        have not been communicated.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        a: Bilinear form to assembled into a matrix.</span>
@@ -606,7 +509,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Matrix representing the bilinear form.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="n">assemble_matrix_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span></div>
 
@@ -616,7 +519,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_mat</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
     <span class="n">a</span><span class="p">:</span> <span class="n">Form</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -642,27 +545,19 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix_nest">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_nest</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">mat_types</span><span class="o">=</span><span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">kind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a nested matrix and assemble bilinear forms into the matrix.</span>
 
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
-
 <span class="sd">    Args:</span>
 <span class="sd">        a: Rectangular (list-of-lists) array for bilinear forms.</span>
 <span class="sd">        bcs: Dirichlet boundary conditions.</span>
-<span class="sd">        mat_types: PETSc matrix type for each matrix block.</span>
+<span class="sd">        kind: PETSc matrix type for each matrix block.</span>
 <span class="sd">        diagonal: Value to set on the matrix diagonal for Dirichlet</span>
 <span class="sd">            boundary condition constrained degrees-of-freedom belonging</span>
 <span class="sd">            to the same trial and test space.</span>
@@ -674,7 +569,7 @@
 <span class="sd">        forms.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">mat_types</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
     <span class="n">_assemble_matrix_nest_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span></div>
 
@@ -683,8 +578,8 @@
 <span class="nd">@assemble_matrix_nest</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_matrix_nest_mat</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -696,7 +591,7 @@
 <span class="sd">            initialized for the bilinear forms.</span>
 <span class="sd">        a: Rectangular (list-of-lists) array for bilinear forms.</span>
 <span class="sd">        bcs: Dirichlet boundary conditions.</span>
-<span class="sd">        mat_types: PETSc matrix type for each matrix block.</span>
+<span class="sd">        kind: PETSc matrix type for each matrix block.</span>
 <span class="sd">        diagonal: Value to set on the matrix diagonal for Dirichlet</span>
 <span class="sd">            boundary condition constrained degrees-of-freedom belonging</span>
 <span class="sd">            to the same trial and test space.</span>
@@ -743,24 +638,15 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix_block">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_block</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear forms into a blocked matrix.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear forms into a blocked matrix.&quot;&quot;&quot;</span>
     <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_a</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_assemble_matrix_block_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
 
 
@@ -768,8 +654,8 @@
 <span class="nd">@assemble_matrix_block</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_matrix_block_mat</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -788,6 +674,7 @@
         <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span>
         <span class="k">else</span> <span class="n">constants</span>
     <span class="p">)</span>
+
     <span class="n">coeffs</span> <span class="o">=</span> <span class="p">(</span>
         <span class="p">[</span>
             <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>
@@ -848,9 +735,9 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.apply_lifting">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_lifting</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -868,8 +755,8 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.apply_lifting_nest">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_lifting_nest</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
     <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -909,7 +796,10 @@
 <div class="viewcode-block" id="set_bc">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_bc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">set_bc</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span> <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the function :func:`dolfinx.fem.set_bc` to a PETSc Vector.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -923,7 +813,7 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_bc_nest">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">set_bc_nest</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
     <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -950,7 +840,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">a</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
         <span class="n">L</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">_Function</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">petsc_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1106,7 +996,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">F</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
         <span class="n">J</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1228,14 +1118,6 @@
 <span class="sd">    H1 space uses an identity map and the H(curl) space uses a covariant</span>
 <span class="sd">    Piola map.</span>
 
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
-
 <span class="sd">    Args:</span>
 <span class="sd">        space0: H1 space to interpolate the gradient from.</span>
 <span class="sd">        space1: H(curl) space to interpolate into.</span>
@@ -1251,14 +1133,6 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.interpolation_matrix">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">interpolation_matrix</span><span class="p">(</span><span class="n">space0</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">,</span> <span class="n">space1</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble an interpolation operator matrix.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        Due to subtle issues in the interaction between petsc4py memory</span>
-<span class="sd">        management and the Python garbage collector, it is recommended</span>
-<span class="sd">        that the method ``PETSc.Mat.destroy()`` is called on the</span>
-<span class="sd">        returned object once the object is no longer required. Note that</span>
-<span class="sd">        ``PETSc.Mat.destroy()`` is collective over the object&#39;s MPI</span>
-<span class="sd">        communicator.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        space0: Space to interpolate from.</span>
