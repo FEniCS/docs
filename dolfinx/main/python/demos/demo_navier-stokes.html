@@ -292,7 +292,7 @@ Finally, let the upwind flux of <span class="math notranslate nohighlight">\(\ph
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_real_type</span><span class="p">,</span> <span class="n">fem</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">mesh</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemble_matrix_block</span><span class="p">,</span> <span class="n">assemble_vector_block</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_lifting</span><span class="p">,</span> <span class="n">assemble_matrix</span><span class="p">,</span> <span class="n">assemble_vector</span><span class="p">,</span> <span class="n">set_bc</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
@@ -307,7 +307,7 @@ Finally, let the upwind flux of <span class="math notranslate nohighlight">\(\ph
     <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
 
-<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+<span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Demo should only be executed with DOLFINx real mode&quot;</span><span class="p">)</span>
     <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
@@ -425,13 +425,20 @@ convective term:</p>
 <span class="n">bc_u</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">dirichletbc</span><span class="p">(</span><span class="n">u_D</span><span class="p">,</span> <span class="n">boundary_vel_dofs</span><span class="p">)</span>
 <span class="n">bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc_u</span><span class="p">]</span>
 
+
 <span class="c1"># Assemble Stokes problem</span>
-<span class="n">A</span> <span class="o">=</span> <span class="n">assemble_matrix_block</span><span class="p">(</span><span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
 <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
-<span class="n">b</span> <span class="o">=</span> <span class="n">assemble_vector_block</span><span class="p">(</span><span class="n">L_blocked</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>
+
+<span class="n">b</span> <span class="o">=</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="n">L_blocked</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">MPI</span><span class="p">)</span>
+<span class="n">bcs1</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">bcs_by_block</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">a_blocked</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+<span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs1</span><span class="p">)</span>
+<span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+<span class="n">bcs0</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">bcs_by_block</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">L_blocked</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+<span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">)</span>
 
 <span class="c1"># Create and configure solver</span>
-<span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+<span class="n">ksp</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>
 <span class="n">ksp</span><span class="o">.</span><span class="n">setOperators</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
 <span class="n">ksp</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;preonly&quot;</span><span class="p">)</span>
 <span class="n">ksp</span><span class="o">.</span><span class="n">getPC</span><span class="p">()</span><span class="o">.</span><span class="n">setType</span><span class="p">(</span><span class="s2">&quot;lu&quot;</span><span class="p">)</span>
@@ -506,16 +513,20 @@ convective term:</p>
 <span class="n">L_blocked</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">form</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">extract_blocks</span><span class="p">(</span><span class="n">L</span><span class="p">))</span>
 
 <span class="c1"># Time stepping loop</span>
+<span class="n">bcs1</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">bcs_by_block</span><span class="p">(</span><span class="n">fem</span><span class="o">.</span><span class="n">extract_function_spaces</span><span class="p">(</span><span class="n">a_blocked</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_time_steps</span><span class="p">):</span>
     <span class="n">t</span> <span class="o">+=</span> <span class="n">delta_t</span><span class="o">.</span><span class="n">value</span>
 
     <span class="n">A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-    <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix_block</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
     <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
 
     <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_loc</span><span class="p">:</span>
         <span class="n">b_loc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_vector_block</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L_blocked</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L_blocked</span><span class="p">)</span>
+    <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a_blocked</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs1</span><span class="p">)</span>
+    <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+    <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">)</span>
 
     <span class="c1"># Compute solution</span>
     <span class="n">ksp</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>

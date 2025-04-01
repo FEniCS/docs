@@ -88,8 +88,8 @@
 <span class="sd">    Due to subtle issues in the interaction between petsc4py memory</span>
 <span class="sd">    management and the Python garbage collector, it is recommended that</span>
 <span class="sd">    the PETSc method ``destroy()`` is called on returned PETSc objects</span>
-<span class="sd">    once the object is no longer required. Note that ``destroy()`` may</span>
-<span class="sd">    be collective over the object&#39;s MPI communicator.</span>
+<span class="sd">    once the object is no longer required. Note that ``destroy()`` is</span>
+<span class="sd">    collective over the object&#39;s MPI communicator.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="c1"># mypy: ignore-errors</span>
@@ -98,6 +98,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
 
@@ -109,16 +110,17 @@
 <span class="k">assert</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc4py</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">typing</span> <span class="k">as</span> <span class="n">npt</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.cpp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_cpp</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.la.petsc</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack_coefficients</span> <span class="k">as</span> <span class="n">_pack_coefficients</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack_constants</span> <span class="k">as</span> <span class="n">_pack_constants</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_curl</span> <span class="k">as</span> <span class="n">_discrete_curl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_gradient</span> <span class="k">as</span> <span class="n">_discrete_gradient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">interpolation_matrix</span> <span class="k">as</span> <span class="n">_interpolation_matrix</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemble</span> <span class="k">as</span> <span class="n">_assemble</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntegralType</span><span class="p">,</span> <span class="n">pack_coefficients</span><span class="p">,</span> <span class="n">pack_constants</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">_assemble_vector_array</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_lifting</span> <span class="k">as</span> <span class="n">_apply_lifting</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">DirichletBC</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">bcs_by_block</span> <span class="k">as</span> <span class="n">_bcs_by_block</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
@@ -131,13 +133,8 @@
     <span class="s2">&quot;LinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;NonlinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;apply_lifting&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;apply_lifting_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_matrix&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;assemble_matrix_block&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;assemble_matrix_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;assemble_vector_block&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;assemble_vector_nest&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assign&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_matrix&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span>
@@ -145,11 +142,12 @@
     <span class="s2">&quot;discrete_gradient&quot;</span><span class="p">,</span>
     <span class="s2">&quot;interpolation_matrix&quot;</span><span class="p">,</span>
     <span class="s2">&quot;set_bc&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;set_bc_nest&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_function_spaces</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;From a rectangular array of bilinear forms, extract the function</span>
 <span class="sd">    spaces for each block row and block column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -189,18 +187,48 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector that is compatible with a linear form(s).</span>
 
-<span class="sd">    If the vector type is not specified (``kind=None``) or is</span>
-<span class="sd">    ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is compatible</span>
-<span class="sd">    with ``L`` is created. If the vector type is</span>
-<span class="sd">    ``PETSc.Vec.Type.NEST``, a PETSc nested vector (a nest of ghosted</span>
-<span class="sd">    PETSc vectors) which is compatible with ``L`` is created.</span>
+<span class="sd">    Three cases are supported:</span>
+
+<span class="sd">    1. For a single linear form ``L``, if ``kind`` is ``None`` or is</span>
+<span class="sd">       ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is</span>
+<span class="sd">       compatible with ``L`` is created.</span>
+
+<span class="sd">    2. If ``L`` is a sequence of linear forms and ``kind`` is ``None``</span>
+<span class="sd">       or is ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is</span>
+<span class="sd">       compatible with ``L`` is created. The created vector ``b`` is</span>
+<span class="sd">       initialized such that on each MPI process ``b = [b_0, b_1, ...,</span>
+<span class="sd">       b_n, b_0g, b_1g, ..., b_ng]``, where ``b_i`` are the entries</span>
+<span class="sd">       associated with the &#39;owned&#39; degrees-of-freedom for ``L[i]`` and</span>
+<span class="sd">       ``b_ig`` are the &#39;unowned&#39; (ghost) entries for ``L[i]``.</span>
+
+<span class="sd">       For this case, the returned vector has an attribute ``_blocks``</span>
+<span class="sd">       that holds the local offsets into ``b`` for the (i) owned and</span>
+<span class="sd">       (ii) ghost entries for each ``L[i]``. It can be accessed by</span>
+<span class="sd">       ``b.getAttr(&quot;_blocks&quot;)``. The offsets can be used to get views</span>
+<span class="sd">       into ``b`` for blocks, e.g.::</span>
+
+<span class="sd">           &gt;&gt;&gt; offsets0, offsets1, = b.getAttr(&quot;_blocks&quot;)</span>
+<span class="sd">           &gt;&gt;&gt; offsets0</span>
+<span class="sd">           (0, 12, 28)</span>
+<span class="sd">           &gt;&gt;&gt; offsets1</span>
+<span class="sd">           (28, 32, 35)</span>
+<span class="sd">           &gt;&gt;&gt; b0_owned = b.array[offsets0[0]:offsets0[1]]</span>
+<span class="sd">           &gt;&gt;&gt; b0_ghost = b.array[offsets1[0]:offsets1[1]]</span>
+<span class="sd">           &gt;&gt;&gt; b1_owned = b.array[offsets0[1]:offsets0[2]]</span>
+<span class="sd">           &gt;&gt;&gt; b1_ghost = b.array[offsets1[1]:offsets1[2]]</span>
+
+
+<span class="sd">    3. If ``L`` is a sequence of linear forms and ``kind`` is</span>
+<span class="sd">       ``PETSc.Vec.Type.NEST``, a PETSc nested vector (a &#39;nest&#39; of</span>
+<span class="sd">       ghosted PETSc vectors) which is compatible with ``L`` is created.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: Linear form or a list of linear forms.</span>
+<span class="sd">        L: Linear form or a sequence of linear forms.</span>
 <span class="sd">        kind: PETSc vector type (``VecType``) to create.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A PETSc vector with a layout that is compatible with ``L``.</span>
+<span class="sd">        A PETSc vector with a layout that is compatible with ``L``. The</span>
+<span class="sd">        vector is not initialised to zero.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">dofmap</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Single form case</span>
@@ -215,10 +243,25 @@
         <span class="p">]</span>
         <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">MPI</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">MPI</span><span class="p">:</span>
+            <span class="n">off_owned</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">off_ghost</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span>
+                    <span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_ghosts</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="n">off_owned</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">setAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">off_owned</span><span class="p">,</span> <span class="n">off_ghost</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">b</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Vector type &#39;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&#39; not supported.&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Vector type must be specified for blocked/nested assembly.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Vector type &#39;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&#39; not supported.&quot;</span>
+                <span class="s2">&quot;Did you mean &#39;nest&#39; or &#39;mpi&#39;?&quot;</span>
+            <span class="p">)</span></div>
 
 
 
@@ -233,22 +276,38 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix that is compatible with the (sequence) of bilinear form(s).</span>
 
+<span class="sd">    Three cases are supported:</span>
+
+<span class="sd">    1. For a single bilinear form, it creates a compatible PETSc matrix</span>
+<span class="sd">       of type ``kind``.</span>
+<span class="sd">    2. For a rectangular array of bilinear forms, if ``kind`` is</span>
+<span class="sd">       ``PETSc.Mat.Type.NEST`` or ``kind`` is an array of PETSc ``Mat``</span>
+<span class="sd">       types (with the same shape as ``a``), a matrix of type</span>
+<span class="sd">       ``PETSc.Mat.Type.NEST`` is created. The matrix is compatible</span>
+<span class="sd">       with the forms ``a``.</span>
+<span class="sd">    3. For a rectangular array of bilinear forms, it create a single</span>
+<span class="sd">       (non-nested) matrix of type ``kind`` that is compatible with the</span>
+<span class="sd">       array of for forms ``a``. If ``kind`` is ``None``, then the</span>
+<span class="sd">       matrix is the default type.</span>
+
+<span class="sd">       In this case, the matrix is arranged::</span>
+
+<span class="sd">             A = [a_00 ... a_0n]</span>
+<span class="sd">                 [a_10 ... a_1n]</span>
+<span class="sd">                 [     ...     ]</span>
+<span class="sd">                 [a_m0 ..  a_mn]</span>
+
 <span class="sd">    Args:</span>
 <span class="sd">        a: A bilinear form or a nested list of bilinear forms.</span>
-<span class="sd">        kind: The PETSc matrix type (``MatType``). If not supplied</span>
-<span class="sd">            and the bilinear form ``a`` is not a nested list, create a</span>
-<span class="sd">            standard PETSc matrix. If both ``a`` and ``kind`` are a</span>
-<span class="sd">            nested lists, create a nested PETSc matrix where each block</span>
-<span class="sd">            ``A[i][j]`` is of type ``kind[i][j]``. If ``kind`` is</span>
-<span class="sd">            ``PETSc.Mat.Type.NEST``, create a PETSc nest matrix. If</span>
-<span class="sd">            ``kind`` is not supplied and ``a`` is a nested list create a</span>
-<span class="sd">            blocked matrix.</span>
+<span class="sd">        kind: The PETSc matrix type (``MatType``).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A PETSc matrix.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>  <span class="c1"># Single form</span>
-    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># ``a``` is a nested list</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># ``a`` is a nested list</span>
         <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-
         <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>  <span class="c1"># Create nest matrix with default types</span>
             <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -265,31 +324,98 @@
 <div class="viewcode-block" id="assemble_vector">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_vector">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form into a new PETSc vector.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector</span><span class="p">(</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
+            <span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
+        <span class="p">]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form(s) into a new PETSc vector.</span>
+
+<span class="sd">    Three cases are supported:</span>
+
+<span class="sd">    1. If ``L`` is a single linear form, the form is assembled into a</span>
+<span class="sd">       ghosted PETSc vector.</span>
+
+<span class="sd">    2. If ``L`` is a sequence of linear forms and ``kind`` is ``None``</span>
+<span class="sd">       or is ``PETSc.Vec.Type.MPI``, the forms are assembled into a</span>
+<span class="sd">       vector ``b`` such that ``b = [b_0, b_1, ..., b_n, b_0g, b_1g,</span>
+<span class="sd">       ..., b_ng]`` where ``b_i`` are the entries associated with the</span>
+<span class="sd">       &#39;owned&#39; degrees-of-freedom for ``L[i]`` and ``b_ig`` are the</span>
+<span class="sd">       &#39;unowned&#39; (ghost) entries for ``L[i]``.</span>
+
+<span class="sd">       For this case, the returned vector has an attribute ``_blocks``</span>
+<span class="sd">       that holds the local offsets into ``b`` for the (i) owned and</span>
+<span class="sd">       (ii) ghost entries for each ``L[i]``. See :func:`create_vector`</span>
+<span class="sd">       for a description of the offset blocks.</span>
+
+<span class="sd">    3. If ``L`` is a sequence of linear forms and ``kind`` is</span>
+<span class="sd">       ``PETSc.Vec.Type.NEST``, the forms are assembled into a PETSc</span>
+<span class="sd">       nested vector ``b`` (a nest of ghosted PETSc vectors) such that</span>
+<span class="sd">       ``L[i]`` is assembled into into the ith nested matrix in ``b``.</span>
+
+<span class="sd">    Constant and coefficient data that appear in the forms(s) can be</span>
+<span class="sd">    packed outside of this function to avoid re-packing by this</span>
+<span class="sd">    function. The functions :func:`dolfinx.fem.pack_constants` and</span>
+<span class="sd">    :func:`dolfinx.fem.pack_coefficients` can be used to &#39;pre-pack&#39; the</span>
+<span class="sd">    data.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The returned vector is not finalised, i.e. ghost values are not</span>
 <span class="sd">        accumulated on the owning processes.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: A linear form.</span>
+<span class="sd">        L: A linear form or list of linear forms.</span>
+<span class="sd">        constants: Constants appearing in the form. For a single form,</span>
+<span class="sd">            ``constants.ndim==1``. For multiple forms, the constants for</span>
+<span class="sd">            form ``L[i]`` are  ``constants[i]``.</span>
+<span class="sd">        coeffs: Coefficients appearing in the form. For a single form,</span>
+<span class="sd">            ``coeffs.shape=(num_cells, n)``. For multiple forms, the</span>
+<span class="sd">            coefficients for form ``L[i]`` are  ``coeffs[i]``.</span>
+<span class="sd">        kind: PETSc vector type.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        An assembled vector.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span>
-        <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span>
-    <span class="p">)</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">_assemble</span><span class="o">.</span><span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">b</span></div>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">b_sub</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+                <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+            <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
 
 
 
 <span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_vec</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">Form</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form into an existing PETSc vector.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_vec</span><span class="p">(</span>
+    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
+            <span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
+        <span class="p">]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form(s) into a PETSc vector.</span>
+
+<span class="sd">    The vector ``b`` must have been initialized with a size/layout that</span>
+<span class="sd">    is consistent with the linear form. The vector ``b`` is normally</span>
+<span class="sd">    created by :func:`create_vector`.</span>
+
+<span class="sd">    Constants and coefficients that appear in the forms(s) can be passed</span>
+<span class="sd">    to avoid re-computation of constants and coefficients. The functions</span>
+<span class="sd">    :func:`dolfinx.fem.assemble.pack_constants` and</span>
+<span class="sd">    :func:`dolfinx.fem.assemble.pack_coefficients` can be called.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The vector is not zeroed before assembly and it is not</span>
@@ -298,181 +424,39 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        b: Vector to assemble the contribution of the linear form into.</span>
-<span class="sd">        L: A linear form to assemble into ``b``.</span>
+<span class="sd">        L: A linear form or list of linear forms to assemble into ``b``.</span>
+<span class="sd">        constants: Constants appearing in the form. For a single form,</span>
+<span class="sd">            ``constants.ndim==1``. For multiple forms, the constants for</span>
+<span class="sd">            form ``L[i]`` are  ``constants[i]``.</span>
+<span class="sd">        coeffs: Coefficients appearing in the form. For a single form,</span>
+<span class="sd">            ``coeffs.shape=(num_cells, n)``. For multiple forms, the</span>
+<span class="sd">            coefficients for form ``L[i]`` are  ``coeffs[i]``.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        An assembled vector.</span>
+<span class="sd">        Assembled vector.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">_assemble</span><span class="o">.</span><span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">b</span>
-
-
-<div class="viewcode-block" id="assemble_vector_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_vector_nest">[docs]</a>
-<span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector_nest</span><span class="p">(</span><span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a new nested PETSc (``VecNest``) vector.</span>
-
-<span class="sd">    The returned vector is not finalised, i.e. ghost values are not</span>
-<span class="sd">    accumulated on the owning processes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-    <span class="p">]</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
-        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-            <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_assemble_vector_nest_vec</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
-
-
-
-<span class="nd">@assemble_vector_nest</span><span class="o">.</span><span class="n">register</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_nest_vec</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a nested PETSc (``VecNest``) vector.</span>
-
-<span class="sd">    The vector is not zeroed before assembly and it is not finalised,</span>
-<span class="sd">    i.e. ghost values are not accumulated on the owning processes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
-    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-            <span class="n">_assemble</span><span class="o">.</span><span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">b</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_vector_block">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_vector_block">[docs]</a>
-<span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector_block</span><span class="p">(</span>
-    <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">constants_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector.</span>
-
-<span class="sd">    The vector is not finalised, i.e. ghost values are not accumulated.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-    <span class="p">]</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
-        <span class="n">b_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_assemble_vector_block_vec</span><span class="p">(</span>
-        <span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">constants_L</span><span class="p">,</span> <span class="n">coeffs_L</span><span class="p">,</span> <span class="n">constants_a</span><span class="p">,</span> <span class="n">coeffs_a</span>
-    <span class="p">)</span></div>
-
-
-
-<span class="nd">@assemble_vector_block</span><span class="o">.</span><span class="n">register</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_vector_block_vec</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">L</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs_L</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">constants_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear forms into a monolithic vector.</span>
-
-<span class="sd">    The vector is not zeroed and it is not finalised, i.e. ghost values</span>
-<span class="sd">    are not accumulated.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
-            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-    <span class="p">]</span>
-
-    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">x0_local</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-        <span class="n">x0_sub</span> <span class="o">=</span> <span class="n">x0_local</span>
+    <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+        <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">):</span>
+            <span class="k">with</span> <span class="n">b_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+                <span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+        <span class="n">offset0</span><span class="p">,</span> <span class="n">offset1</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_l</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">L_</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">,</span> <span class="n">off0</span><span class="p">,</span> <span class="n">off1</span><span class="p">,</span> <span class="n">offg0</span><span class="p">,</span> <span class="n">offg1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">offset0</span><span class="p">,</span> <span class="n">offset0</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">offset1</span><span class="p">,</span> <span class="n">offset1</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="p">):</span>
+                <span class="n">bx_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">off1</span> <span class="o">-</span> <span class="n">off0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">offg1</span> <span class="o">-</span> <span class="n">offg0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
+                <span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">bx_</span><span class="p">,</span> <span class="n">L_</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+                <span class="n">size</span> <span class="o">=</span> <span class="n">off1</span> <span class="o">-</span> <span class="n">off0</span>
+                <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">bx_</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+                <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">bx_</span><span class="p">[</span><span class="n">size</span><span class="p">:]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">x0_local</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">x0_sub</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-
-    <span class="n">constants_L</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span><span class="n">form</span> <span class="ow">and</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">constants_L</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">constants_L</span>
-    <span class="p">)</span>
-
-    <span class="n">coeffs_L</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">coeffs_L</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">coeffs_L</span>
-    <span class="p">)</span>
-
-    <span class="n">constants_a</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[</span>
-                <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span>
-            <span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">constants_a</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">constants_a</span>
-    <span class="p">)</span>
-
-    <span class="n">coeffs_a</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">coeffs_a</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">coeffs_a</span>
-    <span class="p">)</span>
-
-    <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span>
-    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">_bcs</span><span class="p">)</span>
-    <span class="n">b_local</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">get_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">const_L</span><span class="p">,</span> <span class="n">coeff_L</span><span class="p">,</span> <span class="n">const_a</span><span class="p">,</span> <span class="n">coeff_a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
-        <span class="n">b_local</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">constants_L</span><span class="p">,</span> <span class="n">coeffs_L</span><span class="p">,</span> <span class="n">constants_a</span><span class="p">,</span> <span class="n">coeffs_a</span>
-    <span class="p">):</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">assemble_vector</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">L_sub</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">const_L</span><span class="p">,</span> <span class="n">coeff_L</span><span class="p">)</span>
-        <span class="n">_a_sub</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">a_sub</span><span class="p">]</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">_a_sub</span><span class="p">,</span> <span class="n">const_a</span><span class="p">,</span> <span class="n">coeff_a</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">,</span> <span class="n">x0_local</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">scatter_local_vectors</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">b_local</span><span class="p">,</span> <span class="n">maps</span><span class="p">)</span>
-    <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
-
-    <span class="n">bcs0</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">_bcs</span><span class="p">)</span>
-    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">b_array</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getArray</span><span class="p">(</span><span class="n">readonly</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">submap</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">_x0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">,</span> <span class="n">x0_sub</span><span class="p">):</span>
-        <span class="n">size</span> <span class="o">=</span> <span class="n">submap</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">submap</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-            <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b_array</span><span class="p">[</span><span class="n">offset</span> <span class="p">:</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">size</span><span class="p">],</span> <span class="n">_x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-        <span class="n">offset</span> <span class="o">+=</span> <span class="n">size</span>
+        <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_local</span><span class="p">:</span>
+            <span class="n">_assemble_vector_array</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">b</span>
 
@@ -482,25 +466,61 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
+            <span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
+        <span class="p">]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">kind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble a bilinear form into a matrix.</span>
 
-<span class="sd">    The returned matrix is not finalised, i.e. ghost values are not</span>
-<span class="sd">    accumulated.</span>
+<span class="sd">    The following cases are supported:</span>
+
+<span class="sd">    1. If ``a`` is a single bilinear form, the form is assembled</span>
+<span class="sd">       into PETSc matrix of type ``kind``.</span>
+<span class="sd">    #. If ``a`` is a :math:`m \times n` rectangular array of forms the</span>
+<span class="sd">       forms in ``a`` are assembled into a matrix such that::</span>
+
+<span class="sd">            A = [A_00 ... A_0n]</span>
+<span class="sd">                [A_10 ... A_1n]</span>
+<span class="sd">                [     ...     ]</span>
+<span class="sd">                [A_m0 ..  A_mn]</span>
+
+<span class="sd">       where ``A_ij`` is the matrix associated with the form</span>
+<span class="sd">       ``a[i][j]``.</span>
+
+<span class="sd">       a. If ``kind`` is a ``PETSc.Mat.Type`` (other than</span>
+<span class="sd">          ``PETSc.Mat.Type.NEST``) or is ``None``, the matrix type is</span>
+<span class="sd">          ``kind`` of the default type (if ``kind`` is ``None``).</span>
+<span class="sd">       #. If ``kind`` is ``PETSc.Mat.Type.NEST`` or a rectangular array</span>
+<span class="sd">          of PETSc matrix types, the returned matrix has type</span>
+<span class="sd">          ``PETSc.Mat.Type.NEST``.</span>
+
+<span class="sd">    Rows/columns that are constrained by a Dirichlet boundary condition</span>
+<span class="sd">    are zeroed, with the diagonal to set to ``diag``.</span>
+
+<span class="sd">    Constant and coefficient data that appear in the forms(s) can be</span>
+<span class="sd">    packed outside of this function to avoid re-packing by this</span>
+<span class="sd">    function. The functions :func:`dolfinx.fem.pack_constants` and</span>
+<span class="sd">    :func:`dolfinx.fem.pack_coefficients` can be used to &#39;pre-pack&#39; the</span>
+<span class="sd">    data.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The returned matrix is not &#39;assembled&#39;, i.e. ghost contributions</span>
-<span class="sd">        have not been communicated.</span>
+<span class="sd">        are not accumulated.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        a: Bilinear form to assembled into a matrix.</span>
+<span class="sd">        a: Bilinear form(s) to assembled into a matrix.</span>
 <span class="sd">        bc: Dirichlet boundary conditions applied to the system.</span>
-<span class="sd">        diagonal: Value to set on the matrix diagonal for Dirichlet</span>
+<span class="sd">        diag: Value to set on the matrix diagonal for Dirichlet</span>
 <span class="sd">            boundary condition constrained degrees-of-freedom belonging</span>
 <span class="sd">            to the same trial and test space.</span>
 <span class="sd">        constants: Constants appearing the in the form.</span>
@@ -509,199 +529,43 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Matrix representing the bilinear form.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">assemble_matrix_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
+    <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span></div>
 
 
 
-<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_mat</span><span class="p">(</span>
-    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
-
-<span class="sd">    The returned matrix is not finalised, i.e. ghost values are not</span>
-<span class="sd">    accumulated.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">constants</span> <span class="o">=</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
-    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
-    <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">_bcs</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemblyBegin</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemblyEnd</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">A</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_matrix_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix_nest">[docs]</a>
-<span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_nest</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">kind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a nested matrix and assemble bilinear forms into the matrix.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        a: Rectangular (list-of-lists) array for bilinear forms.</span>
-<span class="sd">        bcs: Dirichlet boundary conditions.</span>
-<span class="sd">        kind: PETSc matrix type for each matrix block.</span>
-<span class="sd">        diagonal: Value to set on the matrix diagonal for Dirichlet</span>
-<span class="sd">            boundary condition constrained degrees-of-freedom belonging</span>
-<span class="sd">            to the same trial and test space.</span>
-<span class="sd">        constants: Constants appearing the in the form.</span>
-<span class="sd">        coeffs: Coefficients appearing the in the form.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        PETSc matrix (``MatNest``) representing the block of bilinear</span>
-<span class="sd">        forms.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-    <span class="n">_assemble_matrix_nest_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">A</span></div>
-
-
-
-<span class="nd">@assemble_matrix_nest</span><span class="o">.</span><span class="n">register</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_matrix_nest_mat</span><span class="p">(</span>
-    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear forms into a nested matrix</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        A: PETSc ``MatNest`` matrix. Matrix must have been correctly</span>
-<span class="sd">            initialized for the bilinear forms.</span>
-<span class="sd">        a: Rectangular (list-of-lists) array for bilinear forms.</span>
-<span class="sd">        bcs: Dirichlet boundary conditions.</span>
-<span class="sd">        kind: PETSc matrix type for each matrix block.</span>
-<span class="sd">        diagonal: Value to set on the matrix diagonal for Dirichlet</span>
-<span class="sd">            boundary condition constrained degrees-of-freedom belonging</span>
-<span class="sd">            to the same trial and test space.</span>
-<span class="sd">        constants: Constants appearing the in the form.</span>
-<span class="sd">        coeffs: Coefficients appearing the in the form.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        PETSc matrix (``MatNest``) representing the block of bilinear</span>
-<span class="sd">        forms.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">constants</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[[</span><span class="n">form</span> <span class="ow">and</span> <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">constants</span>
-    <span class="p">)</span>
-    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">coeffs</span>
-    <span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)):</span>
-        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="p">(</span><span class="n">a_block</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)):</span>
-            <span class="k">if</span> <span class="n">a_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getNestSubMatrix</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
-                <span class="n">assemble_matrix_mat</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-                    <span class="n">row_forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">row_form</span> <span class="k">for</span> <span class="n">row_form</span> <span class="ow">in</span> <span class="n">a_row</span> <span class="k">if</span> <span class="n">row_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
-                    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_forms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
-                    <span class="k">if</span> <span class="n">row_forms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">bc</span><span class="o">.</span><span class="n">function_space</span><span class="p">):</span>
-                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39;&quot;</span>
-                            <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
-                            <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
-                        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">A</span>
-
-
-<span class="c1"># FIXME: Revise this interface</span>
-<div class="viewcode-block" id="assemble_matrix_block">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix_block">[docs]</a>
-<span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_block</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear forms into a blocked matrix.&quot;&quot;&quot;</span>
-    <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_block</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_assemble_matrix_block_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
-
-
-
-<span class="nd">@assemble_matrix_block</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_assemble_matrix_block_mat</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
     <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
-    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+    <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear forms into a blocked matrix.&quot;&quot;&quot;</span>
-    <span class="n">constants</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[</span>
-                <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span>
-            <span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">constants</span>
-    <span class="p">)</span>
-
-    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">coeffs</span>
-    <span class="p">)</span>
-
+    <span class="n">consts</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_constants</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_coefficients</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
     <span class="n">V</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-    <span class="n">is_rows</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">(</span>
+    <span class="n">is0</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">(</span>
         <span class="p">[(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
     <span class="p">)</span>
-    <span class="n">is_cols</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">(</span>
+    <span class="n">is1</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_index_sets</span><span class="p">(</span>
         <span class="p">[(</span><span class="n">Vsub</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">Vsub</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">Vsub</span> <span class="ow">in</span> <span class="n">V</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
     <span class="p">)</span>
 
-    <span class="c1"># Assemble form</span>
-    <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span>
+    <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
                 <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span>
-                    <span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">constants</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="kc">True</span>
+                    <span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">consts</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="kc">True</span>
                 <span class="p">)</span>
-                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
                     <span class="n">row_forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">row_form</span> <span class="k">for</span> <span class="n">row_form</span> <span class="ow">in</span> <span class="n">a_row</span> <span class="k">if</span> <span class="n">row_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
@@ -720,10 +584,66 @@
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
                 <span class="k">if</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
-                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is_rows</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is_cols</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+                    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">)</span>
+                <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">A</span>
+
+
+<span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_mat</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
+            <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]],</span>
+        <span class="p">]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
+
+<span class="sd">    The matrix vector ``A`` must have been initialized with a</span>
+<span class="sd">    size/layout that is consistent with the bilinear form(s). The PETSc</span>
+<span class="sd">    matrix ``A`` is normally created by :func:`create_matrix`.</span>
+
+<span class="sd">    The returned matrix is not finalised, i.e. ghost values are not</span>
+<span class="sd">    accumulated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_constants</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_coefficients</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="p">(</span><span class="n">a_block</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">a_row</span><span class="p">,</span> <span class="n">const_row</span><span class="p">,</span> <span class="n">coeff_row</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">a_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getNestSubMatrix</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+                    <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
+                        <span class="n">row_forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">row_form</span> <span class="k">for</span> <span class="n">row_form</span> <span class="ow">in</span> <span class="n">a_row</span> <span class="k">if</span> <span class="n">row_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+                        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_forms</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                        <span class="k">if</span> <span class="n">row_forms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">bc</span><span class="o">.</span><span class="n">function_space</span><span class="p">):</span>
+                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39;&quot;</span>
+                                <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
+                                <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
+                            <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>  <span class="c1"># Blocked</span>
+        <span class="n">_assemble_matrix_block_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># Non-blocked</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+        <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">_bcs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">A</span><span class="o">.</span><span class="n">assemblyBegin</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
+            <span class="n">A</span><span class="o">.</span><span class="n">assemblyEnd</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">A</span>
 
@@ -735,60 +655,123 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.apply_lifting">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_lifting</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]]],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
+        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the function :func:`dolfinx.fem.apply_lifting` to a PETSc Vector.&quot;&quot;&quot;</span>
-    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
-        <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
-        <span class="n">x0_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">array_r</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
-        <span class="n">b_local</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
-        <span class="n">_assemble</span><span class="o">.</span><span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0_r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Modify the right-hand side PETSc vector ``b`` to account for</span>
+<span class="sd">    constraints (Dirichlet boundary conitions).</span>
 
+<span class="sd">    See :func:`dolfinx.fem.apply_lifting` for a mathematical</span>
+<span class="sd">    descriptions of the lifting operation.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        b: Vector to modify in-place.</span>
+<span class="sd">        a: List of bilinear forms. If ``b`` is not blocked or a nest,</span>
+<span class="sd">            then ``a`` is a 1D sequence. If ``b`` is blocked or a nest,</span>
+<span class="sd">            then ``a`` is  a 2D array of forms, with the ``a[i]`` forms</span>
+<span class="sd">            used to modify the block/nest vector ``b[i]``.</span>
+<span class="sd">        bcs: Boundary conditions used to modify ``b`` (see</span>
+<span class="sd">            :func:`dolfinx.fem.apply_lifting`). Two cases are supported:</span>
 
-<div class="viewcode-block" id="apply_lifting_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.apply_lifting_nest">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">apply_lifting_nest</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the function :func:`dolfinx.fem.apply_lifting` to each sub-vector</span>
-<span class="sd">    in a nested PETSc Vector.&quot;&quot;&quot;</span>
-    <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="n">bcs1</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
-    <span class="n">constants</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[</span>
-                <span class="n">_pack_constants</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span>
-            <span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">constants</span>
-    <span class="p">)</span>
-    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="p">[</span>
-            <span class="p">[{}</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_pack_coefficients</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span>
-        <span class="k">else</span> <span class="n">coeffs</span>
-    <span class="p">)</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">):</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+<span class="sd">            1. The boundary conditions ``bcs`` is a &#39;list-of-lists&#39; such</span>
+<span class="sd">               that ``bcs[j]`` are the Dirichlet boundary conditionns</span>
+<span class="sd">               associated with the forms in the ``j`` th colulmn of</span>
+<span class="sd">               ``a``. Helper functions exist to create a list-of-lists</span>
+<span class="sd">               of `DirichletBC` from the 2D ``a`` and a flat list of</span>
+<span class="sd">               `DirichletBC` objects ``bcs``::</span>
+
+<span class="sd">                   bcs1 = fem.bcs_by_block(fem.extract_function_spaces(a, 1), bcs)</span>
+
+<span class="sd">            2. ``bcs`` is a sequence of :class:`dolfinx.fem.DirichletBC`</span>
+<span class="sd">               objects. The function deduces which `DiricletBC` objects</span>
+<span class="sd">               apply to each column of ``a`` by matching the</span>
+<span class="sd">               :class:`dolfinx.fem.FunctionSpace`.</span>
+
+<span class="sd">        x0: Vector to use in modify ``b`` (see</span>
+<span class="sd">            :func:`dolfinx.fem.apply_lifting`). Treated as zero if</span>
+<span class="sd">            ``None``.</span>
+<span class="sd">        alpha: Scalar parameter in lifting (see</span>
+<span class="sd">            :func:`dolfinx.fem.apply_lifting`).</span>
+<span class="sd">        constants: Packed constant data appearing in the forms ``a``. If</span>
+<span class="sd">            ``None``, the constant data will be packed by the function.</span>
+<span class="sd">        coeffs: Packed coefficient data appearing in the forms ``a``. If</span>
+<span class="sd">            ``None``, the coefficient data will be packed by the</span>
+<span class="sd">            function.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Ghost contributions are not accumulated (not sent to owner).</span>
+<span class="sd">        Caller is responsible for reverse-scatter to update the ghosts.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Boundary condition values are *not* set in ``b`` by this</span>
+<span class="sd">        function. Use :func:`dolfinx.fem.DirichletBC.set` to set values</span>
+<span class="sd">        in ``b``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">bcs</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_constants</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_coefficients</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+        <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">(),</span> <span class="n">a</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">):</span>
+            <span class="n">const_</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x</span><span class="p">,</span> <span class="n">const</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">const_</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">offset0</span><span class="p">,</span> <span class="n">offset1</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span>
+                    <span class="n">xl</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x0</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
+                    <span class="n">xlocal</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">xl</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">],</span> <span class="n">xl</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]))</span>
+                        <span class="k">for</span> <span class="p">(</span><span class="n">off0</span><span class="p">,</span> <span class="n">off1</span><span class="p">,</span> <span class="n">offg0</span><span class="p">,</span> <span class="n">offg1</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                            <span class="n">offset0</span><span class="p">,</span> <span class="n">offset0</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">offset1</span><span class="p">,</span> <span class="n">offset1</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                        <span class="p">)</span>
+                    <span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">xlocal</span> <span class="o">=</span> <span class="kc">None</span>
+
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">bcs</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="n">offset0</span><span class="p">,</span> <span class="n">offset1</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">b_l</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">a_</span><span class="p">,</span> <span class="n">off0</span><span class="p">,</span> <span class="n">off1</span><span class="p">,</span> <span class="n">offg0</span><span class="p">,</span> <span class="n">offg1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                        <span class="n">a</span><span class="p">,</span> <span class="n">offset0</span><span class="p">,</span> <span class="n">offset0</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">offset1</span><span class="p">,</span> <span class="n">offset1</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="p">):</span>
+                        <span class="n">const</span> <span class="o">=</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a_</span><span class="p">)</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
+                        <span class="n">coeff</span> <span class="o">=</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a_</span><span class="p">)</span> <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">coeffs</span>
+                        <span class="n">const_</span> <span class="o">=</span> <span class="p">[</span>
+                            <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span> <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">val</span>
+                            <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">const</span>
+                        <span class="p">]</span>
+                        <span class="n">bx_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">b_l</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">],</span> <span class="n">b_l</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]))</span>
+                        <span class="n">_apply_lifting</span><span class="p">(</span><span class="n">bx_</span><span class="p">,</span> <span class="n">a_</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">xlocal</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span> <span class="n">const_</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
+                        <span class="n">size</span> <span class="o">=</span> <span class="n">off1</span> <span class="o">-</span> <span class="n">off0</span>
+                        <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">]</span> <span class="o">=</span> <span class="n">bx_</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+                        <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]</span> <span class="o">=</span> <span class="n">bx_</span><span class="p">[</span><span class="n">size</span><span class="p">:]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">bcs</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">([</span><span class="n">a</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span>
+                <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
+                <span class="n">x0_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">array_r</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
+                <span class="n">b_local</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
+                <span class="n">_apply_lifting</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0_r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">b</span></div>
 
 
@@ -797,33 +780,50 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_bc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">set_bc</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]],</span>
     <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the function :func:`dolfinx.fem.set_bc` to a PETSc Vector.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">array_r</span>
-    <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-        <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span></div>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Set constraint (Dirchlet boundary condition) values in an vector.</span>
 
+<span class="sd">    For degrees-of-freedoms that are constrained by a Dirichlet boundary</span>
+<span class="sd">    condition, this function sets that degrees-of-freedom to ``alpha *</span>
+<span class="sd">    (g - x0)``, where ``g`` is the boundary condition value.</span>
 
+<span class="sd">    Only owned entries in ``b`` (owned by the MPI process) are modified</span>
+<span class="sd">    by this function.</span>
 
-<div class="viewcode-block" id="set_bc_nest">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_bc_nest">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">set_bc_nest</span><span class="p">(</span>
-    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the function :func:`dolfinx.fem.set_bc` to each sub-vector</span>
-<span class="sd">    of a nested PETSc Vector.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        b: Vector to modify by setting  boundary condition values.</span>
+<span class="sd">        bcs: Boundary conditions to apply. If ``b`` is nested or</span>
+<span class="sd">            blocked, ``bcs`` is a 2D array and ``bcs[i]`` are the</span>
+<span class="sd">            boundary conditions to apply to block/nest ``i``. Otherwise</span>
+<span class="sd">            ``bcs`` should be a sequence of ``DirichletBC``\s. For</span>
+<span class="sd">            block/nest problems, :func:`dolfinx.fem.bcs_by_block` can be</span>
+<span class="sd">            used to prepare the 2D array of ``DirichletBC`` objects.</span>
+<span class="sd">        x0: Vector used in the value that constrained entries are set</span>
+<span class="sd">            to. If ``None``, ``x0`` is treated as zero.</span>
+<span class="sd">        alpha: Scalar value used in the value that constrained entries</span>
+<span class="sd">            are set to.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="n">x0</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_b</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">_b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
-        <span class="n">set_bc</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span></div>
+    <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
+        <span class="n">_b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+        <span class="n">x0</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">_b</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">_b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
+            <span class="n">set_bc</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="n">x_sub</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">offset0</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span>
+            <span class="n">b_array</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getArray</span><span class="p">(</span><span class="n">readonly</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">x_array</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">getArray</span><span class="p">(</span><span class="n">readonly</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">off0</span><span class="p">,</span> <span class="n">off1</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bcs</span><span class="p">,</span> <span class="n">offset0</span><span class="p">,</span> <span class="n">offset0</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+                <span class="n">x0_sub</span> <span class="o">=</span> <span class="n">x_array</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
+                    <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b_array</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">],</span> <span class="n">x0_sub</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">array_r</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
+                <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span></div>
 
 
 
@@ -840,7 +840,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">a</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
         <span class="n">L</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">_Function</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">petsc_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -849,12 +849,13 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize solver for a linear variational problem.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            a: A bilinear UFL form, the left hand side of the</span>
+<span class="sd">            a: Bilinear UFL form, the left hand side of the</span>
 <span class="sd">                variational problem.</span>
-<span class="sd">            L: A linear UFL form, the right hand side of the variational</span>
+<span class="sd">            L: Linear UFL form, the right hand side of the variational</span>
 <span class="sd">                problem.</span>
-<span class="sd">            bcs: A list of Dirichlet boundary conditions.</span>
-<span class="sd">            u: The solution function. It will be created if not provided.</span>
+<span class="sd">            bcs: Sequecne of Dirichlet boundary conditions.</span>
+<span class="sd">            u: Solution function. It is be created if not</span>
+<span class="sd">                provided.</span>
 <span class="sd">            petsc_options: Options that are passed to the linear</span>
 <span class="sd">                algebra backend PETSc. For available choices for the</span>
 <span class="sd">                &#39;petsc_options&#39; kwarg, see the `PETSc documentation</span>
@@ -935,7 +936,7 @@
 
         <span class="c1"># Assemble lhs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-        <span class="n">assemble_matrix_mat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+        <span class="n">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
 
         <span class="c1"># Assemble rhs</span>
@@ -944,10 +945,13 @@
         <span class="n">assemble_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_L</span><span class="p">)</span>
 
         <span class="c1"># Apply boundary conditions to the rhs</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">])</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">:</span>
-            <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">array_w</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">apply_lifting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">:</span>
+                <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">array_w</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
 
         <span class="c1"># Solve linear system and update ghost values in the solution</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span><span class="p">)</span>
@@ -996,7 +1000,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">F</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">J</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1004,10 +1008,10 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize solver for solving a non-linear problem using Newton&#39;s method`.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            F: The PDE residual F(u, v)</span>
-<span class="sd">            u: The unknown</span>
-<span class="sd">            bcs: List of Dirichlet boundary conditions</span>
-<span class="sd">            J: UFL representation of the Jacobian (Optional)</span>
+<span class="sd">            F: The PDE residual F(u, v).</span>
+<span class="sd">            u: The unknown.</span>
+<span class="sd">            bcs: List of Dirichlet boundary conditions.</span>
+<span class="sd">            J: UFL representation of the Jacobian (optional)</span>
 <span class="sd">            form_compiler_options: Options used in FFCx</span>
 <span class="sd">                compilation of this form. Run ``ffcx --help`` at the</span>
 <span class="sd">                command line to see all available options.</span>
@@ -1072,9 +1076,12 @@
         <span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_L</span><span class="p">)</span>
 
         <span class="c1"># Apply boundary condition</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">],</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
-        <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
-        <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">],</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+            <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="NonlinearProblem.J">
@@ -1086,7 +1093,7 @@
 <span class="sd">            x: The vector containing the latest solution</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-        <span class="n">assemble_matrix_mat</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+        <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
         <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
 </div>
 
@@ -1131,17 +1138,26 @@
 
 <div class="viewcode-block" id="interpolation_matrix">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.interpolation_matrix">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">interpolation_matrix</span><span class="p">(</span><span class="n">space0</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">,</span> <span class="n">space1</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble an interpolation operator matrix.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">interpolation_matrix</span><span class="p">(</span><span class="n">V0</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">,</span> <span class="n">V1</span><span class="p">:</span> <span class="n">_FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Assemble an interpolation operator matrix for discreye</span>
+<span class="sd">    interpolation between finite element spaces.</span>
+
+<span class="sd">    Consider is the vector of degrees-of-freedom  :math:`u_{i}`</span>
+<span class="sd">    associated with a function in :math:`V_{i}`. This function returns</span>
+<span class="sd">    the matrix :math:`\Pi` sucht that</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        u_{1} = \Pi u_{0}.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        space0: Space to interpolate from.</span>
-<span class="sd">        space1: Space to interpolate into.</span>
+<span class="sd">        V0: Space to interpolate from.</span>
+<span class="sd">        V1: Space to interpolate into.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Interpolation matrix.</span>
+<span class="sd">        The interpolation matrix :math:`\Pi`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_interpolation_matrix</span><span class="p">(</span><span class="n">space0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">space1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_interpolation_matrix</span><span class="p">(</span><span class="n">V0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">V1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
 
 
 
@@ -1151,11 +1167,11 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">assign</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign :class:`Function` degrees-of-freedom to a vector.</span>
 
-<span class="sd">    Assigns degree-of-freedom values in values of ``u``, which is possibly a</span>
-<span class="sd">    Sequence of ``Functions``s, to ``x``. When ``u`` is a Sequence of</span>
+<span class="sd">    Assigns degree-of-freedom values in ``u``, which is possibly a</span>
+<span class="sd">    sequence of ``Function``s, to ``x``. When ``u`` is a sequence of</span>
 <span class="sd">    ``Function``s, degrees-of-freedom for the ``Function``s in ``u`` are</span>
-<span class="sd">    &#39;stacked&#39; and assigned to ``x``. See :func:`assign` for documentation on</span>
-<span class="sd">    how stacked assignment is handled.</span>
+<span class="sd">    &#39;stacked&#39; and assigned to ``x``. See :func:`assign` for</span>
+<span class="sd">    documentation on how stacked assignment is handled.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        u: ``Function`` (s) to assign degree-of-freedom value from.</span>
