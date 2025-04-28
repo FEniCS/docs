@@ -9,7 +9,7 @@ var searchData=
   ['topological_5fdimension_291',['topological_dimension',['../namespacebasix_1_1cell.html#a801bcee695d91d02f45dcbd9470d2f18',1,'basix::cell']]],
   ['topology_292',['topology',['../namespacebasix_1_1cell.html#a5cae2b1e6148e0c376d6ad8ea32a2f44',1,'basix::cell']]],
   ['tp_5fdof_5fordering_293',['tp_dof_ordering',['../namespacebasix.html#a262553e872a1b76a3e9c579c636ec082',1,'basix']]],
-  ['tp_5ffactors_294',['tp_factors',['../namespacebasix.html#a4ec50148c28bf3eb477c6f28b94300a1',1,'basix']]],
+  ['tp_5ffactors_294',['tp_factors',['../namespacebasix.html#a20117356c06f76fb548ae4c7f4fbfe11',1,'basix']]],
   ['transpose_5flu_295',['transpose_lu',['../namespacebasix_1_1math.html#ae3c73e636dd4b9878420d38bbd72de16',1,'basix::math']]],
   ['tt_5fapply_296',['Tt_apply',['../classbasix_1_1FiniteElement.html#a21a9eaaf3ded82f04322943597ad66ba',1,'basix::FiniteElement']]],
   ['tt_5fapply_5fright_297',['Tt_apply_right',['../classbasix_1_1FiniteElement.html#a6e5b436743ca55e7f3f65dbc7f038ca1',1,'basix::FiniteElement']]],
