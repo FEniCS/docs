@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.comparison_checker &#8212; Unified Form Language (UFL) 2025.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=65f7d7c4"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.comparison_checker</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm to check for &#39;comparison&#39; nodes in a form when the user is in &#39;complex mode&#39;.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algebra</span><span class="w"> </span><span class="kn">import</span> <span class="n">Real</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">RealValue</span><span class="p">,</span> <span class="n">Zero</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeometricQuantity</span>
+
+
+<div class="viewcode-block" id="CheckComparisons">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CheckComparisons</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raises an error if comparisons are done with complex quantities.</span>
+
+<span class="sd">    If quantities are real, adds the Real operator to the compared quantities.</span>
+
+<span class="sd">    Terminals that are real are RealValue, Zero, and Argument</span>
+<span class="sd">    (even in complex FEM, the basis functions are real)</span>
+<span class="sd">    Operations that produce reals are Abs, Real, Imag.</span>
+<span class="sd">    Terminals default to complex, and Sqrt, Pow (defensively) imply complex.</span>
+<span class="sd">    Otherwise, operators preserve the type of their operands.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="CheckComparisons.expr">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.expr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Defaults expressions to complex unless they only act on real quantities.</span>
+
+<span class="sd">        Overridden for specific operators. Rebuilds objects if necessary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">op</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">types</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="s2">&quot;complex&quot;</span> <span class="k">if</span> <span class="s2">&quot;complex&quot;</span> <span class="ow">in</span> <span class="n">types</span> <span class="k">else</span> <span class="s2">&quot;real&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="s2">&quot;complex&quot;</span>
+
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.compare">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.compare">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compare.&quot;&quot;&quot;</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">op</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="s2">&quot;complex&quot;</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ComplexComparisonError</span><span class="p">(</span><span class="s2">&quot;Ordering undefined for complex values.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">Real</span><span class="p">,</span> <span class="n">ops</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bool&quot;</span>
+            <span class="k">return</span> <span class="n">o</span></div>
+
+
+    <span class="n">gt</span> <span class="o">=</span> <span class="n">compare</span>
+    <span class="n">lt</span> <span class="o">=</span> <span class="n">compare</span>
+    <span class="n">ge</span> <span class="o">=</span> <span class="n">compare</span>
+    <span class="n">le</span> <span class="o">=</span> <span class="n">compare</span>
+    <span class="n">sign</span> <span class="o">=</span> <span class="n">compare</span>
+
+<div class="viewcode-block" id="CheckComparisons.max_value">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.max_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">max_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to max_value.&quot;&quot;&quot;</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">op</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="s2">&quot;complex&quot;</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ComplexComparisonError</span><span class="p">(</span><span class="s2">&quot;You can&#39;t compare complex numbers with max.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">Real</span><span class="p">,</span> <span class="n">ops</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bool&quot;</span>
+            <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.min_value">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.min_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">min_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to min_value.&quot;&quot;&quot;</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">op</span><span class="p">]</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="s2">&quot;complex&quot;</span> <span class="ow">in</span> <span class="n">types</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ComplexComparisonError</span><span class="p">(</span><span class="s2">&quot;You can&#39;t compare complex numbers with min.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">o</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="nb">map</span><span class="p">(</span><span class="n">Real</span><span class="p">,</span> <span class="n">ops</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;bool&quot;</span>
+            <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.real">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.real">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">real</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to real.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;real&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.imag">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.imag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">imag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to imag.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;real&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.sqrt">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.sqrt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to sqrt.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;complex&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.power">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.power">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">exponent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to power.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">exponent</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Attempt to diagnose circumstances in which the result must be real.</span>
+            <span class="n">exponent</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exponent</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">base</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;real&quot;</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">exponent</span><span class="p">)</span> <span class="o">==</span> <span class="n">exponent</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;real&quot;</span>
+                <span class="k">return</span> <span class="n">o</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;complex&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.abs">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.abs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">abs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to abs.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;real&quot;</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.terminal">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.terminal">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">term</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to terminal.&quot;&quot;&quot;</span>
+        <span class="c1"># default terminals to complex, except the ones we *know* are real</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="p">(</span><span class="n">RealValue</span><span class="p">,</span> <span class="n">Zero</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">GeometricQuantity</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">term</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;real&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">term</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;complex&quot;</span>
+        <span class="k">return</span> <span class="n">term</span></div>
+
+
+<div class="viewcode-block" id="CheckComparisons.indexed">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.CheckComparisons.indexed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to indexed.&quot;&quot;&quot;</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">multiindex</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodetype</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">o</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="do_comparison_check">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.do_comparison_check">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">do_comparison_check</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raises an error if invalid comparison nodes exist.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">CheckComparisons</span><span class="p">(),</span> <span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="ComplexComparisonError">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.comparison_checker.ComplexComparisonError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ComplexComparisonError</span><span class="p">(</span><span class="ne">BaseException</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex compariseon exception.&quot;&quot;&quot;</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

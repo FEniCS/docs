@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.measure &#8212; Unified Form Language (UFL) 2025.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=65f7d7c4"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.measure</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The Measure class.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg 2008-2016</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016.</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_true_ufl_scalar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">as_ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractDomain</span><span class="p">,</span> <span class="n">as_domain</span><span class="p">,</span> <span class="n">extract_domains</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.protocols</span><span class="w"> </span><span class="kn">import</span> <span class="n">id_or_none</span>
+
+<span class="c1"># Export list for ufl.classes</span>
+<span class="n">__all_classes__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Measure&quot;</span><span class="p">,</span> <span class="s2">&quot;MeasureSum&quot;</span><span class="p">,</span> <span class="s2">&quot;MeasureProduct&quot;</span><span class="p">]</span>
+
+
+<span class="c1"># TODO: Design a class IntegralType(name, shortname, codim, num_cells, ...)?</span>
+<span class="c1"># TODO: Improve descriptions below:</span>
+
+<span class="c1"># Enumeration of valid domain types</span>
+<span class="n">_integral_types</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># === Integration over full topological dimension:</span>
+    <span class="p">(</span><span class="s2">&quot;cell&quot;</span><span class="p">,</span> <span class="s2">&quot;dx&quot;</span><span class="p">),</span>  <span class="c1"># Over cells of a mesh</span>
+    <span class="c1"># === Integration over topological dimension - 1:</span>
+    <span class="p">(</span><span class="s2">&quot;exterior_facet&quot;</span><span class="p">,</span> <span class="s2">&quot;ds&quot;</span><span class="p">),</span>  <span class="c1"># Over one-sided exterior facets of a mesh</span>
+    <span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">,</span> <span class="s2">&quot;dS&quot;</span><span class="p">),</span>  <span class="c1"># Over two-sided facets between pairs of adjacent cells of a mesh</span>
+    <span class="c1"># === Integration over topological dimension - 2:</span>
+    <span class="p">(</span><span class="s2">&quot;ridge&quot;</span><span class="p">,</span> <span class="s2">&quot;dr&quot;</span><span class="p">),</span>  <span class="c1"># Over ridges of a mesh</span>
+    <span class="c1"># === Integration over topological dimension 0</span>
+    <span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,</span> <span class="s2">&quot;dP&quot;</span><span class="p">),</span>  <span class="c1"># Over vertices of a mesh</span>
+    <span class="c1"># === Integration over custom domains</span>
+    <span class="p">(</span><span class="s2">&quot;custom&quot;</span><span class="p">,</span> <span class="s2">&quot;dc&quot;</span><span class="p">),</span>  <span class="c1"># Over custom user-defined domains (run-time quadrature points)</span>
+    <span class="p">(</span><span class="s2">&quot;cutcell&quot;</span><span class="p">,</span> <span class="s2">&quot;dC&quot;</span><span class="p">),</span>  <span class="c1"># Over a cell with some part cut away (run-time quadrature points)</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;interface&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dI&quot;</span><span class="p">,</span>
+    <span class="p">),</span>  <span class="c1"># Over a facet fragment overlapping with two or more cells (run-time quadrature points)</span>
+    <span class="p">(</span>
+        <span class="s2">&quot;overlap&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dO&quot;</span><span class="p">,</span>
+    <span class="p">),</span>  <span class="c1"># Over a cell fragment overlapping with two or more cells (run-time quadrature points)</span>
+    <span class="c1"># === Firedrake specifics:</span>
+    <span class="p">(</span><span class="s2">&quot;exterior_facet_bottom&quot;</span><span class="p">,</span> <span class="s2">&quot;ds_b&quot;</span><span class="p">),</span>  <span class="c1"># Over bottom facets on extruded mesh</span>
+    <span class="p">(</span><span class="s2">&quot;exterior_facet_top&quot;</span><span class="p">,</span> <span class="s2">&quot;ds_t&quot;</span><span class="p">),</span>  <span class="c1"># Over top facets on extruded mesh</span>
+    <span class="p">(</span><span class="s2">&quot;exterior_facet_vert&quot;</span><span class="p">,</span> <span class="s2">&quot;ds_v&quot;</span><span class="p">),</span>  <span class="c1"># Over side facets of an extruded mesh</span>
+    <span class="p">(</span><span class="s2">&quot;interior_facet_horiz&quot;</span><span class="p">,</span> <span class="s2">&quot;dS_h&quot;</span><span class="p">),</span>  <span class="c1"># Over horizontal facets of an extruded mesh</span>
+    <span class="p">(</span><span class="s2">&quot;interior_facet_vert&quot;</span><span class="p">,</span> <span class="s2">&quot;dS_v&quot;</span><span class="p">),</span>  <span class="c1"># Over vertical facets of an extruded mesh</span>
+<span class="p">]</span>
+
+<span class="n">integral_type_to_measure_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">s</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_integral_types</span><span class="p">}</span>
+<span class="n">measure_name_to_integral_type</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_integral_types</span><span class="p">}</span>
+
+<span class="n">custom_integral_types</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;custom&quot;</span><span class="p">,</span> <span class="s2">&quot;cutcell&quot;</span><span class="p">,</span> <span class="s2">&quot;interface&quot;</span><span class="p">,</span> <span class="s2">&quot;overlap&quot;</span><span class="p">)</span>
+<span class="n">point_integral_types</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;vertex&quot;</span><span class="p">,)</span>  <span class="c1"># &quot;point&quot;)</span>
+<span class="n">facet_integral_types</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;exterior_facet&quot;</span><span class="p">,</span> <span class="s2">&quot;interior_facet&quot;</span><span class="p">)</span>
+<span class="n">ridge_integral_types</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;ridge&quot;</span><span class="p">,)</span>
+
+
+<div class="viewcode-block" id="register_integral_type">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.register_integral_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_integral_type</span><span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">measure_name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register an integral type.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">integral_type_to_measure_name</span><span class="p">,</span> <span class="n">measure_name_to_integral_type</span>
+    <span class="k">if</span> <span class="n">measure_name</span> <span class="o">!=</span> <span class="n">integral_type_to_measure_name</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">measure_name</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Integral type already added with different measure name!&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">integral_type</span> <span class="o">!=</span> <span class="n">measure_name_to_integral_type</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">measure_name</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Measure name already used for another domain type!&quot;</span><span class="p">)</span>
+    <span class="n">integral_type_to_measure_name</span><span class="p">[</span><span class="n">integral_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">measure_name</span>
+    <span class="n">measure_name_to_integral_type</span><span class="p">[</span><span class="n">measure_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">integral_type</span></div>
+
+
+
+<div class="viewcode-block" id="as_integral_type">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.as_integral_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">as_integral_type</span><span class="p">(</span><span class="n">integral_type</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map short name to long name and require a valid one.&quot;&quot;&quot;</span>
+    <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral_type</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+    <span class="n">integral_type</span> <span class="o">=</span> <span class="n">measure_name_to_integral_type</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">integral_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">integral_type_to_measure_name</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid integral_type: </span><span class="si">{</span><span class="n">integral_type</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">integral_type</span></div>
+
+
+
+<div class="viewcode-block" id="integral_types">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.integral_types">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">integral_types</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a tuple of all domain type strings.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">integral_type_to_measure_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span></div>
+
+
+
+<div class="viewcode-block" id="measure_names">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.measure_names">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">measure_names</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a tuple of all measure name strings.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">measure_name_to_integral_type</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span></div>
+
+
+
+<div class="viewcode-block" id="Measure">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Measure</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of an integration measure.</span>
+
+<span class="sd">    The Measure object holds information about integration properties</span>
+<span class="sd">    to be transferred to a Form on multiplication with a scalar</span>
+<span class="sd">    expression.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_domain&quot;</span><span class="p">,</span> <span class="s2">&quot;_integral_type&quot;</span><span class="p">,</span> <span class="s2">&quot;_metadata&quot;</span><span class="p">,</span> <span class="s2">&quot;_subdomain_data&quot;</span><span class="p">,</span> <span class="s2">&quot;_subdomain_id&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">integral_type</span><span class="p">,</span>  <span class="c1"># &quot;dx&quot; etc</span>
+        <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomain_id</span><span class="o">=</span><span class="s2">&quot;everywhere&quot;</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomain_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            integral_type: one of &quot;cell&quot;, etc, or short form &quot;dx&quot;, etc</span>
+<span class="sd">            domain: an AbstractDomain object (most often a Mesh)</span>
+<span class="sd">            subdomain_id: either string &quot;everywhere&quot;, a single subdomain id int, or tuple of ints</span>
+<span class="sd">            metadata: dict, with additional compiler-specific parameters</span>
+<span class="sd">                affecting how code is generated, including parameters</span>
+<span class="sd">                for optimization or debugging of generated code</span>
+<span class="sd">            subdomain_data: object representing data to interpret subdomain_id with</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Map short name to long name and require a valid one</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span> <span class="o">=</span> <span class="n">as_integral_type</span><span class="p">(</span><span class="n">integral_type</span><span class="p">)</span>
+
+        <span class="c1"># Check that we either have a proper AbstractDomain or none</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">as_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">AbstractDomain</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid domain.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="o">=</span> <span class="n">domain</span>
+
+        <span class="c1"># Store subdomain data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomain_data</span>
+        <span class="c1"># FIXME: Cannot require this (yet) because we currently have</span>
+        <span class="c1"># no way to implement ufl_id for dolfin SubDomain</span>
+        <span class="c1"># if not (self._subdomain_data is None or hasattr(self._subdomain_data, &quot;ufl_id&quot;)):</span>
+        <span class="c1">#     raise ValueError(&quot;Invalid domain data, missing ufl_id() implementation.&quot;)</span>
+
+        <span class="c1"># Accept &quot;everywhere&quot;, single subdomain, or multiple</span>
+        <span class="c1"># subdomains</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">did</span> <span class="ow">in</span> <span class="n">subdomain_id</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">did</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid subdomain_id </span><span class="si">{</span><span class="n">did</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">subdomain_id</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;everywhere&quot;</span><span class="p">,)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid subdomain_id </span><span class="si">{</span><span class="n">subdomain_id</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="o">=</span> <span class="n">subdomain_id</span>
+
+        <span class="c1"># Validate compiler options are None or dict</span>
+        <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid metadata.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="Measure.integral_type">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.integral_type">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">integral_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the domain type.</span>
+
+<span class="sd">        Valid domain types are &quot;cell&quot;, &quot;exterior_facet&quot;, &quot;interior_facet&quot;, etc.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span></div>
+
+
+<div class="viewcode-block" id="Measure.ufl_domain">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.ufl_domain">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the domain associated with this measure.</span>
+
+<span class="sd">        This may be None or a Domain object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span></div>
+
+
+<div class="viewcode-block" id="Measure.subdomain_id">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.subdomain_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the domain id of this measure (integer).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span></div>
+
+
+<div class="viewcode-block" id="Measure.metadata">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.metadata">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the integral metadata.</span>
+
+<span class="sd">        This data is not interpreted by UFL.</span>
+<span class="sd">        It is passed to the form compiler which can ignore it or use</span>
+<span class="sd">        it to compile each integral of a form in a different way.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span></div>
+
+
+<div class="viewcode-block" id="Measure.reconstruct">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.reconstruct">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reconstruct</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">integral_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct a new Measure object with some properties replaced with new values.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            &lt;dm = Measure instance&gt;</span>
+<span class="sd">            b = dm.reconstruct(subdomain_id=2)</span>
+<span class="sd">            c = dm.reconstruct(metadata={ &quot;quadrature_degree&quot;: 3 })</span>
+
+<span class="sd">        Used by the call operator, so this is equivalent:</span>
+<span class="sd">            b = dm(2)</span>
+<span class="sd">            c = dm(0, { &quot;quadrature_degree&quot;: 3 })</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">subdomain_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomain_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">subdomain_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomain_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Measure</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">(),</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+            <span class="n">subdomain_id</span><span class="o">=</span><span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">subdomain_data</span><span class="o">=</span><span class="n">subdomain_data</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Measure.subdomain_data">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.Measure.subdomain_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the integral subdomain_data.</span>
+
+<span class="sd">        This data is not interpreted by</span>
+<span class="sd">        UFL.  Its intension is to give a context in which the domain</span>
+<span class="sd">        id is interpreted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span></div>
+
+
+    <span class="c1"># Note: Must keep the order of the first two arguments here</span>
+    <span class="c1"># (subdomain_id, metadata) for backwards compatibility, because</span>
+    <span class="c1"># some tutorials write e.g. dx(0, {...}) to set metadata.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subdomain_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomain_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">degree</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">scheme</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reconfigure measure with new domain specification or metadata.&quot;&quot;&quot;</span>
+        <span class="c1"># Let syntax dx() mean integral over everywhere</span>
+        <span class="n">all_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">scheme</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">all_args</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">subdomain_id</span><span class="o">=</span><span class="s2">&quot;everywhere&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Let syntax dx(domain) or dx(domain, metadata) mean integral</span>
+        <span class="c1"># over entire domain.  To do this we need to hijack the first</span>
+        <span class="c1"># argument:</span>
+        <span class="k">if</span> <span class="n">subdomain_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="n">AbstractDomain</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="s2">&quot;ufl_domain&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Ambiguous: setting domain both as keyword argument and first argument.&quot;</span>
+                <span class="p">)</span>
+            <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">domain</span> <span class="o">=</span> <span class="s2">&quot;everywhere&quot;</span><span class="p">,</span> <span class="n">subdomain_id</span>
+
+        <span class="c1"># If degree or scheme is set, inject into metadata. This is a</span>
+        <span class="c1"># quick fix to enable the dx(..., degree=3) notation.</span>
+        <span class="c1"># TODO: Make degree and scheme properties of integrals instead of adding to metadata.</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">degree</span><span class="p">,</span> <span class="n">scheme</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">metadata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">degree</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;quadrature_degree&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">degree</span>
+            <span class="k">if</span> <span class="n">scheme</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;quadrature_rule&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scheme</span>
+
+        <span class="c1"># If we get any keywords, use them to reconstruct Measure.</span>
+        <span class="c1"># Note that if only one argument is given, it is the</span>
+        <span class="c1"># subdomain_id, e.g. dx(3) == dx(subdomain_id=3)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span>
+            <span class="n">subdomain_id</span><span class="o">=</span><span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">subdomain_data</span><span class="o">=</span><span class="n">subdomain_data</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">integral_type_to_measure_name</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="p">]</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;subdomain_id=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;domain=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">:</span>  <span class="c1"># Stored as {} if None</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;metadata=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">,))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;subdomain_data=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">,))</span>
+
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a repr string for this Measure.&quot;&quot;&quot;</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;subdomain_id=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;domain=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">:</span>  <span class="c1"># Stored as {} if None</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;metadata=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;subdomain_data=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">))</span>
+
+        <span class="n">r</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">r</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a hash value for this Measure.&quot;&quot;&quot;</span>
+        <span class="n">metadata_hashdata</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">())))</span>
+        <span class="n">hashdata</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span><span class="p">,</span>
+            <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_domain</span><span class="p">),</span>
+            <span class="n">metadata_hashdata</span><span class="p">,</span>
+            <span class="n">id_or_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="n">hashdata</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if two Measures are equal.&quot;&quot;&quot;</span>
+        <span class="n">sorted_metadata</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+        <span class="n">sorted_other_metadata</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="nb">id</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Measure</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integral_type</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_integral_type</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_subdomain_id</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_domain</span>
+            <span class="ow">and</span> <span class="n">id_or_none</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">)</span> <span class="o">==</span> <span class="n">id_or_none</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">sorted_metadata</span> <span class="o">==</span> <span class="n">sorted_other_metadata</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add two measures (self+other).</span>
+
+<span class="sd">        Creates an intermediate object used for the notation</span>
+<span class="sd">          expr * (dx(1) + dx(2)) := expr * dx(1) + expr * dx(2)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Measure</span><span class="p">):</span>
+            <span class="c1"># Let dx(1) + dx(2) equal dx((1,2))</span>
+            <span class="k">return</span> <span class="n">MeasureSum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Can only add Measures</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply two measures (self*other).</span>
+
+<span class="sd">        Creates an intermediate object used for the notation</span>
+<span class="sd">          expr * (dm1 * dm2) := expr * dm1 * dm2</span>
+
+<span class="sd">        This is work in progress and not functional.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Measure</span><span class="p">):</span>
+            <span class="c1"># Tensor product measure support</span>
+            <span class="k">return</span> <span class="n">MeasureProduct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Can&#39;t multiply Measure from the right with non-Measure type</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integrand</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply a scalar expression with measure to construct a form with a single integral.</span>
+
+<span class="sd">        This is to implement the notation</span>
+<span class="sd">            form = integrand * self</span>
+
+<span class="sd">        Integration properties are taken from this Measure object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Avoid circular imports</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.integral</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span>
+
+        <span class="c1"># Allow python literals: 1*dx and 1.0*dx</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="n">integrand</span> <span class="o">=</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">integrand</span><span class="p">)</span>
+
+        <span class="c1"># Let other types implement multiplication with Measure if</span>
+        <span class="c1"># they want to (to support the dolfin-adjoint TimeMeasure)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+        <span class="c1"># Allow only scalar integrands</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">integrand</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Can only integrate scalar expressions. The integrand is a &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;tensor expression with value shape </span><span class="si">{</span><span class="n">integrand</span><span class="o">.</span><span class="n">ufl_shape</span><span class="si">}</span><span class="s2"> and &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;free indices with labels </span><span class="si">{</span><span class="n">integrand</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># If we have a tuple of domain ids build the integrals one by</span>
+        <span class="c1"># one and construct as a Form in one go.</span>
+        <span class="n">subdomain_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Form</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">chain</span><span class="p">(</span>
+                        <span class="o">*</span><span class="p">(</span>
+                            <span class="p">(</span><span class="n">integrand</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">subdomain_id</span><span class="o">=</span><span class="n">d</span><span class="p">))</span><span class="o">.</span><span class="n">integrals</span><span class="p">()</span>
+                            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">subdomain_id</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Check that we have an integer subdomain or a string</span>
+        <span class="c1"># (&quot;everywhere&quot; or &quot;otherwise&quot;, any more?)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="p">(</span>
+                <span class="nb">str</span><span class="p">,</span>
+                <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting integer or string domain id.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># If we don&#39;t have an integration domain, try to find one in</span>
+        <span class="c1"># integrand</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">domains</span> <span class="o">=</span> <span class="n">extract_domains</span><span class="p">(</span><span class="n">integrand</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">domains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="p">(</span><span class="n">domain</span><span class="p">,)</span> <span class="o">=</span> <span class="n">domains</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">domains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This integral is missing an integration domain.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Multiple domains found, making the choice of integration domain ambiguous.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Otherwise create and return a one-integral form</span>
+        <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
+            <span class="n">integrand</span><span class="o">=</span><span class="n">integrand</span><span class="p">,</span>
+            <span class="n">integral_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">(),</span>
+            <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+            <span class="n">subdomain_id</span><span class="o">=</span><span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">(),</span>
+            <span class="n">subdomain_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">([</span><span class="n">integral</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="MeasureSum">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeasureSum">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MeasureSum</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a sum of measures.</span>
+
+<span class="sd">    This is a notational intermediate object to translate the notation</span>
+<span class="sd">        f*(ds(1)+ds(3))</span>
+<span class="sd">    into</span>
+<span class="sd">        f*ds(1) + f*ds(3)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_measures&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">measures</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_measures</span> <span class="o">=</span> <span class="n">measures</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply.&quot;&quot;&quot;</span>
+        <span class="n">integrals</span> <span class="o">=</span> <span class="p">[</span><span class="n">other</span> <span class="o">*</span> <span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measures</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Measure</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">MeasureSum</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measures</span> <span class="o">+</span> <span class="p">(</span><span class="n">other</span><span class="p">,)))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">MeasureSum</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">MeasureSum</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measures</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">_measures</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as a string.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;{</span><span class="se">\n</span><span class="s2">    &quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measures</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">}&quot;</span></div>
+
+
+
+<div class="viewcode-block" id="MeasureProduct">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeasureProduct">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MeasureProduct</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a product of measures.</span>
+
+<span class="sd">    This is a notational intermediate object to handle the notation</span>
+
+<span class="sd">        f*(dm1*dm2)</span>
+
+<span class="sd">    This is work in progress and not functional. It needs support</span>
+<span class="sd">    in other parts of ufl and the rest of the code generation chain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_measures&quot;</span><span class="p">,)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">measures</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create MeasureProduct from given list of measures.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_measures</span> <span class="o">=</span> <span class="n">measures</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measures</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting at least two measures.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flatten multiplication of product measures.</span>
+
+<span class="sd">        This is to ensure that (dm1*dm2)*dm3 is stored as a simple</span>
+<span class="sd">        list (dm1,dm2,dm3) in a single MeasureProduct.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Measure</span><span class="p">):</span>
+            <span class="n">measures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_measures</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="n">other</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">MeasureProduct</span><span class="p">(</span><span class="o">*</span><span class="n">measures</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">integrand</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Multiply.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: Implement MeasureProduct.__rmul__ to construct integral and form somehow.</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+<div class="viewcode-block" id="MeasureProduct.sub_measures">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.classes.MeasureProduct.sub_measures">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sub_measures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return submeasures.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measures</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
