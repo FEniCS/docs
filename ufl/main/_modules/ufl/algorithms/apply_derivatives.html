@@ -91,7 +91,7 @@
     <span class="n">CoordinateDerivative</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeshSequence</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.operators</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">bessel_I</span><span class="p">,</span>
     <span class="n">bessel_J</span><span class="p">,</span>
@@ -1988,6 +1988,13 @@
     <span class="c1"># Example:</span>
     <span class="c1">#    → If derivative(F(u, N(u); v), u) was taken the following line would compute `∂F/∂u`.</span>
     <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dexpression_dvar</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">dexpression_dvar</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="c1"># The arguments got lost, just keep an empty Form</span>
+        <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="n">Form</span><span class="p">([])</span>
 
     <span class="c1"># Get the recorded delayed operations</span>
     <span class="n">pending_operations</span> <span class="o">=</span> <span class="n">rules</span><span class="o">.</span><span class="n">pending_operations</span>
@@ -1995,10 +2002,10 @@
         <span class="k">return</span> <span class="n">dexpression_dvar</span>
 
     <span class="c1"># Don&#39;t take into account empty Forms</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">dexpression_dvar</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dexpression_dvar</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="p">(</span><span class="n">dexpression_dvar</span><span class="p">,)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dexpression_dvar</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dexpression_dvar</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+        <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="n">dexpression_dvar</span> <span class="o">=</span> <span class="p">[</span><span class="n">dexpression_dvar</span><span class="p">]</span>
 
     <span class="c1"># Retrieve the base form operators, var, and the argument and</span>
     <span class="c1"># coefficient_derivatives for `derivative`</span>
@@ -2012,6 +2019,10 @@
         <span class="n">dexpr_dN</span> <span class="o">=</span> <span class="n">map_integrand_dags</span><span class="p">(</span>
             <span class="n">rules</span><span class="p">,</span> <span class="n">replace_derivative_nodes</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="p">{</span><span class="n">var</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">N</span><span class="p">})</span>
         <span class="p">)</span>
+        <span class="c1"># Don&#39;t take into account empty Forms</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dexpr_dN</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dexpr_dN</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+            <span class="k">continue</span>
+
         <span class="c1"># -- Add the BaseFormOperatorDerivative node -- #</span>
         <span class="p">(</span><span class="n">var_arg</span><span class="p">,)</span> <span class="o">=</span> <span class="n">der_kwargs</span><span class="p">[</span><span class="s2">&quot;arguments&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="n">cd</span> <span class="o">=</span> <span class="n">der_kwargs</span><span class="p">[</span><span class="s2">&quot;coefficient_derivatives&quot;</span><span class="p">]</span>
@@ -2036,10 +2047,9 @@
             <span class="p">)</span>
         <span class="n">dN_dvar</span> <span class="o">=</span> <span class="n">apply_derivatives</span><span class="p">(</span><span class="n">BaseFormOperatorDerivative</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">ExprList</span><span class="p">(</span><span class="n">var_arg</span><span class="p">),</span> <span class="n">cd</span><span class="p">))</span>
         <span class="c1"># -- Sum the Action: dF/du = ∂F/∂u + \sum_{i=1,...} Action(∂F/∂Ni, dNi/du) -- #</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">dexpr_dN</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">dexpr_dN</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="c1"># In this case: Action &lt;=&gt; ufl.action since `dN_var` has 2 arguments.</span>
-            <span class="c1"># We use Action to handle the trivial case `dN_dvar` = 0.</span>
-            <span class="n">dexpression_dvar</span> <span class="o">+=</span> <span class="p">(</span><span class="n">Action</span><span class="p">(</span><span class="n">dexpr_dN</span><span class="p">,</span> <span class="n">dN_dvar</span><span class="p">),)</span>
+        <span class="c1"># In this case: Action &lt;=&gt; ufl.action since `dN_var` has 2 arguments.</span>
+        <span class="c1"># We use Action to handle the trivial case `dN_dvar` = 0.</span>
+        <span class="n">dexpression_dvar</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Action</span><span class="p">(</span><span class="n">dexpr_dN</span><span class="p">,</span> <span class="n">dN_dvar</span><span class="p">))</span>
     <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dexpression_dvar</span><span class="p">)</span></div>
 
 

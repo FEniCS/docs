@@ -47,6 +47,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.coefficient</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCoefficient</span><span class="p">,</span> <span class="n">Coefficient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interpolate</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.ufl_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ufl_type</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.differentiation</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoefficientDerivative</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">,</span> <span class="n">ZeroBaseForm</span>
@@ -120,6 +121,31 @@
                 <span class="o">*</span><span class="p">((</span><span class="n">Action</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">c</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">right</span><span class="o">.</span><span class="n">components</span><span class="p">(),</span> <span class="n">right</span><span class="o">.</span><span class="n">weights</span><span class="p">()))</span>
             <span class="p">)</span>
 
+        <span class="c1"># Check compatibility of function spaces</span>
+        <span class="n">_check_function_spaces</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+
+        <span class="c1"># Simplify Action(BaseForm, Interpolate(Expr, Coargument))</span>
+        <span class="c1"># -&gt; Interpolate(Expr, BaseForm)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">Interpolate</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="p">):</span>
+            <span class="n">v</span><span class="p">,</span> <span class="n">operand</span> <span class="o">=</span> <span class="n">right</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">right</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="n">operand</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="n">left</span><span class="p">)</span>
+
+        <span class="c1"># Simplify Action(Interpolate(Expr, Coargument), BaseForm)</span>
+        <span class="c1"># -&gt; Interpolate(Expr, BaseForm)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">Interpolate</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">right</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="p">):</span>
+            <span class="n">v</span><span class="p">,</span> <span class="n">operand</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">left</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="n">operand</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="n">right</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">Action</span><span class="p">,</span> <span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
@@ -130,9 +156,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_right</span> <span class="o">=</span> <span class="n">right</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_domains</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="c1"># Check compatibility of function spaces</span>
-        <span class="n">_check_function_spaces</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span> <span class="o">=</span> <span class="s2">&quot;Action(</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_left</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_right</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hash</span> <span class="o">=</span> <span class="kc">None</span>
