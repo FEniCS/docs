@@ -18,7 +18,7 @@
 
 #### UFL
 
-`2024.2.0`: [https://docs.fenicsproject.org/ufl/2024.2.0](https://docs.fenicsproject.org/ufl/2024.2.0)
+`2025.1.0`: [https://docs.fenicsproject.org/ufl/2025.1.0](https://docs.fenicsproject.org/ufl/2025.1.0)
 
 ## `main` (development) branches
 
@@ -161,6 +161,8 @@
 `0.1.0` Python: [https://docs.fenicsproject.org/basix/v0.1.0/](https://docs.fenicsproject.org/basix/v0.1.0/python/)
 
 #### UFL
+
+`2024.2.0`: [https://docs.fenicsproject.org/ufl/2024.2.0](https://docs.fenicsproject.org/ufl/2024.2.0)
 
 `2024.1.0`: [https://docs.fenicsproject.org/ufl/2024.1.0](https://docs.fenicsproject.org/ufl/2024.1.0)
 
