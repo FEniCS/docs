@@ -73,7 +73,7 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.fem.petsc</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2018-2025 Garth N. Wells and Jørgen S. Dokken</span>
+<span></span><span class="c1"># Copyright (C) 2018-2025 Garth N. Wells, Nathan Sime and Jørgen S. Dokken</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -109,6 +109,9 @@
 
 <span class="k">assert</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc4py</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">typing</span> <span class="k">as</span> <span class="n">npt</span>
 
@@ -123,7 +126,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_lifting</span> <span class="k">as</span> <span class="n">_apply_lifting</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">DirichletBC</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">bcs_by_block</span> <span class="k">as</span> <span class="n">_bcs_by_block</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span><span class="p">,</span> <span class="n">derivative_block</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_function_spaces</span> <span class="k">as</span> <span class="n">_extract_spaces</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">form</span> <span class="k">as</span> <span class="n">_create_form</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.function</span><span class="w"> </span><span class="kn">import</span> <span class="n">Function</span> <span class="k">as</span> <span class="n">_Function</span>
@@ -133,7 +136,9 @@
     <span class="s2">&quot;LinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;NonlinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;apply_lifting&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_jacobian&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_residual&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_vector&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assign&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_matrix&quot;</span><span class="p">,</span>
@@ -147,7 +152,7 @@
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_extract_function_spaces</span><span class="p">(</span>
     <span class="n">a</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">]]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_FunctionSpace</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;From a rectangular array of bilinear forms, extract the function</span>
 <span class="sd">    spaces for each block row and block column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -162,8 +167,8 @@
     <span class="n">Vblock</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">fn</span><span class="p">),</span> <span class="n">a</span><span class="p">)</span>
 
     <span class="c1"># Compute spaces for each row/column block</span>
-    <span class="n">rows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">))]</span>
-    <span class="n">cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]))]</span>
+    <span class="n">rows</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">))]</span>
+    <span class="n">cols</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">set</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]))]</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">Vrow</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vblock</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">V</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">Vrow</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -297,7 +302,7 @@
 <span class="sd">                 [a_m0 ..  a_mn]</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        a: A bilinear form or a nested list of bilinear forms.</span>
+<span class="sd">        a: A bilinear form or a nested sequence of bilinear forms.</span>
 <span class="sd">        kind: The PETSc matrix type (``MatType``).</span>
 
 <span class="sd">    Returns:</span>
@@ -305,7 +310,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>  <span class="c1"># Single form</span>
-    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># ``a`` is a nested list</span>
+    <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># ``a`` is a nested sequence</span>
         <span class="n">_a</span> <span class="o">=</span> <span class="p">[[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">arow</span><span class="p">]</span> <span class="k">for</span> <span class="n">arow</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>  <span class="c1"># Create nest matrix with default types</span>
             <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_matrix_nest</span><span class="p">(</span><span class="n">_a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -369,7 +374,7 @@
 <span class="sd">        accumulated on the owning processes.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: A linear form or list of linear forms.</span>
+<span class="sd">        L: A linear form or sequence of linear forms.</span>
 <span class="sd">        constants: Constants appearing in the form. For a single form,</span>
 <span class="sd">            ``constants.ndim==1``. For multiple forms, the constants for</span>
 <span class="sd">            form ``L[i]`` are  ``constants[i]``.</span>
@@ -423,7 +428,7 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        b: Vector to assemble the contribution of the linear form into.</span>
-<span class="sd">        L: A linear form or list of linear forms to assemble into ``b``.</span>
+<span class="sd">        L: A linear form or sequence of linear forms to assemble into ``b``.</span>
 <span class="sd">        constants: Constants appearing in the form. For a single form,</span>
 <span class="sd">            ``constants.ndim==1``. For multiple forms, the constants for</span>
 <span class="sd">            form ``L[i]`` are  ``constants[i]``.</span>
@@ -678,11 +683,11 @@
 <span class="sd">        bcs: Boundary conditions used to modify ``b`` (see</span>
 <span class="sd">            :func:`dolfinx.fem.apply_lifting`). Two cases are supported:</span>
 
-<span class="sd">            1. The boundary conditions ``bcs`` is a &#39;list-of-lists&#39; such</span>
+<span class="sd">            1. The boundary conditions ``bcs`` are a &#39;sequence-of-sequences&#39; such</span>
 <span class="sd">               that ``bcs[j]`` are the Dirichlet boundary conditionns</span>
 <span class="sd">               associated with the forms in the ``j`` th colulmn of</span>
-<span class="sd">               ``a``. Helper functions exist to create a list-of-lists</span>
-<span class="sd">               of `DirichletBC` from the 2D ``a`` and a flat list of</span>
+<span class="sd">               ``a``. Helper functions exist to create a sequence-of-sequences</span>
+<span class="sd">               of `DirichletBC` from the 2D ``a`` and a flat Sequence of</span>
 <span class="sd">               `DirichletBC` objects ``bcs``::</span>
 
 <span class="sd">                   bcs1 = fem.bcs_by_block(fem.extract_function_spaces(a, 1), bcs)</span>
@@ -826,6 +831,9 @@
 
 
 
+<span class="c1"># -- High-level interface for KSP ---------------------------------------</span>
+
+
 <div class="viewcode-block" id="LinearProblem">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">LinearProblem</span><span class="p">:</span>
@@ -891,7 +899,7 @@
 
         <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Extract function space from TrialFunction (which is at the</span>
-            <span class="c1"># end of the argument list as it is numbered as 1, while the</span>
+            <span class="c1"># end of the argument sequence as it is numbered as 1, while the</span>
             <span class="c1"># Test function is numbered as 0)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">_Function</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">arguments</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span>
         <span class="k">else</span><span class="p">:</span>
@@ -981,15 +989,383 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">KSP</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear solver object&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear solver object</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The KSP solver has an options prefix set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_solver</span></div>
+
+
+
+<span class="c1"># -- High-level interface for SNES ---------------------------------------</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ghostUpdate</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">insert_mode</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="p">,</span> <span class="n">scatter_mode</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function for ghost updating PETSc vectors&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+            <span class="n">x_sub</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">insert_mode</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">scatter_mode</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Error</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">insert_mode</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">scatter_mode</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_zero_vector</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">):</span>  <span class="c1"># type: ignore</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function for zeroing out PETSc vectors&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+            <span class="k">with</span> <span class="n">x_sub</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">x_sub_local</span><span class="p">:</span>
+                <span class="n">x_sub_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Error</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="k">with</span> <span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">()</span> <span class="k">as</span> <span class="n">x_local</span><span class="p">:</span>
+            <span class="n">x_local</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_assign_block_data</span><span class="p">(</span><span class="n">forms</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span> <span class="n">vec</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign block data to a PETSc vector.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        forms: List of forms to extract block data from.</span>
+<span class="sd">        vec: PETSc vector to assign block data to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Early exit if the vector already has block data or is a nest vector</span>
+    <span class="k">if</span> <span class="n">vec</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">vec</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;nest&quot;</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span>
+            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>
+            <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span>  <span class="c1"># type: ignore</span>
+    <span class="p">]</span>
+    <span class="n">off_owned</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">off_ghost</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span>
+            <span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_ghosts</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="n">off_owned</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">vec</span><span class="o">.</span><span class="n">setAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">off_owned</span><span class="p">,</span> <span class="n">off_ghost</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="assemble_residual">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_residual">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">assemble_residual</span><span class="p">(</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
+    <span class="n">residual</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+    <span class="n">_snes</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">F</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the residual into the vector `F`.</span>
+
+<span class="sd">    A function conforming to the interface expected by SNES.setResidual can be</span>
+<span class="sd">    created by fixing the first four arguments:</span>
+
+<span class="sd">        functools.partial(assemble_residual, u, jacobian, preconditioner, bcs)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        u: Function(s) tied to the solution vector within the residual and Jacobian.</span>
+<span class="sd">        residual: Form of the residual. It can be a sequence of forms.</span>
+<span class="sd">        jacobian: Form of the Jacobian. It can be a nested sequence of forms.</span>
+<span class="sd">        bcs: List of Dirichlet boundary conditions.</span>
+<span class="sd">        _snes: The solver instance.</span>
+<span class="sd">        x: The vector containing the point to evaluate the residual at.</span>
+<span class="sd">        F: Vector to assemble the residual into.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Update input vector before assigning</span>
+    <span class="n">_ghostUpdate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="c1"># Assign the input vector to the unknowns</span>
+    <span class="n">assign</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+    <span class="c1"># Assemble the residual</span>
+    <span class="n">_zero_vector</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Single form and nest assembly</span>
+        <span class="n">assemble_vector</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">residual</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="c1"># Block assembly</span>
+        <span class="n">_assign_block_data</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">F</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">assemble_vector</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">residual</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+    <span class="c1"># Lift vector</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Nest and blocked lifting</span>
+        <span class="n">bcs1</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_assign_block_data</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs1</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_ghostUpdate</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">bcs0</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_spaces</span><span class="p">(</span><span class="n">residual</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">set_bc</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+        <span class="c1"># Single form lifting</span>
+        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="p">[</span><span class="n">jacobian</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="n">bcs</span><span class="p">],</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_ghostUpdate</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">set_bc</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">_ghostUpdate</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
+
+
+
+<div class="viewcode-block" id="assemble_jacobian">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_jacobian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">assemble_jacobian</span><span class="p">(</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span> <span class="n">_Function</span><span class="p">],</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">preconditioner</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
+    <span class="n">_snes</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">J</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">P</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the Jacobian matrix and preconditioner.</span>
+
+<span class="sd">    A function conforming to the interface expected by SNES.setJacobian can be</span>
+<span class="sd">    created by fixing the first four arguments:</span>
+
+<span class="sd">        functools.partial(assemble_jacobian, u, jacobian, preconditioner, bcs)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        u: Function tied to the solution vector within the residual and jacobian</span>
+<span class="sd">        jacobian: Form of the Jacobian</span>
+<span class="sd">        preconditioner: Form of the preconditioner</span>
+<span class="sd">        bcs: List of Dirichlet boundary conditions</span>
+<span class="sd">        _snes: The solver instance</span>
+<span class="sd">        x: The vector containing the point to evaluate at</span>
+<span class="sd">        J: Matrix to assemble the Jacobian into</span>
+<span class="sd">        P: Matrix to assemble the preconditioner into</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Copy existing soultion into the function used in the residual and Jacobian</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">except</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Error</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+        <span class="k">for</span> <span class="n">x_sub</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">():</span>
+            <span class="n">x_sub</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">assign</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+    <span class="c1"># Assemble Jacobian</span>
+    <span class="n">J</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
+    <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="n">J</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">preconditioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">P</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
+        <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">P</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
 
 
 
 <div class="viewcode-block" id="NonlinearProblem">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NonlinearProblem</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Nonlinear problem class for solving the non-linear problems.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">F</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">J</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">P</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mat_kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">vec_kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">petsc_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Class for solving nonlinear problems with SNES.</span>
+
+<span class="sd">        Solves problems of the form :math:`F_i(u, v) = 0, i=0,...N\\ \\forall v \\in V`</span>
+<span class="sd">        where :math:`u=(u_0,...,u_N), v=(v_0,...,v_N)` using PETSc SNES as the non-linear solver.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The deprecated version of this class for use with NewtonSolver has</span>
+<span class="sd">            been renamed NewtonSolverNonlinearProblem.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            F: UFL form(s) of residual :math:`F_i`.</span>
+<span class="sd">            u: Function used to define the residual and Jacobian.</span>
+<span class="sd">            bcs: Dirichlet boundary conditions.</span>
+<span class="sd">            J: UFL form(s) representing the Jacobian :math:`J_ij = dF_i/du_j`.</span>
+<span class="sd">            P: UFL form(s) representing the preconditioner.</span>
+<span class="sd">            mat_kind: The PETSc matrix type(s) for the Jacobian and preconditioner (``MatType``).</span>
+<span class="sd">                See :func:`dolfinx.fem.petsc.create_matrix` for more information.</span>
+<span class="sd">            vec_kind: The PETSc vector type for the residual and solution (``VecType``).</span>
+<span class="sd">                See :func:`dolfinx.fem.petsc.create_vector` for more information.</span>
+<span class="sd">            form_compiler_options: Options used in FFCx compilation of all</span>
+<span class="sd">                forms. Run ``ffcx --help`` at the command line to see all available</span>
+<span class="sd">                options.</span>
+<span class="sd">            jit_options: Options used in CFFI JIT compilation of C code</span>
+<span class="sd">                generated by FFCx. See ``python/dolfinx/jit.py`` for all available</span>
+<span class="sd">                options. Takes priority over all other option values.</span>
+<span class="sd">            petsc_options: Options to pass to the PETSc SNES object.</span>
+<span class="sd">            entity_maps: If any trial functions, test functions, or</span>
+<span class="sd">                coefficients in the form are not defined over the same mesh as the</span>
+<span class="sd">                integration domain, ``entity_maps`` must be supplied. For each key</span>
+<span class="sd">                (a mesh, different to the integration domain mesh) a map should be</span>
+<span class="sd">                provided relating the entities in the integration domain mesh to</span>
+<span class="sd">                the entities in the key mesh e.g. for a key-value pair ``(msh,</span>
+<span class="sd">                emap)`` in ``entity_maps``, ``emap[i]`` is the entity in ``msh``</span>
+<span class="sd">                corresponding to entity ``i`` in the integration domain mesh.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Compile residual and Jacobian forms</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
+            <span class="n">F</span><span class="p">,</span>
+            <span class="n">form_compiler_options</span><span class="o">=</span><span class="n">form_compiler_options</span><span class="p">,</span>
+            <span class="n">jit_options</span><span class="o">=</span><span class="n">jit_options</span><span class="p">,</span>
+            <span class="n">entity_maps</span><span class="o">=</span><span class="n">entity_maps</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">J</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">J</span> <span class="o">=</span> <span class="n">derivative_block</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_J</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
+            <span class="n">J</span><span class="p">,</span>
+            <span class="n">form_compiler_options</span><span class="o">=</span><span class="n">form_compiler_options</span><span class="p">,</span>
+            <span class="n">jit_options</span><span class="o">=</span><span class="n">jit_options</span><span class="p">,</span>
+            <span class="n">entity_maps</span><span class="o">=</span><span class="n">entity_maps</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">P</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_P</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
+                <span class="n">P</span><span class="p">,</span>
+                <span class="n">form_compiler_options</span><span class="o">=</span><span class="n">form_compiler_options</span><span class="p">,</span>
+                <span class="n">jit_options</span><span class="o">=</span><span class="n">jit_options</span><span class="p">,</span>
+                <span class="n">entity_maps</span><span class="o">=</span><span class="n">entity_maps</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_P</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_u</span> <span class="o">=</span> <span class="n">u</span>
+        <span class="c1"># Set default values if not supplied</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">bcs</span>
+
+        <span class="c1"># Create PETSc structures for the residual, Jacobian and solution vector</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_A</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">J</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">mat_kind</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">vec_kind</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">vec_kind</span><span class="p">)</span>
+
+        <span class="c1"># Create PETSc structure for preconditioner if provided</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">mat_kind</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Create the SNES solver and attach the corresponding Jacobian and residual</span>
+        <span class="c1"># computation functions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_snes</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">()</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">comm</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">comm</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">setJacobian</span><span class="p">(</span>
+            <span class="n">partial</span><span class="p">(</span><span class="n">assemble_jacobian</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">J</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">setFunction</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">assemble_residual</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">J</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+
+        <span class="c1"># Set PETSc options</span>
+        <span class="n">problem_prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;snes_</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">setOptionsPrefix</span><span class="p">(</span><span class="n">problem_prefix</span><span class="p">)</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Options</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+        <span class="n">opts</span><span class="o">.</span><span class="n">prefixPush</span><span class="p">(</span><span class="n">problem_prefix</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">petsc_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">petsc_options</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">opts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">setFromOptions</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">petsc_options</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">del</span> <span class="n">opts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+        <span class="n">opts</span><span class="o">.</span><span class="n">prefixPop</span><span class="p">()</span>
+
+<div class="viewcode-block" id="NonlinearProblem.solve">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem and update the solution in the problem instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The solution, convergence reason and number of iterations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Move current iterate into the work array.</span>
+        <span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_u</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Solve problem</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="c1"># Move solution back to function</span>
+        <span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_u</span><span class="p">)</span>
+
+        <span class="n">converged_reason</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">getConvergedReason</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">converged_reason</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">solver</span><span class="o">.</span><span class="n">getIterationNumber</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_snes</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled residual.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled Jacobian.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_J</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">P</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled preconditioner.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">A</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Jacobian matrix.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_A</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">b</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Residual vector.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_b</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution vector&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">P_mat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Preconditioner matrix.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The SNES solver.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The SNES solver has an options prefix set.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_snes</span></div>
+
+
+
+<span class="c1"># -- Deprecated non-linear problem class for NewtonSolver ----------------------------</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">NewtonSolverNonlinearProblem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Nonlinear problem class for solving the non-linear problems using NewtonSolver.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This class is deprecated in favour of NonlinearProblem, a high level</span>
+<span class="sd">        interface to SNES.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This class was previously called NonlinearProblem.</span>
 
 <span class="sd">    Solves problems of the form :math:`F(u, v) = 0 \\ \\forall v \\in V` using</span>
 <span class="sd">    PETSc as the linear algebra backend.</span>
@@ -1023,6 +1399,15 @@
 
 <span class="sd">            problem = NonlinearProblem(F, u, [bc0, bc1])</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;dolfinx.nls.petsc.NewtonSolver is deprecated. &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;Use dolfinx.fem.petsc.NonlinearProblem, &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;a high level interface to PETSc SNES, instead.&quot;</span>
+            <span class="p">),</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span>
+        <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_L</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
             <span class="n">F</span><span class="p">,</span> <span class="n">form_compiler_options</span><span class="o">=</span><span class="n">form_compiler_options</span><span class="p">,</span> <span class="n">jit_options</span><span class="o">=</span><span class="n">jit_options</span>
         <span class="p">)</span>
@@ -1048,8 +1433,6 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled bilinear form (the Jacobian form).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span>
 
-<div class="viewcode-block" id="NonlinearProblem.form">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.form">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;This function is called before the residual or Jacobian is</span>
 <span class="sd">        computed. This is usually used to update ghost values.</span>
@@ -1057,11 +1440,8 @@
 <span class="sd">        Args:</span>
 <span class="sd">           x: The vector containing the latest solution</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span></div>
+        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="NonlinearProblem.F">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.F">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the residual F into the vector b.</span>
 
@@ -1080,11 +1460,8 @@
             <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
             <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span></div>
+            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="NonlinearProblem.J">
-<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.J">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the Jacobian matrix.</span>
 
@@ -1093,9 +1470,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
         <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
-</div>
+        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
 
+
+<span class="c1"># -- Additional free helper functions (interpolations, assignments etc.) ------</span>
 
 
 <div class="viewcode-block" id="discrete_curl">
