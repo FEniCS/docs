@@ -46,9 +46,10 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_coefficients</span><span class="p">,</span> <span class="n">extract_sub_elements</span><span class="p">,</span> <span class="n">unique_tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_algebra_lowering</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_algebra_lowering</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_derivatives</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_coordinate_derivatives</span><span class="p">,</span> <span class="n">apply_derivatives</span>
 
 <span class="c1"># These are the main symbolic processing steps:</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_coefficient_split</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoefficientSplitter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_derivatives</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_coordinate_derivatives</span><span class="p">,</span> <span class="n">apply_derivatives</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_function_pullbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_function_pullbacks</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_geometry_lowering</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_integral_scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_integral_scaling</span>
@@ -67,7 +68,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.formtransformations</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_form_arities</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_complex_nodes</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_complex_nodes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_component_tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_component_tensors</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.replace</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coefficient</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">GeometricFacetQuantity</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.traversal</span><span class="w"> </span><span class="kn">import</span> <span class="n">traverse_unique_terminals</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeshSequence</span><span class="p">,</span> <span class="n">extract_domains</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.sequences</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_degree</span>
@@ -298,6 +301,8 @@
     <span class="n">do_apply_restrictions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">do_estimate_degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">do_append_everywhere_integrals</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">do_replace_functions</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">coefficients_to_split</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">complex_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">do_remove_component_tensors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
@@ -467,6 +472,44 @@
     <span class="c1"># TODO: Group this by domain first. For now keep a backwards</span>
     <span class="c1"># compatible data structure.</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">max_subdomain_ids</span> <span class="o">=</span> <span class="n">_compute_max_subdomain_ids</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">)</span>
+
+    <span class="c1"># --- Apply replace(integrand, self.function_replace_map)</span>
+    <span class="k">if</span> <span class="n">do_replace_functions</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
+            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
+                <span class="n">integrand</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_replace_map</span><span class="p">)</span>
+                <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">integrand</span><span class="p">))</span>
+            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
+
+    <span class="c1"># --- Split mixed coefficients with their components</span>
+    <span class="k">if</span> <span class="n">coefficients_to_split</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">do_replace_functions</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must call with do_replace_functions=True&quot;</span><span class="p">)</span>
+        <span class="c1"># Split coefficients that are contained in ``coefficients_to_split``</span>
+        <span class="c1"># into components, and store a dict in ``self`` that maps</span>
+        <span class="c1"># each coefficient to its components.</span>
+        <span class="n">coefficient_split</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">coefficients_to_split</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_replace_map</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
+                <span class="n">mesh</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                <span class="n">elem</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+                <span class="n">coefficient_split</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">Coefficient</span><span class="p">(</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">elem</span><span class="p">),</span> <span class="n">elem</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">)</span>
+                <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span> <span class="o">=</span> <span class="n">coefficient_split</span>
+        <span class="n">coeff_splitter</span> <span class="o">=</span> <span class="n">CoefficientSplitter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
+            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
+                <span class="n">integrand</span> <span class="o">=</span> <span class="n">coeff_splitter</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">())</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+                    <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">integrand</span><span class="p">))</span>
+            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
 
     <span class="c1"># --- Checks</span>
     <span class="n">_check_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
