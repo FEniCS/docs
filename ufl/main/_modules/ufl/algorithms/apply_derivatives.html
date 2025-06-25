@@ -42,7 +42,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatchmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
@@ -1429,14 +1429,14 @@
         <span class="c1"># Explicitly defining da/dw == 0</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_argument</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_process_argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="p">[</span><span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Zero</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process_argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Zero</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">independent_terminal</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Coefficient</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_coefficient</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_process_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Differentiate an Expr or a BaseForm.&quot;&quot;&quot;</span>
         <span class="c1"># Define dw/dw := d/ds [w + s v] = v</span>
 
@@ -1735,6 +1735,34 @@
 
 
 
+<span class="c1"># TODO: as soon as Python &gt; 3.9 - move as staticmethod back into BaseFormOperatorDerivativeRuleset</span>
+<div class="viewcode-block" id="pending_operations_recording">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.pending_operations_recording">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pending_operations_recording</span><span class="p">(</span><span class="n">base_form_operator_handler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Decorate a function to record pending operations.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_form_op</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decorate.&quot;&quot;&quot;</span>
+        <span class="c1"># Get the outer `BaseFormOperator` expression, i.e. the</span>
+        <span class="c1"># operator that is being differentiated.</span>
+        <span class="n">expression</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_base_form_op</span>
+        <span class="c1"># If the base form operator we observe is different from the</span>
+        <span class="c1"># outer `BaseFormOperator`:</span>
+        <span class="c1"># -&gt; Record that `BaseFormOperator` so that</span>
+        <span class="c1"># `d(expression)/d(base_form_op)` can then be computed</span>
+        <span class="c1"># later.</span>
+        <span class="c1"># Else:</span>
+        <span class="c1"># -&gt; Compute the Gateaux derivative of `base_form_ops` by</span>
+        <span class="c1"># calling the appropriate handler.</span>
+        <span class="k">if</span> <span class="n">expression</span> <span class="o">!=</span> <span class="n">base_form_op</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pending_operations</span> <span class="o">+=</span> <span class="p">(</span><span class="n">base_form_op</span><span class="p">,)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_coefficient</span><span class="p">(</span><span class="n">base_form_op</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">base_form_operator_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_form_op</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
 <div class="viewcode-block" id="BaseFormOperatorDerivativeRuleset">
 <a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.BaseFormOperatorDerivativeRuleset">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BaseFormOperatorDerivativeRuleset</span><span class="p">(</span><span class="n">GateauxDerivativeRuleset</span><span class="p">):</span>
@@ -1764,32 +1792,6 @@
             <span class="n">result_cache</span><span class="o">=</span><span class="n">result_cache</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">outer_base_form_op</span> <span class="o">=</span> <span class="n">outer_base_form_op</span>
-
-<div class="viewcode-block" id="BaseFormOperatorDerivativeRuleset.pending_operations_recording">
-<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.BaseFormOperatorDerivativeRuleset.pending_operations_recording">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">pending_operations_recording</span><span class="p">(</span><span class="n">base_form_operator_handler</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Decorate a function to record pending operations.&quot;&quot;&quot;</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_form_op</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">):</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Decorate.&quot;&quot;&quot;</span>
-            <span class="c1"># Get the outer `BaseFormOperator` expression, i.e. the</span>
-            <span class="c1"># operator that is being differentiated.</span>
-            <span class="n">expression</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outer_base_form_op</span>
-            <span class="c1"># If the base form operator we observe is different from the</span>
-            <span class="c1"># outer `BaseFormOperator`:</span>
-            <span class="c1"># -&gt; Record that `BaseFormOperator` so that</span>
-            <span class="c1"># `d(expression)/d(base_form_op)` can then be computed</span>
-            <span class="c1"># later.</span>
-            <span class="c1"># Else:</span>
-            <span class="c1"># -&gt; Compute the Gateaux derivative of `base_form_ops` by</span>
-            <span class="c1"># calling the appropriate handler.</span>
-            <span class="k">if</span> <span class="n">expression</span> <span class="o">!=</span> <span class="n">base_form_op</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">pending_operations</span> <span class="o">+=</span> <span class="p">(</span><span class="n">base_form_op</span><span class="p">,)</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_coefficient</span><span class="p">(</span><span class="n">base_form_op</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">base_form_operator_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_form_op</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">wrapper</span></div>
-
 
     <span class="c1"># Work around singledispatchmethod inheritance issue;</span>
     <span class="c1"># see https://bugs.python.org/issue36457.</span>
@@ -1829,7 +1831,7 @@
     <span class="nd">@pending_operations_recording</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">external_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">N</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="o">*</span><span class="n">dfs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Differentiate an external_operator.&quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="n">result</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dfs</span><span class="p">):</span>
             <span class="n">derivatives</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">dj</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">dj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">N</span><span class="o">.</span><span class="n">derivatives</span><span class="p">))</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extract_arguments</span><span class="p">(</span><span class="n">df</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
@@ -1877,7 +1879,14 @@
         <span class="c1"># Example: dN(u)/du where `N` is a BaseFormOperator and `u` a Coefficient</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pending_operations</span> <span class="o">=</span> <span class="p">()</span>
         <span class="c1"># Create DAGTraverser caches.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_dag_traverser_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dag_traverser_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+            <span class="n">Union</span><span class="p">[</span>
+                <span class="nb">tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span>
+                <span class="nb">tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span>
+                <span class="nb">tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span>
+            <span class="p">],</span>
+            <span class="n">DAGTraverser</span><span class="p">,</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="DerivativeRuleDispatcher.process">
 <a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.DerivativeRuleDispatcher.process">[docs]</a>
@@ -1913,7 +1922,7 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Grad</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a grad.&quot;&quot;&quot;</span>
         <span class="n">gdim</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">GradRuleset</span><span class="p">,</span> <span class="n">gdim</span><span class="p">)</span>
@@ -1922,7 +1931,7 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ReferenceGrad</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a reference_grad.&quot;&quot;&quot;</span>
         <span class="n">tdim</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">ReferenceGradRuleset</span><span class="p">,</span> <span class="n">tdim</span><span class="p">)</span>
@@ -1931,7 +1940,7 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">VariableDerivative</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder_only_children</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a variable_derivative.&quot;&quot;&quot;</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">op</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">VariableRuleset</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
@@ -1940,7 +1949,7 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">CoefficientDerivative</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder_only_children</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a coefficient_derivative.&quot;&quot;&quot;</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">cd</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">GateauxDerivativeRuleset</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">cd</span><span class="p">)</span>
@@ -1960,7 +1969,7 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">BaseFormOperatorDerivative</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder_only_children</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a base_form_operator_derivative.&quot;&quot;&quot;</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">cd</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">):</span>
@@ -1994,21 +2003,21 @@
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">CoordinateDerivative</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder_only_children</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">CoordinateDerivative</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a coordinate_derivative.&quot;&quot;&quot;</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">o3</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="k">return</span> <span class="n">CoordinateDerivative</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">o3</span><span class="p">)</span>
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">BaseFormCoordinateDerivative</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder_only_children</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BaseFormCoordinateDerivative</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to a base_form_coordinate_derivative.&quot;&quot;&quot;</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">o3</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
         <span class="k">return</span> <span class="n">BaseFormCoordinateDerivative</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">o1</span><span class="p">,</span> <span class="n">o2</span><span class="p">,</span> <span class="n">o3</span><span class="p">)</span>
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Indexed</span><span class="p">)</span>
     <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">],</span> <span class="n">Ap</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ii</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Ap</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ii</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to an indexed.&quot;&quot;&quot;</span>
         <span class="c1"># Reuse if untouched</span>
         <span class="k">if</span> <span class="n">Ap</span> <span class="ow">is</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
@@ -2334,7 +2343,7 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">compress</span><span class="o">=</span><span class="n">compress</span><span class="p">,</span> <span class="n">visited_cache</span><span class="o">=</span><span class="n">visited_cache</span><span class="p">,</span> <span class="n">result_cache</span><span class="o">=</span><span class="n">result_cache</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_dag_traverser_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dag_traverser_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Type</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">],</span> <span class="n">DAGTraverser</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
 <div class="viewcode-block" id="CoordinateDerivativeRuleDispatcher.process">
 <a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_derivatives.CoordinateDerivativeRuleDispatcher.process">[docs]</a>
