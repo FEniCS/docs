@@ -32,7 +32,7 @@ var searchData=
   ['compute_5fcolliding_5fcells_29',['compute_colliding_cells',['../de/d27/namespacedolfinx_1_1geometry.html#a592bcd23f2c31129b4856e3eb9f8f248',1,'dolfinx::geometry']]],
   ['compute_5fcollisions_30',['compute_collisions',['../de/d27/namespacedolfinx_1_1geometry.html#a3b1527656969a2a27f37908b2721a210',1,'dolfinx::geometry::compute_collisions(const BoundingBoxTree&lt; T &gt; &amp;tree0, const BoundingBoxTree&lt; T &gt; &amp;tree1)'],['../de/d27/namespacedolfinx_1_1geometry.html#ae098a182e61a4850db03c308103189c9',1,'dolfinx::geometry::compute_collisions(const BoundingBoxTree&lt; T &gt; &amp;tree, std::span&lt; const T &gt; points)']]],
   ['compute_5fconnectivity_31',['compute_connectivity',['../dd/d7d/namespacedolfinx_1_1mesh.html#a86452baf0d97bcbb8ffee0131c8338eb',1,'dolfinx::mesh']]],
-  ['compute_5fdistance_5fgjk_32',['compute_distance_gjk',['../de/d27/namespacedolfinx_1_1geometry.html#a6e9a1509ba99e06bb4b855d7f0a84aeb',1,'dolfinx::geometry']]],
+  ['compute_5fdistance_5fgjk_32',['compute_distance_gjk',['../de/d27/namespacedolfinx_1_1geometry.html#aea940590e07b10fa50fa4a2c07535a68',1,'dolfinx::geometry']]],
   ['compute_5fentities_33',['compute_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a9555ca279c1bd88d79220fcfdf9c019e',1,'dolfinx::mesh']]],
   ['compute_5fentity_5fpermutations_34',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#aeb806bcc85940ea4818196d210d7dff7',1,'dolfinx::mesh']]],
   ['compute_5ffirst_5fcolliding_5fcell_35',['compute_first_colliding_cell',['../de/d27/namespacedolfinx_1_1geometry.html#a3f865ea932e7df7e609dd52c4a7e02b0',1,'dolfinx::geometry']]],
