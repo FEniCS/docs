@@ -25,7 +25,7 @@ var searchData=
   ['dofmap_22',['dofmap',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#a3a3f88a4307223a5c634f16c92c1b045',1,'dolfinx::fem::FunctionSpace::dofmap()'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#aeb6a5db346fb67acfd122e2d1d34417a',1,'dolfinx::mesh::Geometry::dofmap() const'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a4f50f25cc9b2bf66456ce48943677e08',1,'dolfinx::mesh::Geometry::dofmap(std::size_t i) const']]],
   ['dofmap_2eh_23',['DofMap.h',['../da/ded/DofMap_8h.html',1,'']]],
   ['dofmaps_24',['dofmaps',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#ae4f41a0dc524cb01851abb1d2e01dea3',1,'dolfinx::fem::FunctionSpace']]],
-  ['doftransform_25',['doftransform',['../d8/dbf/namespacedolfinx_1_1fem.html#a7fca24b826a16ff97db3431784cc8a6b',1,'dolfinx::fem']]],
+  ['doftransform_25',['doftransform',['../d8/dbf/namespacedolfinx_1_1fem.html#a86418c4371281a95280155a7e717c5eb',1,'dolfinx::fem']]],
   ['doftransformkernel_26',['DofTransformKernel',['../df/dd9/conceptdolfinx_1_1fem_1_1DofTransformKernel.html',1,'dolfinx::fem']]],
   ['dolfinx_27',['dolfinx',['../d2/dc7/namespacedolfinx.html',1,'']]],
   ['dolfinx_20programmer_20s_20reference_28',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
