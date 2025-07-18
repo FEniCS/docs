@@ -78,13 +78,17 @@
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
-<span class="sd">&quot;&quot;&quot;Assembly functions into PETSc objects for variational forms.</span>
+<span class="sd">&quot;&quot;&quot;High-level solver classes and functions for assembling PETSc objects.</span>
 
 <span class="sd">Functions in this module generally apply functions in :mod:`dolfinx.fem`</span>
 <span class="sd">to PETSc linear algebra objects and handle any PETSc-specific</span>
 <span class="sd">preparation.</span>
 
 <span class="sd">Note:</span>
+<span class="sd">    The following does not apply to the high-level classes</span>
+<span class="sd">    :class:`dolfinx.fem.petsc.LinearProblem`</span>
+<span class="sd">    :class:`dolfinx.fem.petsc.NonlinearProblem`.</span>
+
 <span class="sd">    Due to subtle issues in the interaction between petsc4py memory</span>
 <span class="sd">    management and the Python garbage collector, it is recommended that</span>
 <span class="sd">    the PETSc method ``destroy()`` is called on returned PETSc objects</span>
@@ -135,6 +139,7 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;LinearProblem&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NewtonSolverNonlinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;NonlinearProblem&quot;</span><span class="p">,</span>
     <span class="s2">&quot;apply_lifting&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_jacobian&quot;</span><span class="p">,</span>
@@ -487,7 +492,7 @@
 
 <span class="sd">    1. If ``a`` is a single bilinear form, the form is assembled</span>
 <span class="sd">       into PETSc matrix of type ``kind``.</span>
-<span class="sd">    #. If ``a`` is a :math:`m \times n` rectangular array of forms the</span>
+<span class="sd">    #. If ``a`` is a :math:`m \\times n` rectangular array of forms the</span>
 <span class="sd">       forms in ``a`` are assembled into a matrix such that::</span>
 
 <span class="sd">            A = [A_00 ... A_0n]</span>
@@ -827,13 +832,19 @@
 <div class="viewcode-block" id="LinearProblem">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">LinearProblem</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for solving a linear variational problem.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;High-level class for solving a linear variational problem using</span>
+<span class="sd">    a PETSc KSP.</span>
 
 <span class="sd">    Solves problems of the form</span>
 <span class="sd">    :math:`a_{ij}(u, v) = f_i(v), i,j=0,\\ldots,N\\</span>
 <span class="sd">    \\forall v \\in V` where</span>
 <span class="sd">    :math:`u=(u_0,\\ldots,u_N), v=(v_0,\\ldots,v_N)`</span>
 <span class="sd">    using PETSc KSP as the linear solver.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This high-level class automatically handles PETSc memory</span>
+<span class="sd">        management. The user does not need to manually call</span>
+<span class="sd">        ``.destroy()`` on returned PETSc objects.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -855,7 +866,7 @@
 
 <span class="sd">        By default, the underlying KSP solver uses PETSc&#39;s default</span>
 <span class="sd">        options, usually GMRES + ILU preconditioning. To use the robust</span>
-<span class="sd">        combination of LU via MUMPS:</span>
+<span class="sd">        combination of LU via MUMPS</span>
 
 <span class="sd">        Example::</span>
 
@@ -867,7 +878,7 @@
 <span class="sd">                  &quot;pc_factor_mat_solver_type&quot;: &quot;mumps&quot;</span>
 <span class="sd">            })</span>
 
-<span class="sd">        This class supports nested problems.</span>
+<span class="sd">        This class also supports nested block-structured problems.</span>
 
 <span class="sd">        Example::</span>
 
@@ -896,15 +907,18 @@
 <span class="sd">            u: Solution function. It is created if not provided.</span>
 <span class="sd">            P: Bilinear UFL form or a sequence of sequence of bilinear</span>
 <span class="sd">                forms, used as a preconditioner.</span>
-<span class="sd">            kind: The PETSc matrix and vector type. See</span>
-<span class="sd">                :func:`create_matrix` for options.</span>
+<span class="sd">            kind: The PETSc matrix and vector kind. Common choices</span>
+<span class="sd">                are ``mpi`` and ``nest``. See</span>
+<span class="sd">                :func:`dolfinx.fem.petsc.create_matrix` and</span>
+<span class="sd">                :func:`dolfinx.fem.petsc.create_vector` for more</span>
+<span class="sd">                information.</span>
 <span class="sd">            petsc_options_prefix: Mandatory named argument. Options prefix</span>
 <span class="sd">                used as root prefix on all internally created PETSc</span>
-<span class="sd">                objects. Typically ends with `_`. Must be the same on</span>
+<span class="sd">                objects. Typically ends with ``_``. Must be the same on</span>
 <span class="sd">                all ranks, and is usually unique within the programme.</span>
 <span class="sd">            petsc_options: Options set on the underlying PETSc KSP only.</span>
 <span class="sd">                The options must be the same on all ranks. For available</span>
-<span class="sd">                choices for the `petsc_options` kwarg, see the `PETSc KSP</span>
+<span class="sd">                choices for the ``petsc_options`` kwarg, see the `PETSc KSP</span>
 <span class="sd">                documentation</span>
 <span class="sd">                &lt;https://petsc4py.readthedocs.io/en/stable/manual/ksp/&gt;`_.</span>
 <span class="sd">                Options on other objects (matrices, vectors) should be set</span>
@@ -913,18 +927,19 @@
 <span class="sd">                all forms. Run ``ffcx --help`` at the commandline to see</span>
 <span class="sd">                all available options.</span>
 <span class="sd">            jit_options: Options used in CFFI JIT compilation of C</span>
-<span class="sd">                code generated by FFCx. See `python/dolfinx/jit.py` for</span>
+<span class="sd">                code generated by FFCx. See ``python/dolfinx/jit.py`` for</span>
 <span class="sd">                all available options. Takes priority over all other</span>
 <span class="sd">                option values.</span>
 <span class="sd">            entity_maps: If any trial functions, test functions, or</span>
 <span class="sd">                coefficients in the form are not defined over the same mesh</span>
-<span class="sd">                as the integration domain, `entity_maps` must be supplied.</span>
+<span class="sd">                as the integration domain, ``entity_maps`` must be</span>
+<span class="sd">                supplied.</span>
 <span class="sd">                For each key (a mesh, different to the integration domain</span>
 <span class="sd">                mesh) a map should be provided relating the entities in the</span>
 <span class="sd">                integration domain mesh to the entities in the key mesh</span>
-<span class="sd">                e.g. for a key-value pair (msh, emap) in `entity_maps`,</span>
-<span class="sd">                `emap[i]` is the entity in `msh` corresponding to entity</span>
-<span class="sd">                `i` in the integration domain mesh.</span>
+<span class="sd">                e.g. for a key-value pair (msh, emap) in ``entity_maps``,</span>
+<span class="sd">                ``emap[i]`` is the entity in ``msh`` corresponding to</span>
+<span class="sd">                entity ``i`` in the integration domain mesh.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
             <span class="n">a</span><span class="p">,</span>
@@ -1024,14 +1039,16 @@
 <div class="viewcode-block" id="LinearProblem.solve">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem.solve">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem and update the solution in the problem</span>
-<span class="sd">        instance.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem.</span>
+
+<span class="sd">        This method updates the solution ``u`` function(s) stored in the</span>
+<span class="sd">        problem instance.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            The user is responsible for asserting convergence of the KSP</span>
-<span class="sd">            solver e.g. `problem.solver.getConvergedReason() &gt; 0`.</span>
-<span class="sd">            Alternatively, pass `&quot;ksp_error_if_not_converged&quot; : True` in</span>
-<span class="sd">            `petsc_options`.</span>
+<span class="sd">            solver e.g. ``problem.solver.getConvergedReason() &gt; 0``.</span>
+<span class="sd">            Alternatively, pass ``&quot;ksp_error_if_not_converged&quot; : True`` in</span>
+<span class="sd">            ``petsc_options`` to raise a ``PETScError`` on failure.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The solution function(s).</span>
@@ -1114,8 +1131,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution vector.</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            This vector does not share memory with the solution</span>
-<span class="sd">            Function `u`.</span>
+<span class="sd">            The vector does not share memory with the solution</span>
+<span class="sd">            function(s) ``u``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span>
 
@@ -1129,8 +1146,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution function(s).</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            The Function(s) do not share memory with the solution</span>
-<span class="sd">            vector `x`.</span>
+<span class="sd">            The function(s) do not share memory with the solution</span>
+<span class="sd">            vector ``x``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_u</span></div>
 
@@ -1179,12 +1196,18 @@
     <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the residual into the vector `b`.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the residual at ``x`` into the vector ``b``.</span>
 
-<span class="sd">    A function conforming to the interface expected by SNES.setResidual can</span>
-<span class="sd">    be created by fixing the first four arguments:</span>
+<span class="sd">    A function conforming to the interface expected by ``SNES.setFunction``</span>
+<span class="sd">    can be created by fixing the first four arguments, e.g.:</span>
 
-<span class="sd">        functools.partial(assemble_residual, u, residual, jacobian, bcs)</span>
+<span class="sd">    Example::</span>
+
+<span class="sd">        snes = PETSc.SNES().create(mesh.comm)</span>
+<span class="sd">        assemble_residual = functools.partial(</span>
+<span class="sd">            dolfinx.fem.petsc.assemble_residual,</span>
+<span class="sd">            u, residual, jacobian, bcs)</span>
+<span class="sd">        snes.setFunction(assemble_residual, x, b)</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        u: Function(s) tied to the solution vector within the residual and</span>
@@ -1241,15 +1264,21 @@
     <span class="n">_snes</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
     <span class="n">J</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
-    <span class="n">P</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
+    <span class="n">P_mat</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the Jacobian and preconditioner matrices.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the Jacobian and preconditioner matrices at ``x``</span>
+<span class="sd">    into ``J`` and ``P_mat``.</span>
 
-<span class="sd">    A function conforming to the interface expected by SNES.setJacobian can</span>
-<span class="sd">    be created by fixing the first four arguments:</span>
+<span class="sd">    A function conforming to the interface expected by ``SNES.setJacobian``</span>
+<span class="sd">    can be created by fixing the first four arguments e.g.:</span>
 
-<span class="sd">        functools.partial(assemble_jacobian, u, jacobian, preconditioner,</span>
-<span class="sd">                          bcs)</span>
+<span class="sd">    Example::</span>
+
+<span class="sd">        snes = PETSc.SNES().create(mesh.comm)</span>
+<span class="sd">        assemble_jacobian = functools.partial(</span>
+<span class="sd">            dolfinx.fem.petsc.assemble_jacobian,</span>
+<span class="sd">            u, jacobian, preconditioner, bcs)</span>
+<span class="sd">        snes.setJacobian(assemble_jacobian, A, P_mat)</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        u: Function tied to the solution vector within the residual and</span>
@@ -1261,7 +1290,7 @@
 <span class="sd">        _snes: The solver instance.</span>
 <span class="sd">        x: The vector containing the point to evaluate at.</span>
 <span class="sd">        J: Matrix to assemble the Jacobian into.</span>
-<span class="sd">        P: Matrix to assemble the preconditioner into.</span>
+<span class="sd">        P_mat: Matrix to assemble the preconditioner into.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Copy existing soultion into the function used in the residual and</span>
     <span class="c1"># Jacobian</span>
@@ -1277,21 +1306,32 @@
     <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
     <span class="n">J</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">preconditioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">P</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-        <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-        <span class="n">P</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
+        <span class="n">P_mat</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
+        <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">P_mat</span><span class="p">,</span> <span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">P_mat</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
 
 
 
 <div class="viewcode-block" id="NonlinearProblem">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NonlinearProblem</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for solving nonlinear problems with SNES.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;High-level class for solving nonlinear variational problems</span>
+<span class="sd">    with PETSc SNES.</span>
 
 <span class="sd">    Solves problems of the form</span>
 <span class="sd">    :math:`F_i(u, v) = 0, i=0,\\ldots,N\\ \\forall v \\in V` where</span>
 <span class="sd">    :math:`u=(u_0,\\ldots,u_N), v=(v_0,\\ldots,v_N)` using PETSc</span>
 <span class="sd">    SNES as the non-linear solver.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The deprecated version of this class for use with</span>
+<span class="sd">        :class:`dolfinx.nls.petsc.NewtonSolver` has been renamed</span>
+<span class="sd">        :class:`dolfinx.fem.petsc.NewtonSolverNonlinearProblem`.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This high-level class automatically handles PETSc memory</span>
+<span class="sd">        management. The user does not need to manually call</span>
+<span class="sd">        ``.destroy()`` on returned PETSc objects.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -1311,10 +1351,6 @@
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize solver for a nonlinear variational problem.</span>
-
-<span class="sd">        Note:</span>
-<span class="sd">            The deprecated version of this class for use with</span>
-<span class="sd">            NewtonSolver has been renamed NewtonSolverNonlinearProblem.</span>
 
 <span class="sd">        By default, the underlying SNES solver uses PETSc&#39;s default</span>
 <span class="sd">        options. To use the robust combination of LU via MUMPS with</span>
@@ -1343,23 +1379,24 @@
 <span class="sd">            u: Function(s) used to define the residual and Jacobian.</span>
 <span class="sd">            bcs: Dirichlet boundary conditions.</span>
 <span class="sd">            J: UFL form(s) representing the Jacobian</span>
-<span class="sd">                :math:`J_ij = dF_i/du_j`. If not passed, derived</span>
+<span class="sd">                :math:`J_{ij} = dF_i/du_j`. If not passed, derived</span>
 <span class="sd">                automatically.</span>
 <span class="sd">            P: UFL form(s) representing the preconditioner.</span>
-<span class="sd">            kind: The PETSc matrix type(s) for the Jacobian and</span>
-<span class="sd">                preconditioner (``MatType``).</span>
-<span class="sd">                See :func:`dolfinx.fem.petsc.create_matrix` for more</span>
+<span class="sd">            kind: The PETSc matrix and vector kind. Common choices</span>
+<span class="sd">                are ``mpi`` and ``nest``. See</span>
+<span class="sd">                :func:`dolfinx.fem.petsc.create_matrix` and</span>
+<span class="sd">                :func:`dolfinx.fem.petsc.create_vector` for more</span>
 <span class="sd">                information.</span>
 <span class="sd">            petsc_options_prefix: Mandatory named argument.</span>
 <span class="sd">                Options prefix used as root prefix on all</span>
 <span class="sd">                internally created PETSc objects. Typically ends with `_`.</span>
 <span class="sd">                Must be the same on all ranks, and is usually unique within</span>
 <span class="sd">                the programme.</span>
-<span class="sd">            petsc_options: Options set on the underlying PETSc KSP only.</span>
+<span class="sd">            petsc_options: Options set on the underlying PETSc SNES only.</span>
 <span class="sd">                The options must be the same on all ranks. For available</span>
-<span class="sd">                choices for the `petsc_options` kwarg, see the</span>
-<span class="sd">                `PETSc KSP documentation</span>
-<span class="sd">                &lt;https://petsc4py.readthedocs.io/en/stable/manual/ksp/&gt;`_.</span>
+<span class="sd">                choices for ``petsc_options``, see the</span>
+<span class="sd">                `PETSc SNES documentation</span>
+<span class="sd">                &lt;https://petsc4py.readthedocs.io/en/stable/manual/snes/&gt;`_.</span>
 <span class="sd">                Options on other objects (matrices, vectors) should be set</span>
 <span class="sd">                explicitly by the user.</span>
 <span class="sd">            form_compiler_options: Options used in FFCx compilation of all</span>
@@ -1475,23 +1512,21 @@
 <div class="viewcode-block" id="NonlinearProblem.solve">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.solve">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>  <span class="c1"># type: ignore</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem and update the solution in the problem</span>
-<span class="sd">        instance.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem.</span>
+
+<span class="sd">        This method updates the solution ``u`` function(s) stored in the</span>
+<span class="sd">        problem instance.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            The user is responsible for asserting convergence of the SNES</span>
-<span class="sd">            solver e.g. `assert problem.solver.getConvergedReason() &gt; 0`.</span>
-<span class="sd">            Alternatively, pass `&quot;snes_error_if_not_converged&quot;: True` and</span>
-<span class="sd">            `&quot;ksp_error_if_not_converged&quot; : True` in `petsc_options`.</span>
-
-<span class="sd">        Note:</span>
-<span class="sd">            The solution function(s) and solution vector do not share</span>
-<span class="sd">            memory.</span>
+<span class="sd">            solver e.g. ``assert problem.solver.getConvergedReason() &gt; 0``.</span>
+<span class="sd">            Alternatively, pass ``&quot;snes_error_if_not_converged&quot;: True`` and</span>
+<span class="sd">            ``&quot;ksp_error_if_not_converged&quot; : True`` in ``petsc_options`` to</span>
+<span class="sd">            raise a ``PETScError`` on failure.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The solution function(s).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="c1"># Copy current iterate into the work array.</span>
         <span class="n">assign</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
 
@@ -1549,7 +1584,7 @@
 
 <span class="sd">        Note:</span>
 <span class="sd">            The vector does not share memory with the</span>
-<span class="sd">            solution Function `u`.</span>
+<span class="sd">            solution function(s) ``u``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span>
 
@@ -1563,8 +1598,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution function(s).</span>
 
 <span class="sd">        Note:</span>
-<span class="sd">            The Function(s) do not share memory with the solution</span>
-<span class="sd">            vector `x`.</span>
+<span class="sd">            The function(s) do not share memory with the solution</span>
+<span class="sd">            vector ``x``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_u</span></div>
 
@@ -1573,19 +1608,23 @@
 <span class="c1"># -- Deprecated non-linear problem class for NewtonSolver -----------------</span>
 
 
+<div class="viewcode-block" id="NewtonSolverNonlinearProblem">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NewtonSolverNonlinearProblem">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">NewtonSolverNonlinearProblem</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Nonlinear problem class for solving the non-linear problems using</span>
-<span class="sd">    NewtonSolver.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        This class is deprecated in favour of NonlinearProblem, a high</span>
-<span class="sd">        level interface to SNES.</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        This class was previously called NonlinearProblem.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;(Deprecated) Nonlinear problem class for solving the non-linear</span>
+<span class="sd">    problems using class:`dolfinx.nls.petsc.NewtonSolver`.</span>
 
 <span class="sd">    Solves problems of the form :math:`F(u, v) = 0 \\ \\forall v \\in V`</span>
 <span class="sd">    using PETSc as the linear algebra backend.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This class is deprecated in favour of</span>
+<span class="sd">        :class:`dolfinx.fem.petsc.NonlinearProblem`, a high level</span>
+<span class="sd">        interface to SNES.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This class was previously called</span>
+<span class="sd">        ``dolfinx.fem.petsc.NonlinearProblem``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -1651,6 +1690,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled bilinear form (the Jacobian form).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span>
 
+<div class="viewcode-block" id="NewtonSolverNonlinearProblem.form">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NewtonSolverNonlinearProblem.form">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">form</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;This function is called before the residual or Jacobian is</span>
 <span class="sd">        computed. This is usually used to update ghost values.</span>
@@ -1658,8 +1699,11 @@
 <span class="sd">        Args:</span>
 <span class="sd">           x: The vector containing the latest solution</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="NewtonSolverNonlinearProblem.F">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NewtonSolverNonlinearProblem.F">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the residual F into the vector b.</span>
 
@@ -1677,8 +1721,11 @@
             <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
             <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>
+            <span class="n">b</span><span class="o">.</span><span class="n">ghostUpdate</span><span class="p">(</span><span class="n">addv</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span></div>
 
+
+<div class="viewcode-block" id="NewtonSolverNonlinearProblem.J">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NewtonSolverNonlinearProblem.J">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the Jacobian matrix.</span>
 
@@ -1687,7 +1734,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
         <span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
+        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
+</div>
+
 
 
 <span class="c1"># -- Additional free helper functions (interpolations, assignments etc.) --</span>
