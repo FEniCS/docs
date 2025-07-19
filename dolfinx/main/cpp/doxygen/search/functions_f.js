@@ -10,7 +10,7 @@ var searchData=
   ['permute_7',['permute',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a869e13ef5cde67c6d3debf3c51131473',1,'dolfinx::fem::CoordinateElement::permute()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae34c915742f462093322bb19661dbb54',1,'dolfinx::fem::FiniteElement::permute()']]],
   ['permute_5finv_8',['permute_inv',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a2ba9d88fbf8b00777582579b20d19d84',1,'dolfinx::fem::CoordinateElement::permute_inv()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4985b37878a81d18f5dc5feba22d786b',1,'dolfinx::fem::FiniteElement::permute_inv()']]],
   ['permute_5fsubentity_5fclosure_9',['permute_subentity_closure',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a0a14c89ecee95b8cdb0e2822bdec14d1',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5faffine_10',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a1f2c508b207ffee40c57b499b2603e37',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5faffine_10',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#af3d479cdc0fc95c8db96a96825132582',1,'dolfinx::fem::CoordinateElement']]],
   ['pull_5fback_5fnonaffine_11',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#ab7c53f6803869c3c8ea4c9a25f6ff5a9',1,'dolfinx::fem::CoordinateElement']]],
   ['push_5fforward_12',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];
