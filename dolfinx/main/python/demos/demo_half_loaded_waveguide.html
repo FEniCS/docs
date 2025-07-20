@@ -150,33 +150,14 @@ electric conducting walls.</p>
 <p>First of all, let’s import the modules we need for solving the
 problem:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
-
-    <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This demo requires DOLFINx to be compiled with PETSc enabled.&quot;</span><span class="p">)</span>
-        <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="ow">and</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This solver fails with PETSc and 64-bit integers because of memory errors in MUMPS.&quot;</span><span class="p">)</span>
-        <span class="c1"># Note: when PETSc.IntType == np.int32, superlu_dist is used</span>
-        <span class="c1"># rather than MUMPS and does not trigger memory failures.</span>
-        <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-
-    <span class="n">real_type</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span>
-    <span class="n">scalar_type</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span>
-
-<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This demo requires petsc4py.&quot;</span><span class="p">)</span>
-    <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">slepc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">SLEPc</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">basix.ufl</span><span class="w"> </span><span class="kn">import</span> <span class="n">element</span><span class="p">,</span> <span class="n">mixed_element</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">plot</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">plot</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">assemble_matrix</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">CellType</span><span class="p">,</span> <span class="n">create_rectangle</span><span class="p">,</span> <span class="n">exterior_facet_indices</span><span class="p">,</span> <span class="n">locate_entities</span>
 
@@ -188,11 +169,19 @@ problem:</p>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pyvista and pyvistaqt are required to visualise the solution&quot;</span><span class="p">)</span>
     <span class="n">have_pyvista</span> <span class="o">=</span> <span class="kc">False</span>
 
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">slepc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">SLEPc</span>
-<span class="k">except</span> <span class="ne">ModuleNotFoundError</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;slepc4py is required for this demo&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">IntType</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="ow">and</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;This solver fails with PETSc and 64-bit integers because of memory errors in MUMPS.&quot;</span><span class="p">)</span>
+    <span class="c1"># Note: when PETSc.IntType == np.int32, superlu_dist is used</span>
+    <span class="c1"># rather than MUMPS and does not trigger memory failures.</span>
     <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">VTXWriter</span>
+
+    <span class="n">has_vtx</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;VTXWriter not available, solution will not be saved.&quot;</span><span class="p">)</span>
+    <span class="n">has_vtx</span> <span class="o">=</span> <span class="kc">False</span>
 </pre></div>
 </div>
 </section>
@@ -316,8 +305,8 @@ domain as <span class="math notranslate nohighlight">\(\varepsilon_r = \varepsil
 <span class="n">cells_v</span> <span class="o">=</span> <span class="n">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">Omega_v</span><span class="p">)</span>
 <span class="n">cells_d</span> <span class="o">=</span> <span class="n">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">Omega_d</span><span class="p">)</span>
 
-<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_d</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_d</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">scalar_type</span><span class="p">)</span>
-<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_v</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_v</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">scalar_type</span><span class="p">)</span>
+<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_d</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_d</span><span class="p">,</span> <span class="n">eps_d</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
+<span class="n">eps</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">[</span><span class="n">cells_v</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">cells_v</span><span class="p">,</span> <span class="n">eps_v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>In order to find the weak form of our problem, the starting point are
@@ -393,8 +382,8 @@ elements on quadrilateral cells), while for <span class="math notranslate nohigh
 Lagrange elements. This hybrid formulation is implemented with
 <code class="docutils literal notranslate"><span class="pre">mixed_element</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">degree</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="n">RTCE</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;RTCE&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">real_type</span><span class="p">)</span>
-<span class="n">Q</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">real_type</span><span class="p">)</span>
+<span class="n">RTCE</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;RTCE&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span><span class="p">)</span>
+<span class="n">Q</span> <span class="o">=</span> <span class="n">element</span><span class="p">(</span><span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">msh</span><span class="o">.</span><span class="n">basix_cell</span><span class="p">(),</span> <span class="n">degree</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">RealType</span><span class="p">)</span>
 <span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">functionspace</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">mixed_element</span><span class="p">([</span><span class="n">RTCE</span><span class="p">,</span> <span class="n">Q</span><span class="p">]))</span>
 </pre></div>
 </div>
@@ -568,12 +557,13 @@ modes, with the <code class="docutils literal notranslate"><span class="pre">ver
         <span class="n">Et_dg</span> <span class="o">=</span> <span class="n">fem</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">V_dg</span><span class="p">)</span>
         <span class="n">Et_dg</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">eth</span><span class="p">)</span>
 
-        <span class="c1"># Save solutions</span>
-        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;sols/Et_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.bp&quot;</span><span class="p">,</span> <span class="n">Et_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">has_vtx</span><span class="p">:</span>
+            <span class="c1"># Save solutions</span>
+            <span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;sols/Et_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.bp&quot;</span><span class="p">,</span> <span class="n">Et_dg</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">io</span><span class="o">.</span><span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;sols/Ez_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.bp&quot;</span><span class="p">,</span> <span class="n">ezh</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">VTXWriter</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">comm</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;sols/Ez_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.bp&quot;</span><span class="p">,</span> <span class="n">ezh</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
 
         <span class="c1"># Visualize solutions with Pyvista</span>
         <span class="k">if</span> <span class="n">have_pyvista</span><span class="p">:</span>
