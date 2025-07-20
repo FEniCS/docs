@@ -85,6 +85,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">types</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
 
@@ -103,6 +104,7 @@
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="c1"># import dolfinx.mesh just when doing type checking to avoid</span>
     <span class="c1"># circular import</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">EntityMap</span> <span class="k">as</span> <span class="n">_EntityMap</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">MeshTags</span>
 
 
@@ -211,9 +213,15 @@
 <span class="sd">    Args:</span>
 <span class="sd">        integral_type: The type of integral to pack integration</span>
 <span class="sd">            entities for.</span>
-<span class="sd">        subdomain: A meshtag with markers or manually specified</span>
+<span class="sd">        subdomain: A MeshTag with markers or manually specified</span>
 <span class="sd">            integration domains.</span>
 <span class="sd">        subdomain_ids: List of ids to integrate over.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of entities to integrate over. For cell integrals, this is a</span>
+<span class="sd">        list of cells. For exterior facet integrals, this is a list of</span>
+<span class="sd">        (cell, local_facet) pairs. For interior facet integrals, this is a</span>
+<span class="sd">        list of (cell0, local_facet0, cell1, local_facet1) tuples.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">subdomain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">[]</span>
@@ -283,18 +291,19 @@
 <div class="viewcode-block" id="mixed_topology_form">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.mixed_topology_form">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">mixed_topology_form</span><span class="p">(</span>
-    <span class="n">forms</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">forms</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
     <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_scalar_type</span><span class="p">,</span>
     <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a mixed-topology from from an array of Forms.</span>
 
-<span class="sd">    # FIXME: This function is a temporary hack for mixed-topology meshes.</span>
-<span class="sd">    # It is needed because UFL does not know about mixed-topology meshes,</span>
-<span class="sd">    # so we need to pass a list of forms for each cell type.</span>
+<span class="sd">    # FIXME: This function is a temporary hack for mixed-topology</span>
+<span class="sd">    meshes. # It is needed because UFL does not know about</span>
+<span class="sd">    mixed-topology meshes, # so we need to pass a list of forms for each</span>
+<span class="sd">    cell type.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        form: A list of UFL forms. Each form should be the same, just</span>
@@ -304,13 +313,10 @@
 <span class="sd">        jit_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`.</span>
 <span class="sd">        entity_maps: If any trial functions, test functions, or</span>
 <span class="sd">            coefficients in the form are not defined over the same mesh</span>
-<span class="sd">            as the integration domain, `entity_maps` must be supplied.</span>
-<span class="sd">            For each key (a mesh, different to the integration domain</span>
-<span class="sd">            mesh) a map should be provided relating the entities in the</span>
-<span class="sd">            integration domain mesh to the entities in the key mesh e.g.</span>
-<span class="sd">            for a key-value pair (msh, emap) in `entity_maps`, `emap[i]`</span>
-<span class="sd">            is the entity in `msh` corresponding to entity `i` in the</span>
-<span class="sd">            integration domain mesh.</span>
+<span class="sd">            as the integration domain (the domain associated with the</span>
+<span class="sd">            measure), `entity_maps` must be supplied. For each mesh in</span>
+<span class="sd">            the form, there should be an entity map relating entities in</span>
+<span class="sd">            that mesh to the integration domain mesh.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Compiled finite element Form.</span>
@@ -346,8 +352,8 @@
         <span class="n">modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
         <span class="n">codes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
 
-    <span class="c1"># In a mixed-topology mesh, each form has the same C++ function space,</span>
-    <span class="c1"># so we can extract it from any of them</span>
+    <span class="c1"># In a mixed-topology mesh, each form has the same C++ function</span>
+    <span class="c1"># space, so we can extract it from any of them</span>
     <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()]</span>
 
     <span class="c1"># TODO coeffs, constants, subdomains, entity_maps</span>
@@ -357,7 +363,7 @@
         <span class="p">[],</span>
         <span class="p">[],</span>
         <span class="p">{},</span>
-        <span class="p">{},</span>
+        <span class="p">[],</span>
         <span class="n">mesh</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">ufcx_forms</span><span class="p">,</span> <span class="n">codes</span><span class="p">,</span> <span class="n">modules</span><span class="p">)</span></div>
@@ -367,13 +373,11 @@
 <div class="viewcode-block" id="form">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.form">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">form</span><span class="p">(</span>
-    <span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-        <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]</span>
-    <span class="p">],</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
     <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_scalar_type</span><span class="p">,</span>
     <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Form or list of Forms.</span>
 
@@ -384,13 +388,10 @@
 <span class="sd">        jit_options: See :func:`ffcx_jit &lt;dolfinx.jit.ffcx_jit&gt;`.</span>
 <span class="sd">        entity_maps: If any trial functions, test functions, or</span>
 <span class="sd">            coefficients in the form are not defined over the same mesh</span>
-<span class="sd">            as the integration domain, ``entity_maps`` must be supplied.</span>
-<span class="sd">            For each key (a mesh, different to the integration domain</span>
-<span class="sd">            mesh) a map should be provided relating the entities in the</span>
-<span class="sd">            integration domain mesh to the entities in the key mesh e.g.</span>
-<span class="sd">            for a key-value pair ``(msh, emap)`` in ``entity_maps``,</span>
-<span class="sd">            ``emap[i]`` is the entity in ``msh`` corresponding to entity</span>
-<span class="sd">            ``i`` in the integration domain mesh.</span>
+<span class="sd">            as the integration domain (the domain associated with the</span>
+<span class="sd">            measure), `entity_maps` must be supplied. For each mesh in</span>
+<span class="sd">            the form, there should be an entity map relating entities in</span>
+<span class="sd">            that mesh to the integration domain mesh.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Compiled finite element Form.</span>
@@ -469,9 +470,9 @@
         <span class="p">}</span>
 
         <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">[</span><span class="n">entity_map</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">entity_map</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="p">]</span>
 
         <span class="n">f</span> <span class="o">=</span> <span class="n">ftype</span><span class="p">(</span>
             <span class="p">[</span><span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;uintptr_t&quot;</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">ffi</span><span class="o">.</span><span class="n">addressof</span><span class="p">(</span><span class="n">ufcx_form</span><span class="p">))],</span>
@@ -490,17 +491,14 @@
         <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="n">arg</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()]</span>
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
         <span class="n">msh</span> <span class="o">=</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mesh</span>
-        <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
         <span class="n">f</span> <span class="o">=</span> <span class="n">ftype</span><span class="p">(</span>
             <span class="n">spaces</span><span class="o">=</span><span class="n">V</span><span class="p">,</span>
             <span class="n">integrals</span><span class="o">=</span><span class="p">{},</span>
             <span class="n">coefficients</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">constants</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">need_permutation_data</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">entity_maps</span><span class="o">=</span><span class="n">_entity_maps</span><span class="p">,</span>
+            <span class="n">entity_maps</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">mesh</span><span class="o">=</span><span class="n">msh</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
@@ -531,10 +529,7 @@
 <div class="viewcode-block" id="extract_function_spaces">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.extract_function_spaces">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_function_spaces</span><span class="p">(</span>
-    <span class="n">forms</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>  <span class="c1"># type: ignore [return]</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="p">],</span>
+    <span class="n">forms</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
     <span class="n">index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract common function spaces from an array of forms.</span>
@@ -672,31 +667,34 @@
     <span class="n">subdomains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]],</span>
     <span class="n">coefficient_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Coefficient</span><span class="p">,</span> <span class="n">Function</span><span class="p">],</span>
     <span class="n">constant_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">,</span> <span class="n">Constant</span><span class="p">],</span>
-    <span class="n">entity_maps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Create a Form object from a data-independent compiled form.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Form object from a data-independent compiled form.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        form: Compiled ufl form</span>
-<span class="sd">        function_spaces: List of function spaces associated with the</span>
+<span class="sd">        form: Compiled ufl form function_spaces: List of function spaces</span>
+<span class="sd">        associated with the</span>
 <span class="sd">            form. Should match the number of arguments in the form.</span>
-<span class="sd">        msh: Mesh to associate form with</span>
-<span class="sd">        subdomains: A map from integral type to a list of pairs, where</span>
+<span class="sd">        msh: Mesh to associate form with. subdomains: A map from</span>
+<span class="sd">        integral type to a list of pairs, where</span>
 <span class="sd">            each pair corresponds to a subdomain id and the set of of</span>
 <span class="sd">            integration entities to integrate over. Can be computed with</span>
 <span class="sd">            {py:func}`dolfinx.fem.compute_integration_domains`.</span>
 <span class="sd">        coefficient_map: Map from UFL coefficient to function with data.</span>
 <span class="sd">        constant_map: Map from UFL constant to constant with data.</span>
-<span class="sd">        entity_map: A map where each key corresponds to a mesh different</span>
 <span class="sd">            to the integration domain ``msh``. The value of the map is</span>
 <span class="sd">            an array of integers, where the i-th entry is the entity in</span>
 <span class="sd">            the key mesh.</span>
+<span class="sd">        entity_maps: Entity maps to support cases where forms involve</span>
+<span class="sd">            sub-meshes.</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        A Form object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">entity_maps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">{</span><span class="n">m</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span> <span class="n">emap</span> <span class="k">for</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">emap</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">_entity_maps</span> <span class="o">=</span> <span class="p">[</span><span class="n">entity_map</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">entity_map</span> <span class="ow">in</span> <span class="n">entity_maps</span><span class="p">]</span>
 
     <span class="n">_subdomain_data</span> <span class="o">=</span> <span class="n">subdomains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">idomain</span> <span class="ow">in</span> <span class="n">_subdomain_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -746,21 +744,22 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">derivative_block</span><span class="p">(</span>
-    <span class="n">F</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Function</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Function</span><span class="p">]],</span>
-    <span class="n">du</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Argument</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Argument</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]:</span>
+    <span class="n">F</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Function</span><span class="p">]],</span>
+    <span class="n">du</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Argument</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Argument</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the UFL derivative of a (list of) UFL rank one form(s).</span>
 
-<span class="sd">    This is commonly used to derive a block Jacobian from a block residual.</span>
+<span class="sd">    This is commonly used to derive a block Jacobian from a block</span>
+<span class="sd">    residual.</span>
 
 <span class="sd">    If `F_i` is a list of forms, the Jacobian is a list of lists with</span>
 <span class="sd">    :math:`J_{ij} = \\frac{\\partial F_i}{u_j}[\\delta u_j]` using</span>
 <span class="sd">    `ufl.derivative` called component-wise.</span>
 
-<span class="sd">    If `F` is a form, the Jacobian is computed as</span>
-<span class="sd">    :math:`J = \\frac{\\partial F}{\\partial u}[\\delta u]`. This is</span>
-<span class="sd">    identical to calling `ufl.derivative` directly.</span>
+<span class="sd">    If `F` is a form, the Jacobian is computed as :math:`J =</span>
+<span class="sd">    \\frac{\\partial F}{\\partial u}[\\delta u]`. This is identical to</span>
+<span class="sd">    calling `ufl.derivative` directly.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Function</span><span class="p">):</span>
