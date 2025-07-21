@@ -5,7 +5,7 @@ var searchData=
   ['needs_5ffacet_5fpermutations_2',['needs_facet_permutations',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a2706d72fc422a090ea83c6975543f9fa',1,'dolfinx::fem::Form']]],
   ['nnz_5fdiag_3',['nnz_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a5c76a6f74ef0aec646374dd6716b58e0',1,'dolfinx::la::SparsityPattern']]],
   ['nnz_5foff_5fdiag_4',['nnz_off_diag',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a26aa980b1174e63fc8eb625f647d312e',1,'dolfinx::la::SparsityPattern']]],
-  ['node_5fdata_5',['node_data',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a875dde3d5e5b00c22e90116abe144050',1,'dolfinx::graph::AdjacencyList::node_data() const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a4088c2ac3805dfd589c3928d63dc33cc',1,'dolfinx::graph::AdjacencyList::node_data()']]],
+  ['node_5fdata_5',['node_data',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ab97aa6d5bf0620a46800bcce7b9dbbcb',1,'dolfinx::graph::AdjacencyList::node_data() const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ae9c9ad4400552e2473f8449dae0660e9',1,'dolfinx::graph::AdjacencyList::node_data()']]],
   ['norm_6',['norm',['../d6/dfa/namespacedolfinx_1_1la.html#aa32f131f39f8be7ec5e7681950da35e6',1,'dolfinx::la']]],
   ['num_5fall_5frows_7',['num_all_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#acf00f9c00e0b1fb45f838cccacead71a',1,'dolfinx::la::MatrixCSR']]],
   ['num_5fbboxes_8',['num_bboxes',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a8859f027de3eaaa8b0edea75094d32f1',1,'dolfinx::geometry::BoundingBoxTree']]],
