@@ -184,14 +184,14 @@ a((u, p), (v, q)) = L((v, q)) \quad \forall  (v, q) \in V \times Q
 \]</div>
 <p>where</p>
 <div class="math notranslate nohighlight">
-\[
+\[\begin{split}
 \begin{align}
   a((u, p), (v, q)) &amp;:= \int_{\Omega} \nabla u \cdot \nabla v -
-           \nabla \cdot v \ p + \nabla \cdot u \ q \, {\rm d} x,
+           \nabla \cdot v \ p + \nabla \cdot u \ q \, {\rm d} x,\\
   L((v, q)) &amp;:= \int_{\Omega} f \cdot v \, {\rm d} x + \int_{\partial
            \Omega_N} g \cdot v \, {\rm d} s.
 \end{align}
-\]</div>
+\end{split}\]</div>
 </section>
 <section id="domain-and-boundary-conditions">
 <h3>Domain and boundary conditions<a class="headerlink" href="#domain-and-boundary-conditions" title="Link to this heading"></a></h3>
@@ -209,25 +209,25 @@ domain and boundary conditions:</p>
 <h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading"></a></h2>
 <p>The Stokes problem using Taylor-Hood elements is solved using:</p>
 <ol class="arabic simple">
-<li><p>[Block preconditioner using PETSc MatNest and VecNest data
-structures. Each ‘block’ is a standalone object.]
-(#nested-matrix-solver)</p></li>
+<li><p><a class="reference internal" href="#high-level-nested-matrix-solver">Block preconditioner using PETSc Nest data structures using
+<a class="reference internal" href="../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem" title="dolfinx.fem.petsc.LinearProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearProblem</span></code></a>
+</a></p></li>
+<li><p><a class="reference internal" href="#low-level-nested-matrix-solver">Block preconditioner using PETSc Nest data structures using
+PETSc directly</a></p></li>
 <li><p><a class="reference internal" href="#monolithic-block-iterative-solver">Block preconditioner with the <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span></code> fields stored block-wise
 in a single matrix</a></p></li>
 <li><p><a class="reference internal" href="#monolithic-block-direct-solver">Direct solver with the <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span></code> fields stored block-wise in a
 single matrix</a></p></li>
-<li><p><a class="reference internal" href="#non-blocked-direct-solver">Direct solver with the <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span></code> fields stored block-wise in a
+<li><p><a class="reference internal" href="#non-blocked-direct-solver">Direct solver with the <code class="docutils literal notranslate"><span class="pre">u</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span></code> fields stored in a mixed fashion a
 single matrix</a></p></li>
 </ol>
 <p>The required modules are first imported:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">basix.ufl</span><span class="w"> </span><span class="kn">import</span> <span class="n">element</span><span class="p">,</span> <span class="n">mixed_element</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_real_type</span><span class="p">,</span> <span class="n">la</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -326,14 +326,12 @@ solvers for this problem:</p>
 <span class="n">a_p</span> <span class="o">=</span> <span class="p">[[</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">a_p11</span><span class="p">]]</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ### High-level nested matrix solver</span>
-<span class="c1">#</span>
-<span class="c1"># We first use the high-level {py:class}`LinearProblem</span>
-<span class="c1"># &lt;dolfinx.fem.petsc.LinearProblem&gt;` class which uses PETSc to solve</span>
-<span class="c1"># the linear problem. Details on the preconditioner setup are given in</span>
-<span class="c1"># {py:function}`nested_iterative_solver_low_level` below.</span>
-<span class="c1">#</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">nested_iterative_solver_high_level</span><span class="p">():</span>
+<section id="high-level-nested-matrix-solver">
+<h3>High-level nested matrix solver<a class="headerlink" href="#high-level-nested-matrix-solver" title="Link to this heading"></a></h3>
+<p>We first use the high-level <a class="reference internal" href="../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem" title="dolfinx.fem.petsc.LinearProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearProblem</span></code></a> class which uses PETSc to solve
+the linear problem. Details on the preconditioner setup are given in
+<code class="xref py py-func docutils literal notranslate"><span class="pre">nested_iterative_solver_low_level()</span></code> below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">nested_iterative_solver_high_level</span><span class="p">():</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Solve the Stokes problem using nest matrices and an iterative solver</span>
 <span class="sd">    using high-level functionality.&quot;&quot;&quot;</span>
     <span class="n">problem</span> <span class="o">=</span> <span class="n">LinearProblem</span><span class="p">(</span>
@@ -395,6 +393,7 @@ solvers for this problem:</p>
     <span class="k">return</span> <span class="n">norm_u</span><span class="p">,</span> <span class="n">norm_p</span>
 </pre></div>
 </div>
+</section>
 <section id="low-level-nested-matrix-solver">
 <h3>Low-level nested matrix solver<a class="headerlink" href="#low-level-nested-matrix-solver" title="Link to this heading"></a></h3>
 <p>We assemble the bilinear form into a nested matrix <code class="docutils literal notranslate"><span class="pre">A</span></code>, and call the
@@ -755,30 +754,30 @@ used.</p>
     <span class="k">return</span> <span class="n">norm_u</span><span class="p">,</span> <span class="n">norm_u</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve using LinearProblem class</span>
-<span class="n">norm_u_0</span><span class="p">,</span> <span class="n">norm_p_0</span> <span class="o">=</span> <span class="n">nested_iterative_solver_high_level</span><span class="p">()</span>
+<p>Solve using LinearProblem class</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">norm_u_0</span><span class="p">,</span> <span class="n">norm_p_0</span> <span class="o">=</span> <span class="n">nested_iterative_solver_high_level</span><span class="p">()</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve using PETSc MatNest</span>
-<span class="n">norm_u_1</span><span class="p">,</span> <span class="n">norm_p_1</span> <span class="o">=</span> <span class="n">nested_iterative_solver_low_level</span><span class="p">()</span>
+<p>Solve using PETSc MatNest</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">norm_u_1</span><span class="p">,</span> <span class="n">norm_p_1</span> <span class="o">=</span> <span class="n">nested_iterative_solver_low_level</span><span class="p">()</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_1</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_1</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve using PETSc block matrices and an iterative solver</span>
-<span class="n">norm_u_2</span><span class="p">,</span> <span class="n">norm_p_2</span> <span class="o">=</span> <span class="n">block_iterative_solver</span><span class="p">()</span>
+<p>Solve using PETSc block matrices and an iterative solver</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">norm_u_2</span><span class="p">,</span> <span class="n">norm_p_2</span> <span class="o">=</span> <span class="n">block_iterative_solver</span><span class="p">()</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_2</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_2</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve using PETSc block matrices and an LU solver</span>
-<span class="n">norm_u_3</span><span class="p">,</span> <span class="n">norm_p_3</span> <span class="o">=</span> <span class="n">block_direct_solver</span><span class="p">()</span>
+<p>Solve using PETSc block matrices and an LU solver</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">norm_u_3</span><span class="p">,</span> <span class="n">norm_p_3</span> <span class="o">=</span> <span class="n">block_direct_solver</span><span class="p">()</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_3</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_p_3</span><span class="p">,</span> <span class="n">norm_p_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Solve using a non-blocked matrix and an LU solver</span>
-<span class="n">norm_u_4</span><span class="p">,</span> <span class="n">norm_p_4</span> <span class="o">=</span> <span class="n">mixed_direct</span><span class="p">()</span>
+<p>Solve using a non-blocked matrix and an LU solver</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">norm_u_4</span><span class="p">,</span> <span class="n">norm_p_4</span> <span class="o">=</span> <span class="n">mixed_direct</span><span class="p">()</span>
 <span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">norm_u_4</span><span class="p">,</span> <span class="n">norm_u_0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>
 </pre></div>
 </div>
