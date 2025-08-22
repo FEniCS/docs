@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['node_5fdata_5ftype_0',['node_data_type',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#aa43fe559b95d7476ef0a345e8b3cd8d5',1,'dolfinx::graph::AdjacencyList']]]
+  ['partition_5ffn_0',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#aa2e8bbea5ac3a27249e3155bc455f887',1,'dolfinx::graph']]]
 ];

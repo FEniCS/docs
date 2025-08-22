@@ -1,7 +1,4 @@
 var searchData=
 [
-  ['cellpartitionfunction_0',['CellPartitionFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#acab22e3b5c8ac14664c8cd8e6f53fb70',1,'dolfinx::mesh']]],
-  ['cellreorderfunction_1',['CellReorderFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#a6ae04a49cad2b0638dbc083a221f2279',1,'dolfinx::mesh']]],
-  ['column_5fcontainer_5ftype_2',['column_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a57a12155c51f09fb23dc396ed08ecf08',1,'dolfinx::la::MatrixCSR']]],
-  ['container_5ftype_3',['container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a9c2014b8eab41918aa55438cb370dd55',1,'dolfinx::la::MatrixCSR::container_type'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a9c2014b8eab41918aa55438cb370dd55',1,'dolfinx::la::Vector::container_type']]]
+  ['geometry_5ftype_0',['geometry_type',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a04ce55eb3c49b869437e81d8c4c14ffc',1,'dolfinx::fem::Expression::geometry_type'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aabcaf5af5c0b791f0d4826adb9b38607',1,'dolfinx::fem::FiniteElement::geometry_type'],['../df/d02/classdolfinx_1_1fem_1_1Form.html#a04ce55eb3c49b869437e81d8c4c14ffc',1,'dolfinx::fem::Form::geometry_type'],['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a04ce55eb3c49b869437e81d8c4c14ffc',1,'dolfinx::fem::Function::geometry_type'],['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#aabcaf5af5c0b791f0d4826adb9b38607',1,'dolfinx::fem::FunctionSpace::geometry_type'],['../d0/ddf/classdolfinx_1_1mesh_1_1Mesh.html#aca50f0ad3e4fe1ad4f0b4b2e7f280f46',1,'dolfinx::mesh::Mesh::geometry_type']]]
 ];

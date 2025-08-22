@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['mdspan2_5ft_0',['mdspan2_t',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#aa3e895c2dcf02a35800a38764f7c9fed',1,'dolfinx::fem::CoordinateElement']]]
+  ['node_5fdata_5ftype_0',['node_data_type',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#aa43fe559b95d7476ef0a345e8b3cd8d5',1,'dolfinx::graph::AdjacencyList']]]
 ];

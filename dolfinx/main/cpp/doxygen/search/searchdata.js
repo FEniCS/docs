@@ -6,12 +6,12 @@ var indexSectionsWithContent =
   3: "adpu",
   4: "abcdefghijklmnoprstuvwx~",
   5: "cdeikmnorsuv",
-  6: "acglmnprsv",
+  6: "cglmnprsv",
   7: "bcdeginort",
   8: "aceinpstv",
   9: "mt",
   10: "dlprst",
-  11: "dfms"
+  11: "dfgmsv"
 };
 
 var indexSectionNames =

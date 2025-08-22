@@ -18,6 +18,7 @@ var searchData=
   ['num_5fnodes_15',['num_nodes',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#aa4ac382c064efdb8446805135773b734',1,'dolfinx::graph::AdjacencyList']]],
   ['num_5fnonzeros_16',['num_nonzeros',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a7ad58551156ab501aa9bee7580dc2a93',1,'dolfinx::la::SparsityPattern']]],
   ['num_5fowned_5frows_17',['num_owned_rows',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a44eabebe62656b3b8d9252477e5f61a0',1,'dolfinx::la::MatrixCSR']]],
-  ['num_5fsub_5fdofmaps_18',['num_sub_dofmaps',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#afb636ae92874d58f639c9d8c539f52a6',1,'dolfinx::fem::ElementDofLayout']]],
-  ['num_5fsub_5felements_19',['num_sub_elements',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#abf6d258f77b4060f5d259fe7e877709b',1,'dolfinx::fem::FiniteElement']]]
+  ['num_5fp2p_5frequests_18',['num_p2p_requests',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a347c440e68b4a4e881d1f7f2a23c94bc',1,'dolfinx::common::Scatterer']]],
+  ['num_5fsub_5fdofmaps_19',['num_sub_dofmaps',['../d7/d80/classdolfinx_1_1fem_1_1ElementDofLayout.html#afb636ae92874d58f639c9d8c539f52a6',1,'dolfinx::fem::ElementDofLayout']]],
+  ['num_5fsub_5felements_20',['num_sub_elements',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#abf6d258f77b4060f5d259fe7e877709b',1,'dolfinx::fem::FiniteElement']]]
 ];

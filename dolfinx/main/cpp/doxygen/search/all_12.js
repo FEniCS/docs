@@ -31,6 +31,5 @@ var searchData=
   ['tt_5fapply_5fright_28',['Tt_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acff5768975f264f0eeaa521af586ea9c',1,'dolfinx::fem::FiniteElement']]],
   ['tt_5finv_5fapply_29',['Tt_inv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4583796c0195c7ee0eb8e3dbdc270522',1,'dolfinx::fem::FiniteElement']]],
   ['tt_5finv_5fapply_5fright_30',['Tt_inv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a39ace9c41b11d8a3293ab4b8c28a02b2',1,'dolfinx::fem::FiniteElement']]],
-  ['type_31',['type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#aba1da6c8004e91b1a43ad1d076f91dbc',1,'dolfinx::common::Scatterer']]],
-  ['type_20mappings_32',['type mappings',['../d3/d97/group__MPI.html',1,'']]]
+  ['type_20mappings_31',['type mappings',['../d3/d97/group__MPI.html',1,'']]]
 ];
