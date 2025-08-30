@@ -73,13 +73,23 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.fem.dofmap</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2018 Michal Habera</span>
+<span></span><span class="c1"># Copyright (C) 2018-2025 Michal Habera and Paul T. Kühner</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py.MPI</span><span class="w"> </span><span class="kn">import</span> <span class="n">Comm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">basix.finite_element</span><span class="w"> </span><span class="kn">import</span> <span class="n">FiniteElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">DofMap</span> <span class="k">as</span> <span class="n">_DofMap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_dofmaps</span> <span class="k">as</span> <span class="n">_create_dofmaps</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.mesh</span>
 
 
 <div class="viewcode-block" id="DofMap">
@@ -91,9 +101,9 @@
 <span class="sd">    dof map based on a FiniteElement on a specific mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">DofMap</span>
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_DofMap</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">DofMap</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">:</span> <span class="n">_DofMap</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">dofmap</span>
 
 <div class="viewcode-block" id="DofMap.cell_dofs">
@@ -136,6 +146,28 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Adjacency list with dof indices for each cell.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">map</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="create_dofmaps">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.create_dofmaps">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_dofmaps</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">Comm</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="s2">&quot;dolfinx.mesh.Topology&quot;</span><span class="p">,</span> <span class="n">elements</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">FiniteElement</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DofMap</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create degree-of-freedom maps on a given topology.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator</span>
+<span class="sd">        topology: Mesh topology</span>
+<span class="sd">        elements: Sequence of elements</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of degree-of-freedom maps where the ``i``-th map is the map</span>
+<span class="sd">        for ``elements[i]``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">elements_cpp</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
+    <span class="n">cpp_dofmaps</span> <span class="o">=</span> <span class="n">_create_dofmaps</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">elements_cpp</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">DofMap</span><span class="p">(</span><span class="n">cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">cpp_object</span> <span class="ow">in</span> <span class="n">cpp_dofmaps</span><span class="p">]</span></div>
 
 </pre></div>
 
