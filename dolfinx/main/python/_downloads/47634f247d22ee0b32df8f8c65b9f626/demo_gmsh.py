@@ -12,8 +12,13 @@
 #
 # Copyright (C) 2020-2023 Garth N. Wells and Jørgen S. Dokken
 #
+# ```{admonition} Download sources
+# :class: download
+# * {download}`Python script <./demo_gmsh.py>`
+# * {download}`Jupyter notebook <./demo_gmsh.ipynb>`
+# ```
+
 # This demo shows how to create meshes using the Gmsh Python interface.
-# It is implemented in {download}`demo_gmsh.py`.
 #
 # The Gmsh module is required for this demo.
 
@@ -22,7 +27,8 @@ from mpi4py import MPI
 
 import gmsh  # type: ignore
 
-from dolfinx.io import XDMFFile, gmshio
+from dolfinx.io import XDMFFile
+from dolfinx.io import gmsh as gmshio
 
 # -
 

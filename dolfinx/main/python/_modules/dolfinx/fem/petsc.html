@@ -8,6 +8,7 @@
   <title>dolfinx.fem.petsc &mdash; DOLFINx 0.10.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-codeautolink.css?v=b2176991" />
 
   
       <script src="../../../_static/jquery.js?v=5d32c60e"></script>
@@ -99,9 +100,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_ctypes</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span>
@@ -145,11 +147,14 @@
     <span class="s2">&quot;assemble_residual&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assemble_vector&quot;</span><span class="p">,</span>
     <span class="s2">&quot;assign&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cffi_utils&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_matrix&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ctypes_utils&quot;</span><span class="p">,</span>
     <span class="s2">&quot;discrete_curl&quot;</span><span class="p">,</span>
     <span class="s2">&quot;discrete_gradient&quot;</span><span class="p">,</span>
     <span class="s2">&quot;interpolation_matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;numba_utils&quot;</span><span class="p">,</span>
     <span class="s2">&quot;set_bc&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
@@ -160,27 +165,29 @@
 <div class="viewcode-block" id="create_vector">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_vector">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_vector</span><span class="p">(</span>
-    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span> <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">V</span><span class="p">:</span> <span class="n">_FunctionSpace</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_FunctionSpace</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector that is compatible with a linear form(s).</span>
-
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc vector that is compatible with a linear form(s)</span>
+<span class="sd">    or functionspace(s).</span>
 <span class="sd">    Three cases are supported:</span>
 
-<span class="sd">    1. For a single linear form ``L``, if ``kind`` is ``None`` or is</span>
-<span class="sd">       ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is</span>
-<span class="sd">       compatible with ``L`` is created.</span>
+<span class="sd">    1. For a single space ``V``, if ``kind`` is ``None`` or is</span>
+<span class="sd">       ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is compatible</span>
+<span class="sd">       with ``V`` is created.</span>
 
-<span class="sd">    2. If ``L`` is a sequence of linear forms and ``kind`` is ``None``</span>
-<span class="sd">       or is ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is</span>
-<span class="sd">       compatible with ``L`` is created. The created vector ``b`` is</span>
-<span class="sd">       initialized such that on each MPI process ``b = [b_0, b_1, ...,</span>
+<span class="sd">    2. If ``V`` is a sequence of functionspaces and ``kind`` is ``None`` or</span>
+<span class="sd">       is ``PETSc.Vec.Type.MPI``, a ghosted PETSc vector which is</span>
+<span class="sd">       compatible with ``V`` is created. The created vector ``b``</span>
+<span class="sd">       is initialized such that on each MPI process ``b = [b_0, b_1, ...,</span>
 <span class="sd">       b_n, b_0g, b_1g, ..., b_ng]``, where ``b_i`` are the entries</span>
-<span class="sd">       associated with the &#39;owned&#39; degrees-of-freedom for ``L[i]`` and</span>
-<span class="sd">       ``b_ig`` are the &#39;unowned&#39; (ghost) entries for ``L[i]``.</span>
+<span class="sd">       associated with the &#39;owned&#39; degrees-of-freedom for ``V[i]`` and</span>
+<span class="sd">       ``b_ig`` are the &#39;unowned&#39; (ghost) entries for ``V[i]``.</span>
 
 <span class="sd">       For this case, the returned vector has an attribute ``_blocks``</span>
 <span class="sd">       that holds the local offsets into ``b`` for the (i) owned and</span>
-<span class="sd">       (ii) ghost entries for each ``L[i]``. It can be accessed by</span>
+<span class="sd">       (ii) ghost entries for each ``V_i``. It can be accessed by</span>
 <span class="sd">       ``b.getAttr(&quot;_blocks&quot;)``. The offsets can be used to get views</span>
 <span class="sd">       into ``b`` for blocks, e.g.::</span>
 
@@ -194,50 +201,27 @@
 <span class="sd">           &gt;&gt;&gt; b1_owned = b.array[offsets0[1]:offsets0[2]]</span>
 <span class="sd">           &gt;&gt;&gt; b1_ghost = b.array[offsets1[1]:offsets1[2]]</span>
 
-<span class="sd">    3. If ``L`` is a sequence of linear forms and ``kind`` is</span>
-<span class="sd">       ``PETSc.Vec.Type.NEST``, a PETSc nested vector (a &#39;nest&#39; of</span>
-<span class="sd">       ghosted PETSc vectors) which is compatible with ``L`` is created.</span>
+<span class="sd">    3. If ``L/V`` is a sequence of linear forms/functionspaces and ``kind``</span>
+<span class="sd">       is ``PETSc.Vec.Type.NEST``, a PETSc nested vector (a &#39;nest&#39; of</span>
+<span class="sd">       ghosted PETSc vectors) which is compatible with ``L/V`` is created.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        L: Linear form or a sequence of linear forms.</span>
+<span class="sd">        V: Function space or a sequence of such.</span>
 <span class="sd">        kind: PETSc vector type (``VecType``) to create.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A PETSc vector with a layout that is compatible with ``L``. The</span>
+<span class="sd">        A PETSc vector with a layout that is compatible with ``V``. The</span>
 <span class="sd">        vector is not initialised to zero.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
-        <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span>
-                <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>  <span class="c1"># type: ignore[attr-defined]</span>
-                <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>  <span class="c1"># type: ignore[attr-defined]</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">L</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>  <span class="c1"># type: ignore[attr-defined]</span>
-            <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_nest</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">MPI</span> <span class="ow">or</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># type: ignore[attr-defined]</span>
-            <span class="n">off_owned</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">off_ghost</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span>
-                    <span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_ghosts</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="n">off_owned</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">V</span><span class="p">,</span> <span class="n">_FunctionSpace</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FunctionSpace_float64</span>
+    <span class="p">):</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="p">[</span><span class="n">V</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">_V</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">_V</span> <span class="ow">in</span> <span class="n">V</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can not create vector for None block.&quot;</span><span class="p">)</span>
 
-            <span class="n">b</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector_block</span><span class="p">(</span><span class="n">maps</span><span class="p">)</span>
-            <span class="n">b</span><span class="o">.</span><span class="n">setAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">off_owned</span><span class="p">,</span> <span class="n">off_ghost</span><span class="p">))</span>
-            <span class="k">return</span> <span class="n">b</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                <span class="s2">&quot;Vector type must be specified for blocked/nested assembly.&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Vector type &#39;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&#39; not supported.&quot;</span>
-                <span class="s2">&quot;Did you mean &#39;nest&#39; or &#39;mpi&#39;?&quot;</span>
-            <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">dofmap</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-        <span class="k">return</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span></div>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">[(</span><span class="n">_V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span> <span class="n">_V</span><span class="o">.</span><span class="n">dofmap</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">)</span> <span class="k">for</span> <span class="n">_V</span> <span class="ow">in</span> <span class="n">V</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+    <span class="k">return</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">create_vector</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span></div>
 
 
 
@@ -247,8 +231,8 @@
 <div class="viewcode-block" id="create_matrix">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.create_matrix">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_matrix</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a PETSc matrix that is compatible with the (sequence) of</span>
 <span class="sd">    bilinear form(s).</span>
@@ -303,15 +287,14 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_vector">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_vector</span><span class="p">(</span>
-    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
-            <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
-        <span class="p">]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form(s) into a new PETSc vector.</span>
 
@@ -360,7 +343,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        An assembled vector.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
     <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_zero_vector</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">assemble_vector</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
 
@@ -369,14 +352,13 @@
 <span class="nd">@assemble_vector</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
-    <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
-            <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
-        <span class="p">]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">L</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble linear form(s) into a PETSc vector.</span>
 
@@ -441,18 +423,15 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_matrix">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
-            <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]],</span>
-        <span class="p">]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">kind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble a bilinear form into a matrix.</span>
@@ -513,16 +492,15 @@
 <span class="nd">@assemble_matrix</span><span class="o">.</span><span class="n">register</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
-            <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]],</span>
-        <span class="p">]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form into a matrix.</span>
 
@@ -627,19 +605,16 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.apply_lifting">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">apply_lifting</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
-    <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]]],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">constants</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">coeffs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span>
-        <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span>
-            <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
-            <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]],</span>
-        <span class="p">]</span>
-    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Modify the right-hand side PETSc vector ``b`` to account for</span>
 <span class="sd">    constraints (Dirichlet boundary conitions).</span>
@@ -750,8 +725,8 @@
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_bc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">set_bc</span><span class="p">(</span>
     <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
-    <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]],</span>
-    <span class="n">x0</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Set constraint (Dirchlet boundary condition) values in an vector.</span>
@@ -822,18 +797,18 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">a</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]],</span>
-        <span class="n">L</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+        <span class="n">a</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
+        <span class="n">L</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">petsc_options_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">P</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">petsc_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">P</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">petsc_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">jit_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entity_maps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize solver for a linear variational problem.</span>
 
@@ -905,14 +880,8 @@
 <span class="sd">                option values.</span>
 <span class="sd">            entity_maps: If any trial functions, test functions, or</span>
 <span class="sd">                coefficients in the form are not defined over the same mesh</span>
-<span class="sd">                as the integration domain, ``entity_maps`` must be</span>
-<span class="sd">                supplied.</span>
-<span class="sd">                For each key (a mesh, different to the integration domain</span>
-<span class="sd">                mesh) a map should be provided relating the entities in the</span>
-<span class="sd">                integration domain mesh to the entities in the key mesh</span>
-<span class="sd">                e.g. for a key-value pair (msh, emap) in ``entity_maps``,</span>
-<span class="sd">                ``emap[i]`` is the entity in ``msh`` corresponding to</span>
-<span class="sd">                entity ``i`` in the integration domain mesh.</span>
+<span class="sd">                as the integration domain, a corresponding :class:</span>
+<span class="sd">                `EntityMap&lt;dolfinx.mesh.EntityMap&gt;` must be provided.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
             <span class="n">a</span><span class="p">,</span>
@@ -945,10 +914,10 @@
         <span class="c1"># For nest matrices kind can be a nested list.</span>
         <span class="n">kind</span> <span class="o">=</span> <span class="s2">&quot;nest&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span> <span class="k">else</span> <span class="n">kind</span>  <span class="c1"># type: ignore[attr-defined]</span>
         <span class="k">assert</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">L</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Extract function space for unknown from the right hand</span>
             <span class="c1"># side of the equation.</span>
@@ -1013,7 +982,7 @@
 
 <div class="viewcode-block" id="LinearProblem.solve">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.LinearProblem.solve">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem.</span>
 
 <span class="sd">        This method updates the solution ``u`` function(s) stored in the</span>
@@ -1076,17 +1045,17 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">L</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">L</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled linear form representing the left-hand side.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_L</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">a</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">a</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled bilinear form representing the right-hand side.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">preconditioner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">preconditioner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled bilinear form representing the preconditioner.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preconditioner</span>
 
@@ -1121,7 +1090,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_solver</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">u</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">u</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution function(s).</span>
 
 <span class="sd">        Note:</span>
@@ -1142,34 +1111,24 @@
 <span class="sd">        forms: List of forms to extract block data from.</span>
 <span class="sd">        vec: PETSc vector to assign block data to.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Early exit if the vector already has block data or is a nest vector</span>
-    <span class="k">if</span> <span class="n">vec</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">vec</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;nest&quot;</span><span class="p">:</span>
-        <span class="k">return</span>
 
-    <span class="n">maps</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">maps</span> <span class="o">=</span> <span class="p">(</span>
         <span class="p">(</span>
             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map</span><span class="p">,</span>  <span class="c1"># type: ignore[attr-defined]</span>
             <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dofmaps</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">index_map_bs</span><span class="p">,</span>  <span class="c1"># type: ignore[attr-defined]</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">forms</span>
-    <span class="p">]</span>
-    <span class="n">off_owned</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-        <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">size_local</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">off_ghost</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-        <span class="n">itertools</span><span class="o">.</span><span class="n">accumulate</span><span class="p">(</span>
-            <span class="n">maps</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">off</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">off</span> <span class="o">+</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">num_ghosts</span> <span class="o">*</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">initial</span><span class="o">=</span><span class="n">off_owned</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="p">)</span>
-    <span class="p">)</span>
-    <span class="n">vec</span><span class="o">.</span><span class="n">setAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">off_owned</span><span class="p">,</span> <span class="n">off_ghost</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_assign_block_data</span><span class="p">(</span><span class="n">maps</span><span class="p">,</span> <span class="n">vec</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="assemble_residual">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_residual">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_residual</span><span class="p">(</span>
-    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
-    <span class="n">residual</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
-    <span class="n">jacobian</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span>
+    <span class="n">residual</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">],</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
     <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
     <span class="n">_snes</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
@@ -1234,9 +1193,9 @@
 <div class="viewcode-block" id="assemble_jacobian">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assemble_jacobian">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">assemble_jacobian</span><span class="p">(</span>
-    <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span> <span class="n">_Function</span><span class="p">],</span>
-    <span class="n">jacobian</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]],</span>
-    <span class="n">preconditioner</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]],</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]</span> <span class="o">|</span> <span class="n">_Function</span><span class="p">,</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]],</span>
+    <span class="n">preconditioner</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">],</span>
     <span class="n">_snes</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">SNES</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>  <span class="c1"># type: ignore[name-defined]</span>
@@ -1309,18 +1268,18 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">F</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]],</span>
-        <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
+        <span class="n">F</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">petsc_options_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">J</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">P</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">kind</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">petsc_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">entity_maps</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">J</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">P</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">petsc_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">jit_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">entity_maps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize solver for a nonlinear variational problem.</span>
@@ -1381,14 +1340,8 @@
 <span class="sd">                values.</span>
 <span class="sd">            entity_maps: If any trial functions, test functions, or</span>
 <span class="sd">                coefficients in the form are not defined over the same mesh</span>
-<span class="sd">                as the integration domain, ``entity_maps`` must be</span>
-<span class="sd">                supplied. For each key (a mesh, different to the</span>
-<span class="sd">                integration domain mesh) a map should be provided relating</span>
-<span class="sd">                the entities in the integration domain mesh to the entities</span>
-<span class="sd">                in the key mesh e.g. for a key-value pair ``(msh, emap)``</span>
-<span class="sd">                in ``entity_maps``, ``emap[i]`` is the entity in ``msh``</span>
-<span class="sd">                corresponding to entity ``i`` in the integration domain</span>
-<span class="sd">                mesh.</span>
+<span class="sd">                as the integration domain, a corresponding :class:</span>
+<span class="sd">                `EntityMap&lt;dolfinx.mesh.EntityMap&gt;` must be provided.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Compile residual and Jacobian forms</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">_create_form</span><span class="p">(</span>
@@ -1434,8 +1387,8 @@
         <span class="c1"># Determine the vector kind based on the matrix type</span>
         <span class="n">kind</span> <span class="o">=</span> <span class="s2">&quot;nest&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_A</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span> <span class="k">else</span> <span class="n">kind</span>  <span class="c1"># type: ignore[attr-defined]</span>
         <span class="k">assert</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_b</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_x</span> <span class="o">=</span> <span class="n">create_vector</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">F</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 
         <span class="c1"># Create the SNES solver and attach the corresponding Jacobian and</span>
         <span class="c1"># residual computation functions</span>
@@ -1485,7 +1438,7 @@
 
 <div class="viewcode-block" id="NonlinearProblem.solve">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.NonlinearProblem.solve">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve the problem.</span>
 
 <span class="sd">        This method updates the solution ``u`` function(s) stored in the</span>
@@ -1523,17 +1476,17 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">F</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled residual.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled Jacobian.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_J</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">preconditioner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">Form</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">preconditioner</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The compiled preconditioner.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preconditioner</span>
 
@@ -1543,7 +1496,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_A</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">P_mat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">]:</span>  <span class="c1"># type: ignore[name-defined]</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">P_mat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Preconditioner matrix.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_P_mat</span>
 
@@ -1568,7 +1521,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_snes</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">u</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">u</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Solution function(s).</span>
 
 <span class="sd">        Note:</span>
@@ -1605,10 +1558,10 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">F</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span><span class="p">,</span>
-        <span class="n">bcs</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">J</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">jit_options</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">form_compiler_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">jit_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize solver for solving a non-linear problem using</span>
 <span class="sd">        Newton&#39;s method`.</span>
@@ -1781,7 +1734,7 @@
 <div class="viewcode-block" id="assign">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.assign">[docs]</a>
 <span class="nd">@functools</span><span class="o">.</span><span class="n">singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">assign</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">):</span>  <span class="c1"># type: ignore[name-defined]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assign</span><span class="p">(</span><span class="n">u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span> <span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">):</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign :class:`Function` degrees-of-freedom to a vector.</span>
 
 <span class="sd">    Assigns degree-of-freedom values in ``u``, which is possibly a</span>
@@ -1811,7 +1764,7 @@
 
 
 <span class="nd">@assign</span><span class="o">.</span><span class="n">register</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Union</span><span class="p">[</span><span class="n">_Function</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]]):</span>  <span class="c1"># type: ignore[name-defined]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">_Function</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]):</span>  <span class="c1"># type: ignore[name-defined]</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign vector entries to :class:`Function` degrees-of-freedom.</span>
 
 <span class="sd">    Assigns values in ``x`` to the degrees-of-freedom of ``u``, which is</span>
@@ -1837,6 +1790,268 @@
             <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">data0</span> <span class="o">+</span> <span class="n">data1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">array</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_petsc_lib</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the full path of the PETSc shared library.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Full path to the PETSc shared library.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RuntimeError: If PETSc library cannot be found for if more than</span>
+<span class="sd">            one library is found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_petsc4py</span>
+
+    <span class="n">petsc_dir</span> <span class="o">=</span> <span class="n">_petsc4py</span><span class="o">.</span><span class="n">get_config</span><span class="p">()[</span><span class="s2">&quot;PETSC_DIR&quot;</span><span class="p">]</span>
+    <span class="n">petsc_arch</span> <span class="o">=</span> <span class="n">_petsc4py</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">getPathArchPETSc</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">candidate_paths</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">petsc_dir</span><span class="p">,</span> <span class="n">petsc_arch</span><span class="p">,</span> <span class="s2">&quot;lib&quot;</span><span class="p">,</span> <span class="s2">&quot;libpetsc.so&quot;</span><span class="p">),</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">petsc_dir</span><span class="p">,</span> <span class="n">petsc_arch</span><span class="p">,</span> <span class="s2">&quot;lib&quot;</span><span class="p">,</span> <span class="s2">&quot;libpetsc.dylib&quot;</span><span class="p">),</span>
+    <span class="p">]</span>
+    <span class="n">exists_paths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">candidate_path</span> <span class="ow">in</span> <span class="n">candidate_paths</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">candidate_path</span><span class="p">):</span>
+            <span class="n">exists_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exists_paths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not find a PETSc shared library. Candidate paths: </span><span class="si">{</span><span class="n">candidate_paths</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">exists_paths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;More than one PETSc shared library found. Paths: </span><span class="si">{</span><span class="n">exists_paths</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">exists_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="numba_utils">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.numba_utils">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">numba_utils</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility attributes for working with Numba and PETSc.</span>
+
+<span class="sd">    These attributes are convenience functions for calling PETSc C</span>
+<span class="sd">    functions from within Numba functions.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        `Numba &lt;https://numba.pydata.org/&gt;`_ must be available</span>
+<span class="sd">        to use these utilities.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        A typical use of these utility functions is::</span>
+
+<span class="sd">            import numpy as np</span>
+<span class="sd">            import numpy.typing as npt</span>
+<span class="sd">            def set_vals(A: int,</span>
+<span class="sd">                         m: int, rows: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         n: int, cols: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         data: npt.NDArray[PETSc.ScalarTYpe], mode: int):</span>
+<span class="sd">                MatSetValuesLocal(A, m, rows.ctypes, n, cols.ctypes,</span>
+<span class="sd">                                  data.ctypes, mode)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">petsc4py.PETSc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_PETSc</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">llvmlite</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_llvmlite</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_numba</span>
+
+        <span class="n">_llvmlite</span><span class="o">.</span><span class="n">binding</span><span class="o">.</span><span class="n">load_library_permanently</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">get_petsc_lib</span><span class="p">()))</span>
+
+        <span class="n">_int</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_scalar</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_real</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">from_dtype</span><span class="p">(</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">RealType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_int_ptr</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">_int</span><span class="p">)</span>
+        <span class="n">_scalar_ptr</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">CPointer</span><span class="p">(</span><span class="n">_scalar</span><span class="p">)</span>
+        <span class="n">_MatSetValues_sig</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span>
+            <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">intc</span><span class="p">,</span>
+            <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">uintp</span><span class="p">,</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_int_ptr</span><span class="p">,</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_int_ptr</span><span class="p">,</span>
+            <span class="n">_scalar_ptr</span><span class="p">,</span>
+            <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">intc</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">MatSetValuesLocal</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ExternalFunction</span><span class="p">(</span>
+            <span class="s2">&quot;MatSetValuesLocal&quot;</span><span class="p">,</span> <span class="n">_MatSetValues_sig</span>
+        <span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+
+        <span class="n">MatSetValuesBlockedLocal</span> <span class="o">=</span> <span class="n">_numba</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ExternalFunction</span><span class="p">(</span>
+            <span class="s2">&quot;MatSetValuesBlockedLocal&quot;</span><span class="p">,</span> <span class="n">_MatSetValues_sig</span>
+        <span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesBlockedLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesBlockedLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="ctypes_utils">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.ctypes_utils">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ctypes_utils</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility attributes for working with ctypes and PETSc.</span>
+
+<span class="sd">    These attributes are convenience functions for calling PETSc C</span>
+<span class="sd">    functions, typically from within Numba functions.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        A typical use of these utility functions is::</span>
+
+<span class="sd">            import numpy as np</span>
+<span class="sd">            import numpy.typing as npt</span>
+<span class="sd">            def set_vals(A: int,</span>
+<span class="sd">                         m: int, rows: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         n: int, cols: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         data: npt.NDArray[PETSc.ScalarTYpe], mode: int):</span>
+<span class="sd">                MatSetValuesLocal(A, m, rows.ctypes, n, cols.ctypes,</span>
+<span class="sd">                                  data.ctypes, mode)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">petsc4py.PETSc</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_PETSc</span>
+
+        <span class="n">_lib_ctypes</span> <span class="o">=</span> <span class="n">_ctypes</span><span class="o">.</span><span class="n">cdll</span><span class="o">.</span><span class="n">LoadLibrary</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">get_petsc_lib</span><span class="p">()))</span>
+
+        <span class="c1"># Note: ctypes does not have complex types, hence we use void* for</span>
+        <span class="c1"># scalar data</span>
+        <span class="n">_int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ctypeslib</span><span class="o">.</span><span class="n">as_ctypes_type</span><span class="p">(</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+
+        <span class="n">MatSetValuesLocal</span> <span class="o">=</span> <span class="n">_lib_ctypes</span><span class="o">.</span><span class="n">MatSetValuesLocal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+        <span class="n">MatSetValuesLocal</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">_int</span><span class="p">),</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">_int</span><span class="p">),</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="n">MatSetValuesBlockedLocal</span> <span class="o">=</span> <span class="n">_lib_ctypes</span><span class="o">.</span><span class="n">MatSetValuesBlockedLocal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesBlockedLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesBlockedLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+        <span class="n">MatSetValuesBlockedLocal</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">_int</span><span class="p">),</span>
+            <span class="n">_int</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">POINTER</span><span class="p">(</span><span class="n">_int</span><span class="p">),</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_void_p</span><span class="p">,</span>
+            <span class="n">_ctypes</span><span class="o">.</span><span class="n">c_int</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">pass</span></div>
+
+
+
+<div class="viewcode-block" id="cffi_utils">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.cffi_utils">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">cffi_utils</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Utility attributes for working with CFFI (ABI mode) and Numba.</span>
+
+<span class="sd">    Registers Numba&#39;s complex types with CFFI.</span>
+
+<span class="sd">    If PETSc is available, CFFI convenience functions for calling PETSc C</span>
+<span class="sd">    functions are also created. These are typically called from within</span>
+<span class="sd">    Numba functions.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        `CFFI &lt;https://cffi.readthedocs.io/&gt;`_ and  `Numba</span>
+<span class="sd">        &lt;https://numba.pydata.org/&gt;`_ must be available to use these</span>
+<span class="sd">        utilities.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        A typical use of these utility functions is::</span>
+
+<span class="sd">            import numpy as np</span>
+<span class="sd">            import numpy.typing as npt</span>
+<span class="sd">            def set_vals(A: int,</span>
+<span class="sd">                         m: int, rows: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         n: int, cols: npt.NDArray[PETSc.IntType],</span>
+<span class="sd">                         data: npt.NDArray[PETSc.ScalarType], mode: int):</span>
+<span class="sd">                MatSetValuesLocal(A, m, ffi.from_buffer(rows), n,</span>
+<span class="sd">                                  ffi.from_buffer(cols),</span>
+<span class="sd">                                  ffi.from_buffer(rows(data), mode)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">cffi</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_cffi</span>
+
+    <span class="n">_ffi</span> <span class="o">=</span> <span class="n">_cffi</span><span class="o">.</span><span class="n">FFI</span><span class="p">()</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_numba</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">numba.core.typing.cffi_utils</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_cffi_support</span>
+
+        <span class="c1"># Register complex types</span>
+        <span class="n">_cffi_support</span><span class="o">.</span><span class="n">register_type</span><span class="p">(</span><span class="n">_ffi</span><span class="o">.</span><span class="n">typeof</span><span class="p">(</span><span class="s2">&quot;float _Complex&quot;</span><span class="p">),</span> <span class="n">_numba</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
+        <span class="n">_cffi_support</span><span class="o">.</span><span class="n">register_type</span><span class="p">(</span><span class="n">_ffi</span><span class="o">.</span><span class="n">typeof</span><span class="p">(</span><span class="s2">&quot;double _Complex&quot;</span><span class="p">),</span> <span class="n">_numba</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.log</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogLevel</span><span class="p">,</span> <span class="n">log</span>
+
+        <span class="n">log</span><span class="p">(</span>
+            <span class="n">LogLevel</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span>
+            <span class="s2">&quot;Could not import numba, so cffi/numba complex types were not registered.&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">petsc4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">PETSc</span> <span class="k">as</span> <span class="n">_PETSc</span>
+
+        <span class="n">_lib_cffi</span> <span class="o">=</span> <span class="n">_ffi</span><span class="o">.</span><span class="n">dlopen</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">get_petsc_lib</span><span class="p">()))</span>
+
+        <span class="n">_CTYPES</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span> <span class="s2">&quot;int32_t&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">:</span> <span class="s2">&quot;int64_t&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span> <span class="s2">&quot;double&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">:</span> <span class="s2">&quot;float _Complex&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">:</span> <span class="s2">&quot;double _Complex&quot;</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">longlong</span><span class="p">:</span> <span class="s2">&quot;long long&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="n">_c_int_t</span> <span class="o">=</span> <span class="n">_CTYPES</span><span class="p">[</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">IntType</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_c_scalar_t</span> <span class="o">=</span> <span class="n">_CTYPES</span><span class="p">[</span><span class="n">_PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_ffi</span><span class="o">.</span><span class="n">cdef</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                int MatSetValuesLocal(void* mat, </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2"> nrow, const </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2">* irow,</span>
+<span class="s2">                                    </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2"> ncol, const </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2">* icol,</span>
+<span class="s2">                                    const </span><span class="si">{</span><span class="n">_c_scalar_t</span><span class="si">}</span><span class="s2">* y, int addv);</span>
+<span class="s2">                int MatSetValuesBlockedLocal(void* mat, </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2"> nrow, const </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2">* irow,</span>
+<span class="s2">                                    </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2"> ncol, const </span><span class="si">{</span><span class="n">_c_int_t</span><span class="si">}</span><span class="s2">* icol,</span>
+<span class="s2">                                    const </span><span class="si">{</span><span class="n">_c_scalar_t</span><span class="si">}</span><span class="s2">* y, int addv);</span>
+<span class="s2">                                    &quot;&quot;&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">MatSetValuesLocal</span> <span class="o">=</span> <span class="n">_lib_cffi</span><span class="o">.</span><span class="n">MatSetValuesLocal</span>  <span class="c1"># type: ignore[attr-defined]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+
+        <span class="n">MatSetValuesBlockedLocal</span> <span class="o">=</span> <span class="n">_lib_cffi</span><span class="o">.</span><span class="n">MatSetValuesBlockedLocal</span>  <span class="c1"># type: ignore[attr-defined]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See PETSc `MatSetValuesBlockedLocal</span>
+<span class="sd">        &lt;https://petsc.org/release/manualpages/Mat/MatSetValuesBlockedLocal&gt;`_</span>
+<span class="sd">        documentation.&quot;&quot;&quot;</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.log</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogLevel</span><span class="p">,</span> <span class="n">log</span>
+
+        <span class="n">log</span><span class="p">(</span>
+            <span class="n">LogLevel</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span>
+            <span class="s2">&quot;Could not import petsc4py, so cffi/PETSc ABI mode interface was not created.&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
 </pre></div>
 
            </div>
