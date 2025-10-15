@@ -43,13 +43,27 @@
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrand_dags</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restricted</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Restricted</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.map_dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_expr_dag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.measure</span><span class="w"> </span><span class="kn">import</span> <span class="n">integral_type_to_measure_name</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.sobolevspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">H1</span>
+
+<span class="n">default_restriction_map</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet_top&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet_bottom&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet_vert&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet&quot;</span><span class="p">:</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet_horiz&quot;</span><span class="p">:</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;interior_facet_vert&quot;</span><span class="p">:</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span>
+<span class="p">}</span>
 
 
 <div class="viewcode-block" id="RestrictionPropagator">
@@ -57,19 +71,28 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">RestrictionPropagator</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Restriction propagator.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">apply_default</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">side</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">default_restrictions</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise a restriction propagator.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            side: The side of the mesh to restrict to, if `None`, no restriction.</span>
+<span class="sd">            default_restrictions: A map between meshes and certain restrictions</span>
+<span class="sd">                set by the integration measure.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">=</span> <span class="n">side</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">apply_default</span> <span class="o">=</span> <span class="n">apply_default</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">side</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span> <span class="o">=</span> <span class="n">default_restrictions</span>
         <span class="c1"># Caches for propagating the restriction with map_expr_dag</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">vcaches</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rcaches</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vcaches</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rcaches</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">],</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="p">{}}</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_rp</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="n">side</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">apply_default</span><span class="o">=</span><span class="n">apply_default</span><span class="p">),</span>
-                <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="n">side</span><span class="o">=</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">apply_default</span><span class="o">=</span><span class="n">apply_default</span><span class="p">),</span>
+                <span class="s2">&quot;+&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">default_restrictions</span><span class="p">),</span>
+                <span class="s2">&quot;-&quot;</span><span class="p">:</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">default_restrictions</span><span class="p">),</span>
             <span class="p">}</span>
 
 <div class="viewcode-block" id="RestrictionPropagator.restricted">
@@ -89,6 +112,13 @@
 
     <span class="c1"># --- Reusable rules</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">_extract_and_check_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract single domain from a ufl.&quot;&quot;&quot;</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">domain</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Integral type on </span><span class="si">{</span><span class="n">domain</span><span class="si">}</span><span class="s2"> not known&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">domain</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">_ignore_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Ignore current restriction.</span>
 
@@ -99,31 +129,99 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_require_restriction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restrict a discontinuous quantity to current side, require a side to be set.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Discontinuous type </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> must be restricted.&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Just propagate restrictions.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Propagate restriction while checking validity.</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_and_check_domain</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">o</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Discontinuous type </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> must be restricted.&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Inconsistent restrictions: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;current restriction = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">, while &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;default restriction = </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown restriction: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_default_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restrict a continuous quantity to default side if no current restriction is set.&quot;&quot;&quot;</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span>
-        <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_default</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Just propagate restrictions.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">o</span>
+            <span class="c1"># Propagate restriction while applying default.</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_and_check_domain</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">o</span>
+                <span class="k">elif</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                    <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown default restriction </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2"> on domain </span><span class="si">{</span><span class="n">domain</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Inconsistent restrictions: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;current restriction = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">, while &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;default restriction = </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown restriction: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_opposite</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Restrict a quantity to default side.</span>
 
 <span class="sd">        If the current restriction is different swap the sign, require a side to be set.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Discontinuous type </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> must be restricted.&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Just propagate restrictions.</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="o">-</span><span class="n">o</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_restriction</span><span class="p">)</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_and_check_domain</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_restrictions</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">o</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Discontinuous type </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> must be restricted.&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Inconsistent restrictions: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;current restriction = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">, while &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;default restriction = </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span> <span class="o">==</span> <span class="n">r</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="o">-</span><span class="n">o</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown restriction: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_restriction</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_missing_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Raise an error.&quot;&quot;&quot;</span>
@@ -246,13 +344,21 @@
 
 <div class="viewcode-block" id="apply_restrictions">
 <a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_restrictions.apply_restrictions">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">apply_restrictions</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">apply_default</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Propagate restriction nodes to wrap differential terminals directly.&quot;&quot;&quot;</span>
-    <span class="n">integral_types</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">integral_type_to_measure_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">)</span>
-    <span class="p">]</span>
-    <span class="n">rules</span> <span class="o">=</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="n">apply_default</span><span class="o">=</span><span class="n">apply_default</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">,</span> <span class="n">only_integral_type</span><span class="o">=</span><span class="n">integral_types</span><span class="p">)</span></div>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_restrictions</span><span class="p">(</span><span class="n">expression</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">default_restrictions</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Propagate restriction nodes to wrap differential terminals directly.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        expression: UFL expression.</span>
+<span class="sd">        default_restrictions: domain-default_restriction map.</span>
+<span class="sd">            If `None`, just propagate restrictions without</span>
+<span class="sd">            applying the default restrictions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        expression with the restriction nodes propagated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rules</span> <span class="o">=</span> <span class="n">RestrictionPropagator</span><span class="p">(</span><span class="n">default_restrictions</span><span class="o">=</span><span class="n">default_restrictions</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">expression</span><span class="p">)</span></div>
 
 </pre></div>
 

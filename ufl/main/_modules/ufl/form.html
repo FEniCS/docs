@@ -75,7 +75,9 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Group integrals in multilevel dict by keys</span>
     <span class="c1"># [domain][integral_type][subdomain_id]</span>
-    <span class="n">integrals_dict</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)))</span>
+    <span class="n">integrals_dict</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span>
+        <span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)))</span>
+    <span class="p">)</span>
     <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -84,7 +86,12 @@
             <span class="p">)</span>
         <span class="n">it</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
         <span class="n">si</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
-        <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">si</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+        <span class="c1"># Make a sortable key.</span>
+        <span class="n">extra_domain_itype_sortable</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">d_</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype_</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">d_</span><span class="p">,</span> <span class="n">itype_</span> <span class="ow">in</span> <span class="n">integral</span><span class="o">.</span><span class="n">extra_domain_integral_type_map</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">extra_domain_itype_sortable</span><span class="p">][</span><span class="n">si</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
 
     <span class="n">all_integrals</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -99,16 +106,17 @@
     <span class="c1"># Order integrals canonically to increase signature stability</span>
     <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">]):</span>  <span class="c1"># str is sortable</span>
-            <span class="k">for</span> <span class="n">si</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
-                <span class="n">unsorted_integrals</span> <span class="o">=</span> <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">si</span><span class="p">]</span>
-                <span class="c1"># TODO: At this point we could order integrals by</span>
-                <span class="c1">#       metadata and integrand, or even add the</span>
-                <span class="c1">#       integrands with the same metadata. This is done</span>
-                <span class="c1">#       in accumulate_integrands_with_same_metadata in</span>
-                <span class="c1">#       algorithms/domain_analysis.py and would further</span>
-                <span class="c1">#       increase the signature stability.</span>
-                <span class="n">all_integrals</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">unsorted_integrals</span><span class="p">)</span>
-                <span class="c1"># integrals_dict[d][it][si] = unsorted_integrals</span>
+            <span class="k">for</span> <span class="n">extra_domain_itype_sortable</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">]):</span>
+                <span class="k">for</span> <span class="n">si</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">extra_domain_itype_sortable</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
+                    <span class="n">unsorted_integrals</span> <span class="o">=</span> <span class="n">integrals_dict</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">it</span><span class="p">][</span><span class="n">extra_domain_itype_sortable</span><span class="p">][</span><span class="n">si</span><span class="p">]</span>
+                    <span class="c1"># TODO: At this point we could order integrals by</span>
+                    <span class="c1">#       metadata and integrand, or even add the</span>
+                    <span class="c1">#       integrands with the same metadata. This is done</span>
+                    <span class="c1">#       in accumulate_integrands_with_same_metadata in</span>
+                    <span class="c1">#       algorithms/domain_analysis.py and would further</span>
+                    <span class="c1">#       increase the signature stability.</span>
+                    <span class="n">all_integrals</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">unsorted_integrals</span><span class="p">)</span>
+                    <span class="c1"># integrals_dict[d][it][extra_domain_itype_sortable][si] = unsorted_integrals</span>
 
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">all_integrals</span><span class="p">)</span>  <span class="c1"># integrals_dict</span>
 
@@ -704,6 +712,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">=</span> <span class="n">sort_domains</span><span class="p">(</span>
             <span class="n">join_domains</span><span class="p">([</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span><span class="p">])</span>
         <span class="p">)</span>
+        <span class="c1"># Collect domains in extra_domain_integral_type_map.</span>
+        <span class="n">domains_in_extra_domain_integral_type_map</span> <span class="o">=</span> <span class="n">join_domains</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrals</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">itg</span><span class="o">.</span><span class="n">extra_domain_integral_type_map</span><span class="p">()]</span>
+        <span class="p">)</span>
+        <span class="n">domains_in_extra_domain_integral_type_map</span> <span class="o">-=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span><span class="p">)</span>
         <span class="c1"># Collect domains in integrands.</span>
         <span class="n">domains_in_integrands</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">(</span>
@@ -712,7 +725,9 @@
             <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="n">domains_in_integrands</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">meshes</span><span class="p">)</span>
         <span class="n">domains_in_integrands</span> <span class="o">-=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span><span class="p">)</span>
-        <span class="n">all_domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">+</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">join_domains</span><span class="p">(</span><span class="n">domains_in_integrands</span><span class="p">))</span>
+        <span class="n">all_domains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integration_domains</span> <span class="o">+</span> <span class="n">sort_domains</span><span class="p">(</span>
+            <span class="n">join_domains</span><span class="p">(</span><span class="n">domains_in_extra_domain_integral_type_map</span> <span class="o">|</span> <span class="n">domains_in_integrands</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="c1"># Let problem solving environments access all domains via</span>
         <span class="c1"># self._domain_numbering.keys() (wrapped in extract_domains()).</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_domain_numbering</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_domains</span><span class="p">)}</span>

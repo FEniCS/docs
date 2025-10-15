@@ -39,8 +39,11 @@
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.coordinate_derivative_helpers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -48,6 +51,7 @@
     <span class="n">strip_coordinate_derivatives</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.renumbering</span><span class="w"> </span><span class="kn">import</span> <span class="n">renumber_indices</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">sort_domains</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.integral</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.protocols</span><span class="w"> </span><span class="kn">import</span> <span class="n">id_or_none</span>
@@ -67,6 +71,7 @@
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span>
         <span class="s2">&quot;domain&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;domain_integral_type_map&quot;</span><span class="p">,</span>
         <span class="s2">&quot;enabled_coefficients&quot;</span><span class="p">,</span>
         <span class="s2">&quot;integral_coefficients&quot;</span><span class="p">,</span>
         <span class="s2">&quot;integral_type&quot;</span><span class="p">,</span>
@@ -75,8 +80,28 @@
         <span class="s2">&quot;subdomain_id&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">integrals</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">domain</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+        <span class="n">integral_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subdomain_id</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;everywhere&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+        <span class="n">integrals</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Integral</span><span class="p">],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">domain_integral_type_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            domain: primal domain</span>
+<span class="sd">            integral_type: integral type on the primal domain</span>
+<span class="sd">            subdomain_id: subdmain id on the primal domain</span>
+<span class="sd">            integrals: integrals</span>
+<span class="sd">            metadata: metadata</span>
+<span class="sd">            domain_integral_type_map: map from domains to the integral types on those domains.</span>
+<span class="sd">                First domain must be the primal domain, and the other domains must be sorted.</span>
+<span class="sd">                Only significant in multi-domain problems</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="mi">1</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multiple domains mismatch in integral data.&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">integral_type</span> <span class="o">==</span> <span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">):</span>
@@ -94,6 +119,10 @@
         <span class="c1"># this stage:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">integral_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">enabled_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">non_primal_domains</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">domain_integral_type_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">if</span> <span class="n">sort_domains</span><span class="p">(</span><span class="n">non_primal_domains</span><span class="p">)</span> <span class="o">!=</span> <span class="n">non_primal_domains</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;domain_integral_type_map must have been sorted by domains&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain_integral_type_map</span> <span class="o">=</span> <span class="n">domain_integral_type_map</span>
 
         <span class="c1"># TODO: I think we can get rid of this with some refactoring</span>
         <span class="c1"># in ffc:</span>
@@ -102,11 +131,22 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if self is less than other.&quot;&quot;&quot;</span>
         <span class="c1"># To preserve behaviour of extract_integral_data:</span>
-        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">itype</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_integral_type_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">),</span>
+        <span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span>
             <span class="n">other</span><span class="o">.</span><span class="n">integral_type</span><span class="p">,</span>
             <span class="n">other</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">,</span>
             <span class="n">other</span><span class="o">.</span><span class="n">integrals</span><span class="p">,</span>
             <span class="n">other</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">itype</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">domain_integral_type_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">),</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
@@ -117,6 +157,7 @@
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomain_id</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">subdomain_id</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">integrals</span>
             <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">metadata</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_integral_type_map</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">domain_integral_type_map</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -166,16 +207,17 @@
 <span class="sd">        domains: list of AbstractDomain objects from the parent Form</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Dictionary mapping (domain, integral_type) to list(Integral)</span>
+<span class="sd">        Dictionary mapping (domain, integral_type) to a</span>
+<span class="sd">        dictionary mapping (extra_domain_integral_type_map, list(Integral)).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">integrals_by_domain_and_type</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">integrals_by_domain_and_type</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">integrals</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Integral has no domain.&quot;</span><span class="p">)</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">())</span>
-
+        <span class="n">key0</span> <span class="o">=</span> <span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">(),</span> <span class="n">itg</span><span class="o">.</span><span class="n">integral_type</span><span class="p">())</span>
+        <span class="n">key1</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">extra_domain_integral_type_map</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="c1"># Append integral to list of integrals with shared key</span>
-        <span class="n">integrals_by_domain_and_type</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
+        <span class="n">integrals_by_domain_and_type</span><span class="p">[</span><span class="n">key0</span><span class="p">][</span><span class="n">key1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">integrals_by_domain_and_type</span></div>
 
@@ -320,6 +362,7 @@
         <span class="n">integral_type</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span>
         <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span>
         <span class="n">subdomain_ids</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
+        <span class="n">extra_domain_integral_type_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">extra_domain_integral_type_map</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="k">if</span> <span class="s2">&quot;everywhere&quot;</span> <span class="ow">in</span> <span class="n">subdomain_ids</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;&#39;everywhere&#39; not a valid subdomain id. &quot;</span>
@@ -328,18 +371,36 @@
 
         <span class="c1"># Group for integral data (One integral data object for all</span>
         <span class="c1"># integrals with same domain, itype, (but possibly different metadata).</span>
-        <span class="n">itgs</span><span class="p">[(</span><span class="n">ufl_domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_ids</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+        <span class="n">itgs</span><span class="p">[(</span><span class="n">ufl_domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">subdomain_ids</span><span class="p">,</span> <span class="n">extra_domain_integral_type_tuple</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">integral</span>
+        <span class="p">)</span>
 
     <span class="c1"># Build list with canonical ordering, iteration over dicts</span>
     <span class="c1"># is not deterministic across python versions</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">keyfunc</span><span class="p">(</span><span class="n">item</span><span class="p">):</span>
-        <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">),</span> <span class="n">_integrals</span> <span class="o">=</span> <span class="n">item</span>
+        <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">extra_d_itype_tuple</span><span class="p">),</span> <span class="n">_integrals</span> <span class="o">=</span> <span class="n">item</span>
         <span class="n">sid_int</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="s2">&quot;otherwise&quot;</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sid</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype</span><span class="p">,</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,),</span> <span class="n">sid_int</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">d</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span>
+            <span class="n">itype</span><span class="p">,</span>
+            <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,),</span>
+            <span class="n">sid_int</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">((</span><span class="n">d_</span><span class="o">.</span><span class="n">_ufl_sort_key_</span><span class="p">(),</span> <span class="n">itype_</span><span class="p">)</span> <span class="k">for</span> <span class="n">d_</span><span class="p">,</span> <span class="n">itype_</span> <span class="ow">in</span> <span class="n">extra_d_itype_tuple</span><span class="p">),</span>
+        <span class="p">)</span>
 
     <span class="n">integral_datas</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">),</span> <span class="n">integrals</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">itgs</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
-        <span class="n">integral_datas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">IntegralData</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">integrals</span><span class="p">,</span> <span class="p">{}))</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">extra_d_itype_tuple</span><span class="p">),</span> <span class="n">integrals</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">itgs</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">keyfunc</span><span class="p">):</span>
+        <span class="n">d_itype_tuple</span> <span class="o">=</span> <span class="p">((</span><span class="n">d</span><span class="p">,</span> <span class="n">itype</span><span class="p">),)</span> <span class="o">+</span> <span class="n">extra_d_itype_tuple</span>
+        <span class="n">integral_datas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">IntegralData</span><span class="p">(</span>
+                <span class="n">d</span><span class="p">,</span>
+                <span class="n">itype</span><span class="p">,</span>
+                <span class="n">sid</span><span class="p">,</span>
+                <span class="n">integrals</span><span class="p">,</span>
+                <span class="p">{},</span>
+                <span class="nb">dict</span><span class="p">(</span><span class="n">d_itype_tuple</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">integral_datas</span></div>
 
 
@@ -368,56 +429,65 @@
     <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">ufl</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">integral_types</span><span class="p">():</span>
             <span class="c1"># Get integrals with this domain and type</span>
-            <span class="n">ddt_integrals</span> <span class="o">=</span> <span class="n">integrals_by_domain_and_type</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">ddt_integrals</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ddt_integrals_map</span> <span class="o">=</span> <span class="n">integrals_by_domain_and_type</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">ddt_integrals_map</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">continue</span>
 
-            <span class="c1"># Group integrals by subdomain id, after splitting e.g.</span>
-            <span class="c1">#   f*dx((1,2)) + g*dx((2,3)) -&gt; f*dx(1) + (f+g)*dx(2) + g*dx(3)</span>
-            <span class="c1"># (note: before this call, &#39;everywhere&#39; is a valid subdomain_id,</span>
-            <span class="c1"># and after this call, &#39;otherwise&#39; is a valid subdomain_id)</span>
-            <span class="n">single_subdomain_integrals</span> <span class="o">=</span> <span class="n">rearrange_integrals_by_single_subdomains</span><span class="p">(</span>
-                <span class="n">ddt_integrals</span><span class="p">,</span> <span class="n">do_append_everywhere_integrals</span>
-            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">extra_domain_integral_type_tuple</span><span class="p">,</span> <span class="n">ddt_integrals</span> <span class="ow">in</span> <span class="n">ddt_integrals_map</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># Group integrals by subdomain id, after splitting e.g.</span>
+                <span class="c1">#   f*dx((1,2)) + g*dx((2,3)) -&gt; f*dx(1) + (f+g)*dx(2) + g*dx(3)</span>
+                <span class="c1"># (note: before this call, &#39;everywhere&#39; is a valid subdomain_id,</span>
+                <span class="c1"># and after this call, &#39;otherwise&#39; is a valid subdomain_id)</span>
+                <span class="n">single_subdomain_integrals</span> <span class="o">=</span> <span class="n">rearrange_integrals_by_single_subdomains</span><span class="p">(</span>
+                    <span class="n">ddt_integrals</span><span class="p">,</span> <span class="n">do_append_everywhere_integrals</span>
+                <span class="p">)</span>
 
-            <span class="k">for</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">ss_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">single_subdomain_integrals</span><span class="p">):</span>
-                <span class="c1"># strip the coordinate derivatives from all integrals</span>
-                <span class="c1"># this yields a list of the form [(coordinate derivative, integral), ...]</span>
-                <span class="n">stripped_integrals_and_coordderivs</span> <span class="o">=</span> <span class="n">strip_coordinate_derivatives</span><span class="p">(</span><span class="n">ss_integrals</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">ss_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">single_subdomain_integrals</span><span class="p">):</span>
+                    <span class="c1"># strip the coordinate derivatives from all integrals</span>
+                    <span class="c1"># this yields a list of the form [(coordinate derivative, integral), ...]</span>
+                    <span class="n">stripped_integrals_and_coordderivs</span> <span class="o">=</span> <span class="n">strip_coordinate_derivatives</span><span class="p">(</span><span class="n">ss_integrals</span><span class="p">)</span>
 
-                <span class="c1"># now group the integrals by the coordinate derivative</span>
-                <span class="k">def</span><span class="w"> </span><span class="nf">calc_hash</span><span class="p">(</span><span class="n">cd</span><span class="p">):</span>
-                    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
-                        <span class="nb">sum</span><span class="p">(</span><span class="n">tuple_elem</span><span class="o">.</span><span class="n">_ufl_compute_hash_</span><span class="p">()</span> <span class="k">for</span> <span class="n">tuple_elem</span> <span class="ow">in</span> <span class="n">tuple_</span><span class="p">)</span>
-                        <span class="k">for</span> <span class="n">tuple_</span> <span class="ow">in</span> <span class="n">cd</span>
-                    <span class="p">)</span>
-
-                <span class="n">coordderiv_integrals_dict</span> <span class="o">=</span> <span class="p">{}</span>
-                <span class="k">for</span> <span class="n">integral</span><span class="p">,</span> <span class="n">coordderiv</span> <span class="ow">in</span> <span class="n">stripped_integrals_and_coordderivs</span><span class="p">:</span>
-                    <span class="n">coordderivhash</span> <span class="o">=</span> <span class="n">calc_hash</span><span class="p">(</span><span class="n">coordderiv</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">coordderivhash</span> <span class="ow">in</span> <span class="n">coordderiv_integrals_dict</span><span class="p">:</span>
-                        <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">coordderiv</span><span class="p">,</span> <span class="p">[</span><span class="n">integral</span><span class="p">])</span>
-
-                <span class="c1"># cd_integrals_dict is now a dict of the form</span>
-                <span class="c1"># { hash: (CoordinateDerivative, [integral, integral, ...]), ... }</span>
-                <span class="c1"># we can now put the integrals back together and then afterwards</span>
-                <span class="c1"># apply the CoordinateDerivative again</span>
-
-                <span class="k">for</span> <span class="n">cdhash</span><span class="p">,</span> <span class="n">samecd_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">coordderiv_integrals_dict</span><span class="p">):</span>
-                    <span class="c1"># Accumulate integrands of integrals that share the</span>
-                    <span class="c1"># same compiler data</span>
-                    <span class="n">integrands_and_cds</span> <span class="o">=</span> <span class="n">accumulate_integrands_with_same_metadata</span><span class="p">(</span>
-                        <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-                    <span class="p">)</span>
-
-                    <span class="k">for</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">integrands_and_cds</span><span class="p">:</span>
-                        <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
-                            <span class="n">integrand</span><span class="p">,</span> <span class="n">integral_type</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">subdomain_id</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="kc">None</span>
+                    <span class="c1"># now group the integrals by the coordinate derivative</span>
+                    <span class="k">def</span><span class="w"> </span><span class="nf">calc_hash</span><span class="p">(</span><span class="n">cd</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+                            <span class="nb">sum</span><span class="p">(</span><span class="n">tuple_elem</span><span class="o">.</span><span class="n">_ufl_compute_hash_</span><span class="p">()</span> <span class="k">for</span> <span class="n">tuple_elem</span> <span class="ow">in</span> <span class="n">tuple_</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">tuple_</span> <span class="ow">in</span> <span class="n">cd</span>
                         <span class="p">)</span>
-                        <span class="n">integral</span> <span class="o">=</span> <span class="n">attach_coordinate_derivatives</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                        <span class="n">integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+
+                    <span class="n">coordderiv_integrals_dict</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">integral</span><span class="p">,</span> <span class="n">coordderiv</span> <span class="ow">in</span> <span class="n">stripped_integrals_and_coordderivs</span><span class="p">:</span>
+                        <span class="n">coordderivhash</span> <span class="o">=</span> <span class="n">calc_hash</span><span class="p">(</span><span class="n">coordderiv</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">coordderivhash</span> <span class="ow">in</span> <span class="n">coordderiv_integrals_dict</span><span class="p">:</span>
+                            <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">coordderiv_integrals_dict</span><span class="p">[</span><span class="n">coordderivhash</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">coordderiv</span><span class="p">,</span> <span class="p">[</span><span class="n">integral</span><span class="p">])</span>
+
+                    <span class="c1"># cd_integrals_dict is now a dict of the form</span>
+                    <span class="c1"># { hash: (CoordinateDerivative, [integral, integral, ...]), ... }</span>
+                    <span class="c1"># we can now put the integrals back together and then afterwards</span>
+                    <span class="c1"># apply the CoordinateDerivative again</span>
+
+                    <span class="k">for</span> <span class="n">cdhash</span><span class="p">,</span> <span class="n">samecd_integrals</span> <span class="ow">in</span> <span class="n">sorted_by_key</span><span class="p">(</span><span class="n">coordderiv_integrals_dict</span><span class="p">):</span>
+                        <span class="c1"># Accumulate integrands of integrals that share the</span>
+                        <span class="c1"># same compiler data</span>
+                        <span class="n">integrands_and_cds</span> <span class="o">=</span> <span class="n">accumulate_integrands_with_same_metadata</span><span class="p">(</span>
+                            <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="p">)</span>
+
+                        <span class="k">for</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">integrands_and_cds</span><span class="p">:</span>
+                            <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
+                                <span class="n">integrand</span><span class="p">,</span>
+                                <span class="n">integral_type</span><span class="p">,</span>
+                                <span class="n">domain</span><span class="p">,</span>
+                                <span class="n">subdomain_id</span><span class="p">,</span>
+                                <span class="n">metadata</span><span class="p">,</span>
+                                <span class="kc">None</span><span class="p">,</span>
+                                <span class="n">extra_domain_integral_type_map</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                                    <span class="n">extra_domain_integral_type_tuple</span>
+                                <span class="p">),</span>
+                            <span class="p">)</span>
+                            <span class="n">integral</span> <span class="o">=</span> <span class="n">attach_coordinate_derivatives</span><span class="p">(</span><span class="n">integral</span><span class="p">,</span> <span class="n">samecd_integrals</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                            <span class="n">integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
 
     <span class="c1"># Group integrals by common integrand</span>
     <span class="c1"># u.dx(0)*dx(1) + u.dx(0)*dx(2) -&gt; u.dx(0)*dx((1,2))</span>
@@ -431,15 +501,29 @@
         <span class="n">meta_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">canonicalize_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">))</span>
         <span class="n">subdomain_id</span> <span class="o">=</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">()</span>
         <span class="n">subdomain_data</span> <span class="o">=</span> <span class="n">id_or_none</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">())</span>
+        <span class="n">extra_domain_integral_type_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">extra_domain_integral_type_map</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
         <span class="n">integrand</span> <span class="o">=</span> <span class="n">renumber_indices</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">())</span>
-        <span class="n">unique_integrals</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="n">subdomain_id</span><span class="p">,</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">integral_type</span><span class="p">,</span>
+            <span class="n">ufl_domain</span><span class="p">,</span>
+            <span class="n">meta_hash</span><span class="p">,</span>
+            <span class="n">integrand</span><span class="p">,</span>
+            <span class="n">subdomain_data</span><span class="p">,</span>
+            <span class="n">extra_domain_integral_type_tuple</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">metadata_table</span><span class="p">[(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">meta_hash</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)]</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="n">unique_integrals</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">subdomain_id</span><span class="p">,)</span>
+        <span class="n">metadata_table</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
 
     <span class="n">grouped_integrals</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">integral_data</span><span class="p">,</span> <span class="n">subdomain_ids</span> <span class="ow">in</span> <span class="n">unique_integrals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">integrand</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">)</span> <span class="o">=</span> <span class="n">integral_data</span>
+        <span class="p">(</span>
+            <span class="n">integral_type</span><span class="p">,</span>
+            <span class="n">ufl_domain</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="p">,</span>
+            <span class="n">integrand</span><span class="p">,</span>
+            <span class="n">subdomain_data</span><span class="p">,</span>
+            <span class="n">extra_domain_integral_type_tuple</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="n">integral_data</span>
         <span class="n">integral</span> <span class="o">=</span> <span class="n">Integral</span><span class="p">(</span>
             <span class="n">integrand</span><span class="p">,</span>
             <span class="n">integral_type</span><span class="p">,</span>
@@ -447,6 +531,7 @@
             <span class="n">subdomain_ids</span><span class="p">,</span>
             <span class="n">metadata_table</span><span class="p">[</span><span class="n">integral_data</span><span class="p">],</span>
             <span class="n">subdomain_data</span><span class="p">,</span>
+            <span class="n">extra_domain_integral_type_map</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">extra_domain_integral_type_tuple</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">grouped_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
 
