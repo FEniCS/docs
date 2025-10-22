@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.renumbering &#8212; Unified Form Language (UFL) 2025.2.0.post0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=ce6e0f7b"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.renumbering</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithms for renumbering of counted objects, currently variables and indices.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2024 Martin Sandve Alnæs, Anders Logg, Jørgen S. Dokken and Lawrence Mitchell</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">count</span> <span class="k">as</span> <span class="n">_count</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.multiindex</span><span class="w"> </span><span class="kn">import</span> <span class="n">Index</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
+
+
+<div class="viewcode-block" id="IndexRelabeller">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndexRelabeller</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renumber indices to have a consistent index numbering starting from 0.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize index relabeller with a zero count.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">_count</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">Index</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="n">count</span><span class="p">)))</span>
+
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">MultiFunction</span><span class="o">.</span><span class="n">reuse_if_untouched</span>
+
+<div class="viewcode-block" id="IndexRelabeller.multi_index">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller.multi_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to multi-indices.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)(</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">Index</span><span class="p">)</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">indices</span><span class="p">())</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IndexRelabeller.zero">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.IndexRelabeller.zero">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">zero</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to zero.&quot;&quot;&quot;</span>
+        <span class="n">fi</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_free_indices</span>
+        <span class="n">fid</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_index_dimensions</span>
+        <span class="n">new_indices</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">index_cache</span><span class="p">[</span><span class="n">Index</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span><span class="o">.</span><span class="n">count</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">fi</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">fi</span> <span class="o">==</span> <span class="p">()</span> <span class="ow">and</span> <span class="n">fid</span> <span class="o">==</span> <span class="p">():</span>
+            <span class="k">return</span> <span class="n">o</span>
+        <span class="n">new_fi</span><span class="p">,</span> <span class="n">new_fid</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">new_indices</span><span class="p">,</span> <span class="n">fid</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">o</span><span class="p">)(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_fi</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">new_fid</span><span class="p">))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="renumber_indices">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.renumbering.renumber_indices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">renumber_indices</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renumber indices to have a consistent index numbering starting from 0.</span>
+
+<span class="sd">    This is useful to avoid multiple kernels for the same integrand,</span>
+<span class="sd">    but with different subdomain ids.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        form: A UFL form, integral or expression.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A new form, integral or expression with renumbered indices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reindexer</span> <span class="o">=</span> <span class="n">IndexRelabeller</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">reindexer</span><span class="p">,</span> <span class="n">form</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
