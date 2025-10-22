@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['rank_0',['rank',['../df/d02/classdolfinx_1_1fem_1_1Form.html#a290d348ba17e7752621ed7bd3d5e4b3a',1,'dolfinx::fem::Form::rank()'],['../da/dfe/namespacedolfinx_1_1MPI.html#ab6a01b5be2487cb6674b70ce6a89bad0',1,'dolfinx::MPI::rank()']]],
+  ['rank_5ftype_1',['rank_type',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#af80933c1aa41ff0ee13d621c29cb34b6',1,'dolfinx::common::IndexMap']]],
+  ['read_5fcell_5ftype_2',['read_cell_type',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ad15bce4f111b605b89c6c714fc40e4e2',1,'dolfinx::io::XDMFFile']]],
+  ['read_5fgeometry_5fdata_3',['read_geometry_data',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a7030911e5953281f1e3c7234f19a6804',1,'dolfinx::io::XDMFFile::read_geometry_data()'],['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#a16a6d5489b9caf4836aacad2f114f620',1,'dolfinx::io::xdmf_mesh::read_geometry_data()']]],
+  ['read_5finformation_4',['read_information',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a65ab981f8ba74f98e3521117725aabe0',1,'dolfinx::io::XDMFFile']]],
+  ['read_5fmesh_5',['read_mesh',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a11fa79eeab9243eb7182e2023f136fca',1,'dolfinx::io::XDMFFile']]],
+  ['read_5fmeshtags_6',['read_meshtags',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ae16e013d6c16b815c94927e07cab4529',1,'dolfinx::io::XDMFFile']]],
+  ['read_5ftopology_5fdata_7',['read_topology_data',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a71c16b9aec08f4238058662ec4bec828',1,'dolfinx::io::XDMFFile::read_topology_data()'],['../d0/dfe/namespacedolfinx_1_1io_1_1xdmf__mesh.html#a0b361ee7bd063e939edf8bf97b6c315b',1,'dolfinx::io::xdmf_mesh::read_topology_data()']]],
+  ['reduce_8',['reduce',['../db/d97/classdolfinx_1_1Table.html#aec673cb60c49c7e56f303497d244fa31',1,'dolfinx::Table']]],
+  ['reference_5fvalue_5fshape_9',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aceb716e9df8e32218f50a9c8e7b178f7',1,'dolfinx::fem::FiniteElement']]],
+  ['reference_5fvalue_5fsize_10',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
+  ['refine_11',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a25ac97c35d1bd4d6b154d5dc7eba270c',1,'dolfinx::refinement']]],
+  ['register_5ftiming_12',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a55268b41462e587edb4df1a2d06e7342',1,'dolfinx::common::TimeLogger']]],
+  ['regular_5fadjacency_5flist_13',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#aa6ef0c61627f8b2f8f0c68fce2d4163d',1,'dolfinx::graph']]],
+  ['remote_5findices_14',['remote_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a61e39d73a4761cfa31d6ffadc1d552c2',1,'dolfinx::common::Scatterer']]],
+  ['reorder_5fgps_15',['reorder_gps',['../d9/d69/namespacedolfinx_1_1graph.html#a37b611787453853f724b8972b6e2a851',1,'dolfinx::graph']]],
+  ['reorder_5flist_16',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
+  ['resume_17',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['row_5fptr_18',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
+];

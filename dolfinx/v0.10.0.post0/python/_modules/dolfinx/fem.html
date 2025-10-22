@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.fem &mdash; DOLFINx 0.10.0.post0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d1f39eef"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dolfinx.fem</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.fem</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2017-2018 Garth N. Wells and Michal Habera</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Tools for assembling and manipulating finite element forms.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">_IntegralType</span> <span class="k">as</span> <span class="n">IntegralType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_sparsity_pattern</span> <span class="k">as</span> <span class="n">_build_sparsity_pattern</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_integration_domains</span> <span class="k">as</span> <span class="n">_compute_integration_domains</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_interpolation_data</span> <span class="k">as</span> <span class="n">_create_interpolation_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_sparsity_pattern</span> <span class="k">as</span> <span class="n">_create_sparsity_pattern</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_curl</span> <span class="k">as</span> <span class="n">_discrete_curl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_gradient</span> <span class="k">as</span> <span class="n">_discrete_gradient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">interpolation_matrix</span> <span class="k">as</span> <span class="n">_interpolation_matrix</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">transpose_dofmap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparsityPattern</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">apply_lifting</span><span class="p">,</span>
+    <span class="n">assemble_matrix</span><span class="p">,</span>
+    <span class="n">assemble_scalar</span><span class="p">,</span>
+    <span class="n">assemble_vector</span><span class="p">,</span>
+    <span class="n">create_matrix</span><span class="p">,</span>
+    <span class="n">create_vector</span><span class="p">,</span>
+    <span class="n">pack_coefficients</span><span class="p">,</span>
+    <span class="n">pack_constants</span><span class="p">,</span>
+    <span class="n">set_bc</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DirichletBC</span><span class="p">,</span>
+    <span class="n">bcs_by_block</span><span class="p">,</span>
+    <span class="n">dirichletbc</span><span class="p">,</span>
+    <span class="n">locate_dofs_geometrical</span><span class="p">,</span>
+    <span class="n">locate_dofs_topological</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.dofmap</span><span class="w"> </span><span class="kn">import</span> <span class="n">DofMap</span><span class="p">,</span> <span class="n">create_dofmaps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.element</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordinateElement</span><span class="p">,</span> <span class="n">FiniteElement</span><span class="p">,</span> <span class="n">coordinate_element</span><span class="p">,</span> <span class="n">finiteelement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Form</span><span class="p">,</span>
+    <span class="n">compile_form</span><span class="p">,</span>
+    <span class="n">create_form</span><span class="p">,</span>
+    <span class="n">extract_function_spaces</span><span class="p">,</span>
+    <span class="n">form</span><span class="p">,</span>
+    <span class="n">form_cpp_class</span><span class="p">,</span>
+    <span class="n">mixed_topology_form</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.function</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Constant</span><span class="p">,</span>
+    <span class="n">ElementMetaData</span><span class="p">,</span>
+    <span class="n">Expression</span><span class="p">,</span>
+    <span class="n">Function</span><span class="p">,</span>
+    <span class="n">FunctionSpace</span><span class="p">,</span>
+    <span class="n">functionspace</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">PointOwnershipData</span> <span class="k">as</span> <span class="n">_PointOwnershipData</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">MatrixCSR</span> <span class="k">as</span> <span class="n">_MatrixCSR</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.mesh</span>
+
+
+<div class="viewcode-block" id="create_sparsity_pattern">
+<a class="viewcode-back" href="../../generated/dolfinx.fem.html#dolfinx.fem.create_sparsity_pattern">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_sparsity_pattern</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a sparsity pattern from a bilinear form.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        a: Bilinear form to build a sparsity pattern for.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Sparsity pattern for the form ``a``.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The pattern is not finalised, i.e. the caller is responsible for</span>
+<span class="sd">        calling ``assemble`` on the sparsity pattern.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_create_sparsity_pattern</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_sparsity_pattern</span><span class="p">(</span><span class="n">pattern</span><span class="p">:</span> <span class="n">SparsityPattern</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="n">Form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a sparsity pattern from a bilinear form.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pattern: The sparsity pattern to add to</span>
+<span class="sd">        a: Bilinear form to build a sparsity pattern for.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Sparsity pattern for the form ``a``.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The pattern is not finalised, i.e. the caller is responsible for</span>
+<span class="sd">        calling ``assemble`` on the sparsity pattern.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_build_sparsity_pattern</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="create_interpolation_data">
+<a class="viewcode-back" href="../../generated/dolfinx.fem.html#dolfinx.fem.create_interpolation_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_interpolation_data</span><span class="p">(</span>
+    <span class="n">V_to</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">,</span>
+    <span class="n">V_from</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">,</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">padding</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-14</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PointOwnershipData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate data needed to interpolate discrete functions across</span>
+<span class="sd">    different meshes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        V_to: Function space to interpolate into</span>
+<span class="sd">        V_from: Function space to interpolate from</span>
+<span class="sd">        cells: Indices of the cells associated with `V_to` on which to</span>
+<span class="sd">            interpolate into.</span>
+<span class="sd">        padding: Absolute padding of bounding boxes of all entities on</span>
+<span class="sd">            mesh_to</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Data needed to interpolation functions defined on function</span>
+<span class="sd">        spaces on the meshes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_PointOwnershipData</span><span class="p">(</span>
+        <span class="n">_create_interpolation_data</span><span class="p">(</span>
+            <span class="n">V_to</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">geometry</span><span class="p">,</span>
+            <span class="n">V_to</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
+            <span class="n">V_from</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
+            <span class="n">cells</span><span class="p">,</span>
+            <span class="n">padding</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="discrete_curl">
+<a class="viewcode-back" href="../../generated/dolfinx.fem.html#dolfinx.fem.discrete_curl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">discrete_curl</span><span class="p">(</span><span class="n">V0</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">V1</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MatrixCSR</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble a discrete curl operator.</span>
+
+<span class="sd">    The discrete curl operator interpolates the curl of H(curl) finite</span>
+<span class="sd">    element function into a H(div) space.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        V0: H1(curl) space to interpolate the curl from.</span>
+<span class="sd">        V1: H(div) space to interpolate into.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Discrete curl operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_MatrixCSR</span><span class="p">(</span><span class="n">_discrete_curl</span><span class="p">(</span><span class="n">V0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">V1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="discrete_gradient">
+<a class="viewcode-back" href="../../generated/dolfinx.fem.html#dolfinx.fem.discrete_gradient">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">discrete_gradient</span><span class="p">(</span><span class="n">space0</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">space1</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MatrixCSR</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble a discrete gradient operator.</span>
+
+<span class="sd">    The discrete gradient operator interpolates the gradient of a H1</span>
+<span class="sd">    finite element function into a H(curl) space. It is assumed that the</span>
+<span class="sd">    H1 space uses an identity map and the H(curl) space uses a covariant</span>
+<span class="sd">    Piola map.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        space0: H1 space to interpolate the gradient from.</span>
+<span class="sd">        space1: H(curl) space to interpolate into.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Discrete gradient operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_MatrixCSR</span><span class="p">(</span><span class="n">_discrete_gradient</span><span class="p">(</span><span class="n">space0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">space1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">interpolation_matrix</span><span class="p">(</span><span class="n">space0</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">space1</span><span class="p">:</span> <span class="n">FunctionSpace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MatrixCSR</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble an interpolation matrix for two function spaces on the same</span>
+<span class="sd">    mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        space0: space to interpolate from</span>
+<span class="sd">        space1: space to interpolate into</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Interpolation matrix</span>
+
+<span class="sd">     Note:</span>
+<span class="sd">        The returned matrix is not finalised, i.e. ghost values are not</span>
+<span class="sd">        accumulated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_MatrixCSR</span><span class="p">(</span><span class="n">_interpolation_matrix</span><span class="p">(</span><span class="n">space0</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">space1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="compute_integration_domains">
+<a class="viewcode-back" href="../../generated/dolfinx.fem.html#dolfinx.fem.compute_integration_domains">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_integration_domains</span><span class="p">(</span>
+    <span class="n">integral_type</span><span class="p">:</span> <span class="n">IntegralType</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="s2">&quot;dolfinx.mesh.Topology&quot;</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given an integral type and a set of entities compute integration</span>
+<span class="sd">    entities.</span>
+
+<span class="sd">    This function returns a list ``[(id, entities)]``. For cell</span>
+<span class="sd">    integrals ``entities`` are the cell indices. For exterior facet</span>
+<span class="sd">    integrals, ``entities`` is a list of ``(cell_index,</span>
+<span class="sd">    local_facet_index)`` pairs. For interior facet integrals,</span>
+<span class="sd">    ``entities`` is a list of ``(cell_index0, local_facet_index0,</span>
+<span class="sd">    cell_index1, local_facet_index1)``. ``id`` refers to the subdomain</span>
+<span class="sd">    id used in the definition of the integration measures of the</span>
+<span class="sd">    variational form.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Owned mesh entities only are returned. Ghost entities are not</span>
+<span class="sd">        included.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        For facet integrals, the topology facet-to-cell and</span>
+<span class="sd">        cell-to-facet connectivity must be computed before calling this</span>
+<span class="sd">        function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        integral_type: Integral type.</span>
+<span class="sd">        topology: Mesh topology.</span>
+<span class="sd">        entities: List of mesh entities. For</span>
+<span class="sd">            ``integral_type==IntegralType.cell``, ``entities`` should be</span>
+<span class="sd">            cell indices. For other ``IntegralType``s, ``entities``</span>
+<span class="sd">            should be facet indices.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of integration entities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_compute_integration_domains</span><span class="p">(</span><span class="n">integral_type</span><span class="p">,</span> <span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">entities</span><span class="p">)</span></div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Constant&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CoordinateElement&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DirichletBC&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DofMap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ElementMetaData&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Expression&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;FiniteElement&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Form&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Function&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;FunctionSpace&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IntegralType&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;apply_lifting&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_scalar&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;assemble_vector&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;bcs_by_block&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compile_form&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_integration_domains&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;coordinate_element&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_dofmaps&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_form&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_interpolation_data&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_sparsity_pattern&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dirichletbc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;discrete_curl&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;discrete_gradient&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;extract_function_spaces&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;finiteelement&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;form&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;form_cpp_class&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;functionspace&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;locate_dofs_geometrical&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;locate_dofs_topological&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;mixed_topology_form&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pack_coefficients&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pack_constants&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;set_bc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;transpose_dofmap&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
