@@ -18,7 +18,7 @@
 
 #### UFL
 
-`2025.2.0`: [https://docs.fenicsproject.org/ufl/2025.2.0](https://docs.fenicsproject.org/ufl/2025.2.0)
+`2025.2.0.post0`: [https://docs.fenicsproject.org/ufl/2025.2.0.post0](https://docs.fenicsproject.org/ufl/2025.2.0.post0)
 
 ## `main` (development) branches
 
