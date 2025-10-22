@@ -1,5 +1,6 @@
 import os
 
+
 def html_files(folder):
     out = []
     for file in os.listdir(folder):
@@ -12,10 +13,11 @@ def html_files(folder):
             out.append(file_path)
     return out
 
-for library in ["ufl", "basix", "ffcx", "dolfinx"]:
-    latest = max(folder for folder in os.listdir(library)
-                 if os.path.isdir(f"{library}/{folder}") and folder != "main")
 
+for library, latest in zip(
+    ["ufl", "basix", "ffcx", "dolfinx"],
+    ["2025.2.0.post0", "v0.10.0", "v0.10.0", "v0.10.0.post0"],
+):
     for folder in os.listdir(library):
         if folder != latest and folder != "main":
             folder_path = f"{library}/{folder}"
@@ -42,11 +44,15 @@ for library in ["ufl", "basix", "ffcx", "dolfinx"]:
                     with open(file, "w") as f:
                         f.write(pre)
                         f.write("<!-- Outdated warning -->\n")
-                        f.write("<div style='width:800px;margin:auto;padding:20px;background-color:white'>")
-                        f.write("<b>Note: this is documentation for an old release. "
-                                "View the latest documentation at "
-                                f"<a href='/{latest_link}'>docs.fenicsproject.org/{latest_link}</a>"
-                                "</b>")
+                        f.write(
+                            "<div style='width:800px;margin:auto;padding:20px;background-color:white'>"
+                        )
+                        f.write(
+                            "<b>Note: this is documentation for an old release. "
+                            "View the latest documentation at "
+                            f"<a href='/{latest_link}'>docs.fenicsproject.org/{latest_link}</a>"
+                            "</b>"
+                        )
                         f.write("</div>")
                         f.write("\n<!-- End outdated warning -->")
                         f.write(post)
