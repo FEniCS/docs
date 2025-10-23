@@ -1,0 +1,427 @@
+# Hyperelasticity
+
+Solve a compressible neo-Hookean model in 3D.
+
++++
+
+## UFL form file
+
+The UFL file is implemented in
+{download}`demo_hyperelasticity/hyperelasticity.py`.
+````{admonition} UFL form implemented in python
+:class: dropdown
+The first step is to define the variational problem at hand.
+
+We are interested in solving for a discrete vector field in three
+dimensions, so first we need the appropriate finite element space and
+trial and test functions on this space:
+
+```python
+from basix.ufl import element
+from ufl import (
+    Coefficient,
+    Constant,
+    FunctionSpace,
+    Identity,
+    Mesh,
+    TestFunction,
+    TrialFunction,
+    derivative,
+    det,
+    diff,
+    ds,
+    dx,
+    grad,
+    inner,
+    ln,
+    tr,
+    variable,
+)
+```
+
+```python
+# Function spaces
+e = element("Lagrange", "tetrahedron", 1, shape=(3,))
+mesh = Mesh(e)
+V = FunctionSpace(mesh, e)
+```
+
+```python
+# Trial and test functions
+du = TrialFunction(V)  # Incremental displacement
+v = TestFunction(V)  # Test function
+```
+
+Note that `element` with `shape=(3,)` creates a finite element space
+of vector fields.
+
+Next, we will be needing functions for the boundary source `B`, the
+traction `T` and the displacement solution itself `u`:
+
+```python
+# Functions
+u = Coefficient(V)  # Displacement from previous iteration
+B = Constant(mesh, shape=(3,))  # Body force per unit volume
+T = Constant(mesh, shape=(3,))  # Traction force on the boundary
+```
+
+Now, we can define the kinematic quantities involved in the model:
+
+```python
+# Kinematics
+d = len(u)
+I = Identity(d)  # Identity tensor  # noqa: E741
+F = variable(I + grad(u))  # Deformation gradient
+C = F.T * F  # Right Cauchy-Green tensor
+```
+
+```python
+# Invariants of deformation tensors
+Ic = tr(C)
+J = det(F)
+```
+
+Before defining the energy density and thus the total potential
+energy, it only remains to specify constants for the elasticity
+parameters:
+
+```python
+# Elasticity parameters
+E = 10.0
+nu = 0.3
+mu = E / (2 * (1 + nu))
+lmbda = E * nu / ((1 + nu) * (1 - 2 * nu))
+```
+
+Both the first variation of the potential energy, and the Jacobian of
+the variation, can be automatically computed by a call to
+`derivative`:
+
+```python
+# Stored strain energy density (compressible neo-Hookean model)
+psi = (mu / 2) * (Ic - 3) - mu * ln(J) + (lmbda / 2) * (ln(J)) ** 2
+```
+
+```python
+# Total potential energy
+Pi = psi * dx - inner(B, u) * dx - inner(T, u) * ds
+```
+
+```python
+# First variation of Pi (directional derivative about u in the direction
+# of v)
+F_form = derivative(Pi, u, v)
+```
+
+```python
+# Compute Jacobian of F
+J_form = derivative(F_form, u, du)
+```
+
+```python
+# Compute Cauchy stress
+sigma = (1 / J) * diff(psi, F) * F.T
+```
+
+```python
+forms = [F_form, J_form]
+elements = [e]
+expressions = [(sigma, [[0.25, 0.25, 0.25]])]
+```
+
+````
+
++++
+
+## C++ program
+
+```cpp
+#include "hyperelasticity.h"
+#include <algorithm>
+#include <basix/finite-element.h>
+#include <climits>
+#include <cmath>
+#include <dolfinx.h>
+#include <dolfinx/common/log.h>
+#include <dolfinx/fem/assembler.h>
+#include <dolfinx/fem/petsc.h>
+#include <dolfinx/io/XDMFFile.h>
+#include <dolfinx/la/Vector.h>
+#include <dolfinx/la/petsc.h>
+#include <dolfinx/mesh/Mesh.h>
+#include <dolfinx/mesh/cell_types.h>
+#include <dolfinx/nls/NewtonSolver.h>
+#include <numbers>
+#include <petscmat.h>
+#include <petscsys.h>
+#include <petscsystypes.h>
+#include <petscvec.h>
+```
+
+```cpp
+using namespace dolfinx;
+using T = PetscScalar;
+using U = typename dolfinx::scalar_value_t<T>;
+```
+
+```cpp
+/// Hyperelastic problem class
+class HyperElasticProblem
+{
+public:
+  /// Constructor
+  HyperElasticProblem(fem::Form<T>& L, fem::Form<T>& J,
+                      const std::vector<fem::DirichletBC<T>>& bcs)
+      : _l(L), _j(J), _bcs(bcs.begin(), bcs.end()),
+        _b(L.function_spaces()[0]->dofmap()->index_map,
+           L.function_spaces()[0]->dofmap()->index_map_bs()),
+        _matA(la::petsc::Matrix(fem::petsc::create_matrix(J, "aij"), false))
+  {
+    auto map = L.function_spaces()[0]->dofmap()->index_map;
+    const int bs = L.function_spaces()[0]->dofmap()->index_map_bs();
+    std::int32_t size_local = bs * map->size_local();
+
+    std::vector<PetscInt> ghosts(map->ghosts().begin(), map->ghosts().end());
+    std::int64_t size_global = bs * map->size_global();
+    VecCreateGhostBlockWithArray(map->comm(), bs, size_local, size_global,
+                                 ghosts.size(), ghosts.data(),
+                                 _b.array().data(), &_b_petsc);
+  }
+
+  /// Destructor
+  virtual ~HyperElasticProblem()
+  {
+    if (_b_petsc)
+      VecDestroy(&_b_petsc);
+  }
+
+  /// @brief  Form
+  /// @return
+  auto form()
+  {
+    return [](Vec x)
+    {
+      VecGhostUpdateBegin(x, INSERT_VALUES, SCATTER_FORWARD);
+      VecGhostUpdateEnd(x, INSERT_VALUES, SCATTER_FORWARD);
+    };
+  }
+
+  /// Compute F at current point x
+  auto F()
+  {
+    return [&](const Vec x, Vec)
+    {
+      // Assemble b and update ghosts
+      std::span b(_b.array());
+      std::ranges::fill(b, 0);
+      fem::assemble_vector(b, _l);
+      VecGhostUpdateBegin(_b_petsc, ADD_VALUES, SCATTER_REVERSE);
+      VecGhostUpdateEnd(_b_petsc, ADD_VALUES, SCATTER_REVERSE);
+
+      // Set bcs
+      Vec x_local;
+      VecGhostGetLocalForm(x, &x_local);
+      PetscInt n = 0;
+      VecGetSize(x_local, &n);
+      const T* _x = nullptr;
+      VecGetArrayRead(x_local, &_x);
+      std::ranges::for_each(_bcs, [b, x = std::span(_x, n)](auto& bc)
+                            { bc.get().set(b, x, -1); });
+      VecRestoreArrayRead(x_local, &_x);
+    };
+  }
+
+  /// Compute J = F' at current point x
+  auto J()
+  {
+    return [&](const Vec, Mat A)
+    {
+      MatZeroEntries(A);
+      fem::assemble_matrix(la::petsc::Matrix::set_block_fn(A, ADD_VALUES), _j,
+                           _bcs);
+      MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
+      MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
+      fem::set_diagonal(la::petsc::Matrix::set_fn(A, INSERT_VALUES),
+                        *_j.function_spaces()[0], _bcs);
+      MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+      MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+    };
+  }
+
+  /// RHS vector
+  Vec vector() { return _b_petsc; }
+
+  /// Jacobian matrix
+  Mat matrix() { return _matA.mat(); }
+```
+
+```cpp
+private:
+  fem::Form<T>& _l;
+  fem::Form<T>& _j;
+  std::vector<std::reference_wrapper<const fem::DirichletBC<T>>> _bcs;
+  la::Vector<T> _b;
+  Vec _b_petsc = nullptr;
+  la::petsc::Matrix _matA;
+};
+```
+
+```cpp
+int main(int argc, char* argv[])
+{
+  init_logging(argc, argv);
+  PetscInitialize(&argc, &argv, nullptr, nullptr);
+
+  // Set the logging thread name to show the process rank
+  int mpi_rank = dolfinx::MPI::rank(MPI_COMM_WORLD);
+  std::string fmt = "[%Y-%m-%d %H:%M:%S.%e] [RANK " + std::to_string(mpi_rank)
+                    + "] [%l] %v";
+  spdlog::set_pattern(fmt);
+  {
+    // Inside the `main` function, we begin by defining a tetrahedral
+    // mesh of the domain and the function space on this mesh. Here, we
+    // choose to create a unit cube mesh with 25 ( = 24 + 1) vertices in
+    // one direction and 17 ( = 16 + 1) vertices in the other two
+    // directions. With this mesh, we initialize the (finite element)
+    // function space defined by the generated code.
+
+    // Create mesh and define function space
+    auto mesh = std::make_shared<mesh::Mesh<U>>(mesh::create_box<U>(
+        MPI_COMM_WORLD, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10},
+        mesh::CellType::tetrahedron,
+        mesh::create_cell_partitioner(mesh::GhostMode::none)));
+
+    auto element = basix::create_element<U>(
+        basix::element::family::P, basix::cell::type::tetrahedron, 1,
+        basix::element::lagrange_variant::unset,
+        basix::element::dpc_variant::unset, false);
+
+    auto V
+        = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace<U>(
+            mesh, std::make_shared<fem::FiniteElement<U>>(
+                      element, std::vector<std::size_t>{3})));
+
+    auto B = std::make_shared<fem::Constant<T>>(std::vector<T>{0, 0, 0});
+    auto traction = std::make_shared<fem::Constant<T>>(std::vector<T>{0, 0, 0});
+
+    // Define solution function
+    auto u = std::make_shared<fem::Function<T>>(V);
+    fem::Form<T> a
+        = fem::create_form<T>(*form_hyperelasticity_J_form, {V, V}, {{"u", u}},
+                              {{"B", B}, {"T", traction}}, {}, {});
+    fem::Form<T> L
+        = fem::create_form<T>(*form_hyperelasticity_F_form, {V}, {{"u", u}},
+                              {{"B", B}, {"T", traction}}, {}, {});
+
+    auto u_rotation = std::make_shared<fem::Function<T>>(V);
+    u_rotation->interpolate(
+        [](auto x) -> std::pair<std::vector<T>, std::vector<std::size_t>>
+        {
+          constexpr U scale = 0.005;
+
+          // Center of rotation
+          constexpr U x1_c = 0.5;
+          constexpr U x2_c = 0.5;
+
+          // Large angle of rotation (60 degrees)
+          constexpr U theta = std::numbers::pi / 3;
+
+          // New coordinates
+          std::vector<U> fdata(3 * x.extent(1), 0);
+          md::mdspan<U, md::extents<std::size_t, 3, md::dynamic_extent>> f(
+              fdata.data(), 3, x.extent(1));
+          for (std::size_t p = 0; p < x.extent(1); ++p)
+          {
+            U x1 = x(1, p);
+            U x2 = x(2, p);
+            f(1, p) = scale
+                      * (x1_c + (x1 - x1_c) * std::cos(theta)
+                         - (x2 - x2_c) * std::sin(theta) - x1);
+            f(2, p) = scale
+                      * (x2_c + (x1 - x1_c) * std::sin(theta)
+                         - (x2 - x2_c) * std::cos(theta) - x2);
+          }
+
+          return {std::move(fdata), {3, x.extent(1)}};
+        });
+
+    // Create Dirichlet boundary conditions
+    auto bdofs_left = fem::locate_dofs_geometrical(
+        *V,
+        [](auto x)
+        {
+          constexpr U eps = 1.0e-6;
+          std::vector<std::int8_t> marker(x.extent(1), false);
+          for (std::size_t p = 0; p < x.extent(1); ++p)
+          {
+            if (std::abs(x(0, p)) < eps)
+              marker[p] = true;
+          }
+          return marker;
+        });
+    auto bdofs_right = fem::locate_dofs_geometrical(
+        *V,
+        [](auto x)
+        {
+          constexpr U eps = 1.0e-6;
+          std::vector<std::int8_t> marker(x.extent(1), false);
+          for (std::size_t p = 0; p < x.extent(1); ++p)
+          {
+            if (std::abs(x(0, p) - 1) < eps)
+              marker[p] = true;
+          }
+          return marker;
+        });
+    std::vector bcs
+        = {fem::DirichletBC<T>(std::vector<T>{0, 0, 0}, bdofs_left, V),
+           fem::DirichletBC<T>(u_rotation, bdofs_right)};
+
+    HyperElasticProblem problem(L, a, bcs);
+    nls::petsc::NewtonSolver newton_solver(mesh->comm());
+    newton_solver.setF(problem.F(), problem.vector());
+    newton_solver.setJ(problem.J(), problem.matrix());
+    newton_solver.set_form(problem.form());
+    newton_solver.rtol = 10 * std::numeric_limits<T>::epsilon();
+    newton_solver.atol = 10 * std::numeric_limits<T>::epsilon();
+
+    la::petsc::Vector _u(la::petsc::create_vector_wrap(*u->x()), false);
+    auto [niter, success] = newton_solver.solve(_u.vec());
+    std::cout << "Number of Newton iterations: " << niter << std::endl;
+
+    // Compute Cauchy stress. Construct appropriate Basix element for
+    // stress.
+    fem::Expression sigma_expression = fem::create_expression<T, U>(
+        *expression_hyperelasticity_sigma, {{"u", u}}, {});
+
+    constexpr auto family = basix::element::family::P;
+    auto cell_type
+        = mesh::cell_type_to_basix_type(mesh->topology()->cell_type());
+    constexpr int k = 0;
+    constexpr bool discontinuous = true;
+    basix::FiniteElement S_element = basix::create_element<U>(
+        family, cell_type, k, basix::element::lagrange_variant::unset,
+        basix::element::dpc_variant::unset, discontinuous);
+    auto S
+        = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace<U>(
+            mesh, std::make_shared<fem::FiniteElement<U>>(
+                      S_element, std::vector<std::size_t>{3, 3})));
+
+    fem::Function<T> sigma(S);
+    sigma.name = "cauchy_stress";
+    sigma.interpolate(sigma_expression);
+
+    // Save solution in VTK format
+    io::VTKFile file_u(mesh->comm(), "u.pvd", "w");
+    file_u.write<T>({*u}, 0);
+
+    // Save Cauchy stress in XDMF format
+    io::XDMFFile file_sigma(mesh->comm(), "sigma.xdmf", "w");
+    file_sigma.write_mesh(*mesh);
+    file_sigma.write_function(sigma, 0);
+  }
+
+  PetscFinalize();
+
+  return 0;
+}
+```

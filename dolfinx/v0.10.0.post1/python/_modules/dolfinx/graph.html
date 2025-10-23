@@ -1,0 +1,337 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.graph &mdash; DOLFINx 0.10.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=758b1af6"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dolfinx.graph</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.graph</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2021-2024 Garth N. Wells and Paul T. Kühner</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Graph representations and operations on graphs.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">partitioner</span>
+
+<span class="c1"># Import graph partitioners, which may or may not be available</span>
+<span class="c1"># (dependent on build configuration)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">partitioner_scotch</span>  <span class="c1"># noqa</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">pass</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">partitioner_parmetis</span>  <span class="c1"># noqa</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">pass</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">partitioner_kahip</span>  <span class="c1"># noqa</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">pass</span>
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;AdjacencyList&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;adjacencylist&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;comm_graph&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;comm_graph_data&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;comm_to_json&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;partitioner&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="AdjacencyList">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.AdjacencyList">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AdjacencyList</span><span class="p">:</span>
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="p">(</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int64</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int_sizet_int8__int32_int32</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cpp_object</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span>
+            <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int64</span>
+            <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int_sizet_int8__int32_int32</span>
+        <span class="p">),</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a Python wrapper for the exported adjacency list class.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Do not use this constructor directly. Instead use</span>
+<span class="sd">            :func:`adjacencylist`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            The underlying cpp instance that this object will wrap.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="fm">__repr__</span>
+
+<div class="viewcode-block" id="AdjacencyList.links">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.AdjacencyList.links">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve the links of a node.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is available only for adjacency lists with no</span>
+<span class="sd">            additional link (edge) data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            Node to retrieve the connectivity of.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Neighbors of the node.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">links</span><span class="p">(</span><span class="n">node</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">array</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Array representation of the adjacency list.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is available only for adjacency lists with no</span>
+<span class="sd">            additional link (edge) data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Flattened array representation of the adjacency list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">array</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">offsets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Offsets for each node in the :func:`array`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Array of indices with shape `(num_nodes+1)`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">offsets</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of nodes in the adjacency list.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Number of nodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_nodes</span></div>
+
+
+
+<div class="viewcode-block" id="adjacencylist">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.adjacencylist">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">adjacencylist</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">],</span> <span class="n">offsets</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdjacencyList</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an :class:`AdjacencyList` for `int32` or `int64` datasets.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        data: The adjacency array. If the array is one-dimensional,</span>
+<span class="sd">            offsets should be supplied. If the array is two-dimensional</span>
+<span class="sd">            the number of edges per node is the second dimension.</span>
+<span class="sd">        offsets: The offsets array with the number of edges per node.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An adjacency list.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: Switch to np.isdtype(data.dtype, np.int32) once numpy &gt;= 2.0 is</span>
+    <span class="c1"># enforced</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span>
+        <span class="n">cpp_t</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span>
+    <span class="k">elif</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">:</span>
+        <span class="n">cpp_t</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int64</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data type for adjacency list not supported.&quot;</span><span class="p">)</span>
+
+    <span class="n">cpp_object</span> <span class="o">=</span> <span class="n">cpp_t</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">offsets</span><span class="p">)</span> <span class="k">if</span> <span class="n">offsets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cpp_t</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">AdjacencyList</span><span class="p">(</span><span class="n">cpp_object</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="comm_graph">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.comm_graph">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">comm_graph</span><span class="p">(</span><span class="nb">map</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdjacencyList</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a parallel communication graph from an index map.</span>
+
+<span class="sd">    The communication graph is a directed graph that represents the</span>
+<span class="sd">    communication pattern for a distributed array, and specifically the</span>
+<span class="sd">    forward scatter operation where the values for owned indices are</span>
+<span class="sd">    sent to ghosting ranks. The graph is built from an index map, which</span>
+<span class="sd">    describes the local and ghosted indices of the array.</span>
+
+<span class="sd">    Edges in the graph represent communication from the owning rank to</span>
+<span class="sd">    ranks that ghost the data. The edge data holds the (0) target node,</span>
+<span class="sd">    (1) edge weight, and (2) an indicator for whether the sending and</span>
+<span class="sd">    receiving ranks share memory (``local==1``) or if the ranks do not</span>
+<span class="sd">    share memory (``local==0``). The node data holds the local size</span>
+<span class="sd">    (number of owned indices) and the number of ghost indices.</span>
+
+<span class="sd">    The graph can be processed using :func:`comm_graph` to build data</span>
+<span class="sd">    structures that can be used to build a `NetworkX</span>
+<span class="sd">    &lt;https://networkx.org/&gt;`_ directed graph.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This function is collective across all MPI ranks. The</span>
+<span class="sd">        communication graph is returned on the `root` rank. All other</span>
+<span class="sd">        ranks return an empty graph</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        map: Index map to build the communication graph from.</span>
+<span class="sd">        root: Rank that will return the communication graph. Other ranks</span>
+<span class="sd">            return an empty graph.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An adjacency list representing the communication graph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">AdjacencyList</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">comm_graph</span><span class="p">(</span><span class="nb">map</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="comm_graph_data">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.comm_graph_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">comm_graph_data</span><span class="p">(</span>
+    <span class="n">graph</span><span class="p">:</span> <span class="n">AdjacencyList</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build from a communication graph data structures for use with</span>
+<span class="sd">    `NetworkX &lt;https://networkx.org/&gt;`_.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        graph: Communication graph to build data from. Normally created</span>
+<span class="sd">            by :func:`comm_graph`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A tuple of two lists. The first list contains the edge data,</span>
+<span class="sd">        where an edge is a `(nodeID_0, nodeID_1, dict)` tuple, where</span>
+<span class="sd">        `dict` holds edge data. The second list hold node data, where a</span>
+<span class="sd">        node is a `(nodeID, dict)` tuple, where `dict` holds node data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">comm_graph_data</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="comm_to_json">
+<a class="viewcode-back" href="../../generated/dolfinx.graph.html#dolfinx.graph.comm_to_json">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">comm_to_json</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">AdjacencyList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build and JSON string from a communication graph.</span>
+
+<span class="sd">    The JSON string can be used to construct a `NetworkX</span>
+<span class="sd">    &lt;https://networkx.org/&gt;`_ graph. This is helpful for cases where a</span>
+<span class="sd">    simulation is executed and the graph data is written to file as a</span>
+<span class="sd">    JSON string for later analysis.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        graph: The communication graph to convert. Normally created by</span>
+<span class="sd">            calling :meth:`comm_graph`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A JSON string representing the communication graph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">comm_to_json</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
