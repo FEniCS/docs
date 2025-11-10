@@ -1,0 +1,504 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.fem.element &mdash; DOLFINx 0.10.0.post2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=4273909c"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../fem.html">dolfinx.fem</a></li>
+      <li class="breadcrumb-item active">dolfinx.fem.element</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.fem.element</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2024 Garth N. Wells and Paul T. Kühner</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Finite elements.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatch</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">basix</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">basix.ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+
+
+<div class="viewcode-block" id="CoordinateElement">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CoordinateElement</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coordinate element describing the geometry map for mesh cells.&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">cmap</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a coordinate map element.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This initialiser is for internal use and not normally called</span>
+<span class="sd">            in user code. Use :func:`coordinate_element` to create a</span>
+<span class="sd">            CoordinateElement.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cmap: A C++ CoordinateElement.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">cmap</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cmap</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scalar type for the coordinate element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the coordinate element space.</span>
+
+<span class="sd">        This is number of basis functions that span the coordinate</span>
+<span class="sd">        space, e.g., for a linear triangle cell the dimension will be 3.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+<div class="viewcode-block" id="CoordinateElement.hash">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement.hash">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash identifier of the coordinate element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">hash</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CoordinateElement.create_dof_layout">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement.create_dof_layout">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_dof_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">ElementDofLayout</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute and return the dof layout&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_dof_layout</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CoordinateElement.push_forward">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement.push_forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">push_forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+        <span class="n">cell_geometry</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Push points on the reference cell forward to the physical cell.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            X: Coordinates of points on the reference cell,</span>
+<span class="sd">                ``shape=(num_points, topological_dimension)``.</span>
+<span class="sd">            cell_geometry: Coordinate &#39;degrees-of-freedom&#39; (nodes) of</span>
+<span class="sd">                the cell, ``shape=(num_geometry_basis_functions,</span>
+<span class="sd">                geometrical_dimension)``. Can be created by accessing</span>
+<span class="sd">                ``geometry.x[geometry.dofmap.cell_dofs(i)]``,</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Physical coordinates of the points reference points ``X``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">push_forward</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">cell_geometry</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CoordinateElement.pull_back">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement.pull_back">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pull_back</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+        <span class="n">cell_geometry</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pull points on the physical cell back to the reference cell.</span>
+
+<span class="sd">        For non-affine cells, the pull-back is a nonlinear operation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Physical coordinates to pull back to the reference cells,</span>
+<span class="sd">                ``shape=(num_points, geometrical_dimension)``.</span>
+<span class="sd">            cell_geometry: Physical coordinates describing the cell,</span>
+<span class="sd">                shape ``(num_of_geometry_basis_functions,</span>
+<span class="sd">                geometrical_dimension)``. They can be created by accessing</span>
+<span class="sd">                ``geometry.x[geometry.dofmap.cell_dofs(i)]``,</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Reference coordinates of the physical points ``x``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">pull_back</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cell_geometry</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">variant</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Lagrange variant of the coordinate element.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The return type is an integer. A Basix enum can be</span>
+<span class="sd">            created using ``basix.LagrangeVariant(value)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">variant</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">degree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Polynomial degree of the coordinate element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">degree</span></div>
+
+
+
+<div class="viewcode-block" id="coordinate_element">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.coordinate_element">[docs]</a>
+<span class="nd">@singledispatch</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">coordinate_element</span><span class="p">(</span>
+    <span class="n">celltype</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="p">,</span>
+    <span class="n">degree</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">variant</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">unset</span><span class="p">),</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Lagrange CoordinateElement from element metadata.</span>
+
+<span class="sd">    Coordinate elements are typically used to create meshes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        celltype: Cell shape</span>
+<span class="sd">        degree: Polynomial degree of the coordinate element map.</span>
+<span class="sd">        variant: Basix Lagrange variant (affects node placement).</span>
+<span class="sd">        dtype: Scalar type for the coordinate element.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A coordinate element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CoordinateElement</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span><span class="p">(</span><span class="n">celltype</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">variant</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CoordinateElement</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span><span class="p">(</span><span class="n">celltype</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">variant</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Unsupported dtype.&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="nd">@coordinate_element</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Lagrange CoordinateElement from a Basix finite element.</span>
+
+<span class="sd">    Coordinate elements are typically used when creating meshes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        e: Basix finite element.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A coordinate element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CoordinateElement</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">_e</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CoordinateElement</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">_e</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="FiniteElement">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FiniteElement">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FiniteElement</span><span class="p">:</span>
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float64</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float64</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a Python wrapper for the exported finite element class.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Do not use this constructor directly. Instead use</span>
+<span class="sd">            :func:`finiteelement`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            The underlying cpp instance that this object will wrap.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Geometry type of the Mesh that the FunctionSpace is defined</span>
+<span class="sd">        on.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dtype</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basix_element</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return underlying Basix C++ element (if it exists).</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            Runtime error if Basix element does not exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">basix_element</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_sub_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of sub elements (for a mixed or blocked element).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_sub_elements</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Value shape of the finite element field.</span>
+
+<span class="sd">        The value shape describes the shape of the finite element field,</span>
+<span class="sd">        e.g. ``{}`` for a scalar, ``{2}`` for a vector in 2D, ``{3, 3}``</span>
+<span class="sd">        for a rank-2 tensor in 3D, etc.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">value_shape</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interpolation_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Points on the reference cell at which an expression needs to be</span>
+<span class="sd">        evaluated in order to interpolate the expression in the finite</span>
+<span class="sd">        element space.</span>
+
+<span class="sd">        Interpolation point coordinates on the reference cell, returning</span>
+<span class="sd">        the coordinates data (row-major) storage with shape</span>
+<span class="sd">        ``(num_points, tdim)``.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            For Lagrange elements the points will just be the nodal</span>
+<span class="sd">            positions. For other elements the points will typically be the</span>
+<span class="sd">            quadrature points used to evaluate moment degrees of freedom.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolation_points</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interpolation_ident</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if interpolation into the finite element space is an</span>
+<span class="sd">        identity operation given the evaluation on an expression at</span>
+<span class="sd">        specific points, i.e. the degree-of-freedom are equal to point</span>
+<span class="sd">        evaluations. The function will return `true` for Lagrange</span>
+<span class="sd">        elements.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interpolation_ident</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">space_dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the finite element function space (the number of</span>
+<span class="sd">        degrees-of-freedom for the element).</span>
+
+<span class="sd">        For &#39;blocked&#39; elements, this function returns the dimension of the</span>
+<span class="sd">        full element rather than the dimension of the base element.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">space_dimension</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">needs_dof_transformations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if DOF transformations are needed for this element.</span>
+
+<span class="sd">        DOF transformations will be needed for elements which might not be</span>
+<span class="sd">        continuous when two neighbouring cells disagree on the orientation</span>
+<span class="sd">        of a shared sub-entity, and when this cannot be corrected for by</span>
+<span class="sd">        permuting the DOF numbering in the dofmap.</span>
+
+<span class="sd">        For example, Raviart-Thomas elements will need DOF transformations,</span>
+<span class="sd">        as the neighbouring cells may disagree on the orientation of a</span>
+<span class="sd">        basis function, and this orientation cannot be corrected for by</span>
+<span class="sd">        permuting the DOF numbers on each cell.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">needs_dof_transformations</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">signature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;String identifying the finite element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">signature</span>
+
+<div class="viewcode-block" id="FiniteElement.T_apply">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FiniteElement.T_apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">T_apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">cell_permutations</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform basis functions from the reference element ordering</span>
+<span class="sd">        and orientation to the globally consistent physical element</span>
+<span class="sd">        ordering and orientation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Data to transform (in place). The shape is</span>
+<span class="sd">                ``(num_cells, n, dim)``, where ``n`` is the number degrees-</span>
+<span class="sd">                of-freedom and the data is flattened (row-major).</span>
+<span class="sd">            cell_permutations: Permutation data for the cell.</span>
+<span class="sd">            dim: Number of columns in ``data``.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Exposed for testing. Function is not vectorised across multiple</span>
+<span class="sd">            cells. Please see `basix.numba_helpers` for performant</span>
+<span class="sd">            versions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">T_apply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cell_permutations</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FiniteElement.Tt_apply">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FiniteElement.Tt_apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Tt_apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">cell_permutations</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the transpose of the operator applied by T_apply().</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Data to transform (in place). The shape is</span>
+<span class="sd">                ``(num_cells, n, dim)``, where ``n`` is the number degrees-</span>
+<span class="sd">                of-freedom and the data is flattened (row-major).</span>
+<span class="sd">            cell_permutations: Permutation data for the cells</span>
+<span class="sd">            dim: Number of columns in ``data``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">Tt_apply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cell_permutations</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FiniteElement.Tt_inv_apply">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.FiniteElement.Tt_inv_apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Tt_inv_apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span> <span class="n">cell_permutations</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the inverse transpose of the operator applied by</span>
+<span class="sd">        T_apply().</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x: Data to transform (in place). The shape is</span>
+<span class="sd">                ``(num_cells, n, dim)``, where ``n`` is the number degrees-</span>
+<span class="sd">                of-freedom and the data is flattened (row-major).</span>
+<span class="sd">            cell_permutations: Permutation data for the cells</span>
+<span class="sd">            dim: Number of columns in ``data``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">Tt_inv_apply</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cell_permutations</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="finiteelement">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.finiteelement">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">finiteelement</span><span class="p">(</span>
+    <span class="n">cell_type</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="p">,</span>
+    <span class="n">ufl_e</span><span class="p">:</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_ElementBase</span><span class="p">,</span>
+    <span class="n">FiniteElement_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FiniteElement</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a DOLFINx element from a basix.ufl element.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cell_type: Element cell type, see ``mesh.CellType``</span>
+<span class="sd">        ufl_e: UFL element, holding quadrature rule and other properties of</span>
+<span class="sd">            the selected element.</span>
+<span class="sd">        FiniteElement_dtype: Geometry type of the element.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">FiniteElement_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">CppElement</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float32</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">FiniteElement_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">CppElement</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">FiniteElement_float64</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported dtype: </span><span class="si">{</span><span class="n">FiniteElement_dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">is_mixed</span><span class="p">:</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">finiteelement</span><span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">FiniteElement_dtype</span><span class="p">)</span><span class="o">.</span><span class="n">_cpp_object</span>  <span class="c1"># type: ignore</span>
+            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">sub_elements</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">FiniteElement</span><span class="p">(</span><span class="n">CppElement</span><span class="p">(</span><span class="n">elements</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">is_quadrature</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FiniteElement</span><span class="p">(</span>
+            <span class="n">CppElement</span><span class="p">(</span>
+                <span class="n">cell_type</span><span class="p">,</span>
+                <span class="n">ufl_e</span><span class="o">.</span><span class="n">custom_quadrature</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">ufl_e</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">,</span>
+                <span class="n">ufl_e</span><span class="o">.</span><span class="n">is_symmetric</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">basix_e</span> <span class="o">=</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">basix_element</span><span class="o">.</span><span class="n">_e</span>
+        <span class="n">value_shape</span> <span class="o">=</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">reference_value_shape</span> <span class="k">if</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">block_size</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">FiniteElement</span><span class="p">(</span><span class="n">CppElement</span><span class="p">(</span><span class="n">basix_e</span><span class="p">,</span> <span class="n">value_shape</span><span class="p">,</span> <span class="n">ufl_e</span><span class="o">.</span><span class="n">is_symmetric</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

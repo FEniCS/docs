@@ -1,0 +1,1454 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.mesh &mdash; DOLFINx 0.10.0.post2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=4273909c"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dolfinx.mesh</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.mesh</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2017-2024 Chris N. Richardson, Garth N. Wells and</span>
+<span class="c1"># Jørgen S. Dokken</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;Creation, refining and marking of meshes.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">basix</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">basix.ufl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_real_type</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span> <span class="k">as</span> <span class="n">_IndexMap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CellType</span><span class="p">,</span>
+    <span class="n">DiagonalType</span><span class="p">,</span>
+    <span class="n">GhostMode</span><span class="p">,</span>
+    <span class="n">build_dual_graph</span><span class="p">,</span>
+    <span class="n">cell_dim</span><span class="p">,</span>
+    <span class="n">create_cell_partitioner</span><span class="p">,</span>
+    <span class="n">to_string</span><span class="p">,</span>
+    <span class="n">to_type</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.refinement</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">IdentityPartitionerPlaceholder</span><span class="p">,</span>
+    <span class="n">RefinementOption</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.refinement</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">uniform_refine</span> <span class="k">as</span> <span class="n">_uniform_refine</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoordinateElement</span> <span class="k">as</span> <span class="n">_CoordinateElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">coordinate_element</span> <span class="k">as</span> <span class="n">_coordinate_element</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdjacencyList</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;CellType&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DiagonalType&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;EntityMap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Geometry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GhostMode&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IdentityPartitionerPlaceholder&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Mesh&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MeshTags&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RefinementOption&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Topology&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;build_dual_graph&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cell_dim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_incident_entities&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_midpoints&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_box&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_cell_partitioner&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_geometry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_interval&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_mesh&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_rectangle&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_submesh&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_unit_cube&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_unit_interval&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_unit_square&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;entities_to_geometry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;exterior_facet_indices&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;locate_entities&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;locate_entities_boundary&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;meshtags&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;meshtags_from_entities&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;refine&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;to_string&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;to_type&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;transfer_meshtag&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;uniform_refine&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Topology">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Topology</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Topology for a :class:`dolfinx.mesh.Mesh`&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">topology</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a topology from a C++ topology.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            topology: The C++ topology object</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Topology objects should usually be constructed with the</span>
+<span class="sd">            :func:`dolfinx.cpp.mesh.create_topology` and not this class</span>
+<span class="sd">            initializer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">topology</span>
+
+<div class="viewcode-block" id="Topology.cell_name">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.cell_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;String representation of the cell-type of the topology&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">to_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cell_type</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Topology.connectivity">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.connectivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return connectivity from entities of dimension ``d0`` to</span>
+<span class="sd">        entities of dimension ``d1``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            d0: Dimension of entity one is mapping from</span>
+<span class="sd">            d1: Dimension of entity one is mapping to</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">conn</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">conn</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Connectivity between dimension </span><span class="si">{</span><span class="n">d0</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">d1</span><span class="si">}</span><span class="s2"> has not been computed.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Please call `dolfinx.mesh.Topology.create_connectivity(</span><span class="si">{</span><span class="n">d0</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">d1</span><span class="si">}</span><span class="s2">)` first.&quot;</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">comm</span>
+
+<div class="viewcode-block" id="Topology.create_connectivity">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_connectivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build entity connectivity ``d0 -&gt; d1``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            d0: Dimension of entities connectivity is from.</span>
+<span class="sd">            d1: Dimension of entities connectivity is to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Topology.create_entities">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entities">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create entities of given topological dimension.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension of entities to create.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ``True` is entities are created, ``False`` is if entities</span>
+<span class="sd">            already existed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_entities</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Topology.create_entity_permutations">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entity_permutations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_entity_permutations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute entity permutations and reflections.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">create_entity_permutations</span><span class="p">()</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the topological dimension of the mesh.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">entity_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">CellType</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Entity types in the topology for all topological dimensions.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">entity_types</span>
+
+<div class="viewcode-block" id="Topology.get_cell_permutation_info">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_cell_permutation_info">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_cell_permutation_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get permutation information.</span>
+
+<span class="sd">        The returned data is used for packing coefficients and</span>
+<span class="sd">        assembling of tensors. The bits of each integer encodes the</span>
+<span class="sd">        number of reflections and permutations for each sub-entity of</span>
+<span class="sd">        the cell to be able to map it to the reference element.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">get_cell_permutation_info</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Topology.get_facet_permutations">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_facet_permutations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_facet_permutations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the permutation integer to apply to facets.</span>
+
+<span class="sd">        The bits of each integer describes the number of reflections and</span>
+<span class="sd">        rotations that has to be applied to a facet to map between a</span>
+<span class="sd">        facet in the mesh (relative to a cell) and the corresponding</span>
+<span class="sd">        facet on the reference element. The data has the shape</span>
+<span class="sd">        ``(num_cells, num_facets_per_cell)``, flattened row-wise. The</span>
+<span class="sd">        number of cells include potential ghost cells.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The data can be unpacked with ``numpy.unpack_bits``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">get_facet_permutations</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Topology.index_map">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.index_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the IndexMap that describes the parallel distribution of the</span>
+<span class="sd">        mesh entities.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Index map for the entities of dimension ``dim``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Topology.index_maps">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.index_maps">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_maps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the IndexMaps that describes the parallel distribution of</span>
+<span class="sd">           the mesh entities, for each entity type of the dimension.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of IndexMaps for the entities of dimension ``dim``.</span>
+<span class="sd">            May be empty if not yet computed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_maps</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Topology.interprocess_facets">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.interprocess_facets">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interprocess_facets</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of inter-process facets, if facet topology has been</span>
+<span class="sd">        computed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">interprocess_facets</span><span class="p">()</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">original_cell_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the original cell index&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">original_cell_index</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CellType</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the cell type of the topology.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cell_type</span></div>
+
+
+
+<div class="viewcode-block" id="Geometry">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Geometry">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Geometry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The geometry of a :class:`dolfinx.mesh.Mesh`&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a geometry from a C++ geometry.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            geometry: The C++ geometry object.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Geometry objects should usually be constructed with the</span>
+<span class="sd">            :func:`create_geometry` and not using this class</span>
+<span class="sd">            initializer. This class is combined with different base</span>
+<span class="sd">            classes that depend on the scalar type used in the Geometry.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">geometry</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cmap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_CoordinateElement</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Element that describes the geometry map.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_CoordinateElement</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cmap</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the Euclidean coordinate system.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dofmap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dofmap for the geometry, shape</span>
+<span class="sd">        ``(num_cells, dofs_per_cell)``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dofmap</span>
+
+<div class="viewcode-block" id="Geometry.index_map">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Geometry.index_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_IndexMap</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index map describing the layout of the geometry points</span>
+<span class="sd">        (nodes).&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">()</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">input_global_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global input indices of the geometry nodes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">input_global_indices</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">]</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Geometry coordinate points,  ``shape=(num_points, 3)``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">x</span></div>
+
+
+
+<div class="viewcode-block" id="Mesh">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A mesh.&quot;&quot;&quot;</span>
+
+    <span class="n">_mesh</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span>
+    <span class="n">_topology</span><span class="p">:</span> <span class="n">Topology</span>
+    <span class="n">_geometry</span><span class="p">:</span> <span class="n">Geometry</span>
+    <span class="n">_ufl_domain</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span> <span class="o">|</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msh</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span><span class="p">,</span>
+        <span class="n">domain</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize mesh from a C++ mesh.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msh: A C++ mesh object.</span>
+<span class="sd">            domain: A UFL domain.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Mesh objects should usually be constructed using</span>
+<span class="sd">            :func:`create_mesh` and not using this class initializer.</span>
+<span class="sd">            This class is combined with different base classes that</span>
+<span class="sd">            depend on the scalar type used in the Mesh.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">msh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span> <span class="o">=</span> <span class="n">Topology</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span> <span class="o">=</span> <span class="n">Geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">geometry</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">=</span> <span class="n">domain</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span>  <span class="c1"># type: ignore</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">comm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="Mesh.ufl_cell">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh.ufl_cell">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ufl_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the UFL cell type.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This method is required for UFL compatibility.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Cell</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_name</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Mesh.ufl_domain">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh.ufl_domain">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ufl_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the ufl domain corresponding to the mesh.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The UFL domain. Is ``None`` if the domain has not been set.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This method is required for UFL compatibility.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span></div>
+
+
+<div class="viewcode-block" id="Mesh.basix_cell">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh.basix_cell">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basix_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the Basix cell type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">basix</span><span class="o">.</span><span class="n">CellType</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_name</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Mesh.h">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh.h">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Geometric size measure of cell entities.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dim: Topological dimension of the entities to compute the</span>
+<span class="sd">                size measure of.</span>
+<span class="sd">            entities: Indices of entities of dimension ``dim`` to</span>
+<span class="sd">                compute size measure of.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Size measure for each requested entity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Topology</span><span class="p">:</span>
+        <span class="s2">&quot;Mesh topology.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Geometry</span><span class="p">:</span>
+        <span class="s2">&quot;Mesh geometry.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span></div>
+
+
+
+<div class="viewcode-block" id="MeshTags">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.MeshTags">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MeshTags</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mesh tags associate data (markers) with a subset of mesh entities of</span>
+<span class="sd">    a given dimension.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meshtags</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize tags from a C++ MeshTags object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            meshtags: C++ mesh tags object.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            MeshTags objects should not usually be created using this</span>
+<span class="sd">            initializer directly.</span>
+
+<span class="sd">            A Python mesh is passed to the initializer as it may have</span>
+<span class="sd">            UFL data attached that is not attached the C + + Mesh that is</span>
+<span class="sd">            associated with the C + + ``meshtags`` object. If `mesh` is</span>
+<span class="sd">            passed, ``mesh`` and ``meshtags`` must share the same C + +</span>
+<span class="sd">            mesh.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">meshtags</span>
+
+<div class="viewcode-block" id="MeshTags.ufl_id">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.MeshTags.ufl_id">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ufl_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Identiftying integer used by UFL.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh topology with which the tags are associated.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Topological dimension of the tagged entities.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices of tagged mesh entities.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">indices</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Values associated with tagged mesh entities.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="s2">&quot;Name of the mesh tags object.&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@name</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="MeshTags.find">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.MeshTags.find">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a list of all entity indices with a given value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            value: Tag value to search for.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Indices of entities with tag ``value``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="EntityMap">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.EntityMap">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EntityMap</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A bidirectional map that relates entities in two different</span>
+<span class="sd">    topologies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_map</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise an entity map from a C++ `EntityMap` object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entity_map: A C++ `EntityMap` object</span>
+
+<span class="sd">        .. note::</span>
+
+<span class="sd">            `EntityMap` objects should not usually be created using this</span>
+<span class="sd">            initializer directly.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">entity_map</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span> <span class="o">=</span> <span class="n">Topology</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_topology</span> <span class="o">=</span> <span class="n">Topology</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">sub_topology</span><span class="p">)</span>
+
+<div class="viewcode-block" id="EntityMap.sub_topology_to_topology">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.EntityMap.sub_topology_to_topology">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sub_topology_to_topology</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">inverse</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map entities between the sub-topology and the parent topology.</span>
+
+<span class="sd">        If `inverse` is False, this function maps a list of</span>
+<span class="sd">        `self.dim()`-dimensional entities from `self.sub_topology()` to</span>
+<span class="sd">        the corresponding entities in `self.topology()`. If `inverse` is</span>
+<span class="sd">        True, it performs the inverse mapping from `self.topology()` to</span>
+<span class="sd">        `self.sub_topology()`. Entities that do not exist in the</span>
+<span class="sd">        sub-topology are marked as -1.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            If `inverse` is `True`, this function recomputes the inverse</span>
+<span class="sd">            map on every call (it is not cached), which may be expensive</span>
+<span class="sd">            if called repeatedly.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entities:</span>
+<span class="sd">                A list of entity indices in the source topology.</span>
+<span class="sd">            inverse:</span>
+<span class="sd">                If False, maps from `self.sub_topology()` to</span>
+<span class="sd">                `self.topology()`. If True, maps from `this.topology()`</span>
+<span class="sd">                to `this.sub_topology()`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A list of mapped entity indices. Entities that don&#39;t exist</span>
+<span class="sd">            in the target topology are marked as -1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">sub_topology_to_topology</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">inverse</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the topological dimension of the entities related by this</span>
+<span class="sd">        EntityMap.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: The topological dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dim</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sub_topology</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_topology</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">entity_map</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="n">sub_topology</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">sub_topology_to_topology</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a bidirectional map relating entities of dimension `dim` in</span>
+<span class="sd">    `topology` and `sub_topology`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        topology: A topology</span>
+<span class="sd">        sub_topology: Topology of another mesh. This must be a</span>
+<span class="sd">            &quot;sub-topology&quot; of `topology` i.e. every entity in</span>
+<span class="sd">            `sub_topology` must also exist in `topology`.</span>
+<span class="sd">        dim: The dimension of the entities</span>
+<span class="sd">        sub_topology_to_topology: A list of entities in `topology` where</span>
+<span class="sd">            `sub_topology_to_topology[i]` is the index in `topology`</span>
+<span class="sd">            corresponding to entity `i` in `sub_topology`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">EntityMap</span><span class="p">(</span>
+        <span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">sub_topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">sub_topology_to_topology</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="compute_incident_entities">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.compute_incident_entities">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_incident_entities</span><span class="p">(</span>
+    <span class="n">topology</span><span class="p">:</span> <span class="n">Topology</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute all entities of ``d1`` connected to ``entities`` of</span>
+<span class="sd">    dimension ``d0``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        topology: The topology.</span>
+<span class="sd">        entities: List of entities of dimension ``d0``.</span>
+<span class="sd">        d0: Topological dimension.</span>
+<span class="sd">        d1: Topological dimension to map to.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Incident entity indices.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">compute_incident_entities</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compute_midpoints">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.compute_midpoints">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_midpoints</span><span class="p">(</span><span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the midpoints of a set of mesh entities.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the mesh entities to consider.</span>
+<span class="sd">        entities: Indices of entities in ``mesh`` to consider.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Midpoints of the entities, shape ``(num_entities, 3)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">compute_midpoints</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="locate_entities">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.locate_entities">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">marker</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute mesh entities satisfying a geometric marking function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: Mesh to locate entities on.</span>
+<span class="sd">        dim: Topological dimension of the mesh entities to consider.</span>
+<span class="sd">        marker: A function that takes an array of points ``x`` with</span>
+<span class="sd">            shape ``(gdim, num_points)`` and returns an array of</span>
+<span class="sd">            booleans of length ``num_points``, evaluating to `True` for</span>
+<span class="sd">            entities to be located.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Indices (local to the process) of marked mesh entities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">marker</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="locate_entities_boundary">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.locate_entities_boundary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">marker</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute mesh entities that are connected to an owned boundary</span>
+<span class="sd">    facet and satisfy a geometric marking function.</span>
+
+<span class="sd">    For vertices and edges, in parallel this function will not</span>
+<span class="sd">    necessarily mark all entities that are on the exterior boundary. For</span>
+<span class="sd">    example, it is possible for a process to have a vertex that lies on</span>
+<span class="sd">    the boundary without any of the attached facets being a boundary</span>
+<span class="sd">    facet. When used to find degrees-of-freedom, e.g. using</span>
+<span class="sd">    :func:`dolfinx.fem.locate_dofs_topological`, the function that uses</span>
+<span class="sd">    the data returned by this function must typically perform some</span>
+<span class="sd">    parallel communication.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: Mesh to locate boundary entities on.</span>
+<span class="sd">        dim: Topological dimension of the mesh entities to consider</span>
+<span class="sd">        marker: Function that takes an array of points ``x`` with shape</span>
+<span class="sd">            ``(gdim, num_points)`` and returns an array of booleans of</span>
+<span class="sd">            length ``num_points``, evaluating to ``True`` for entities</span>
+<span class="sd">            to be located.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Indices (local to the process) of marked mesh entities.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">locate_entities_boundary</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">marker</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="transfer_meshtag">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.transfer_meshtag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">transfer_meshtag</span><span class="p">(</span>
+    <span class="n">meshtag</span><span class="p">:</span> <span class="n">MeshTags</span><span class="p">,</span>
+    <span class="n">msh1</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">parent_cell</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">parent_facet</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MeshTags</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate cell mesh tags on a refined mesh from the mesh tags on the</span>
+<span class="sd">    coarse parent mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        meshtag: Mesh tags on the coarse, parent mesh.</span>
+<span class="sd">        msh1: The refined mesh.</span>
+<span class="sd">        parent_cell: Index of the parent cell for each cell in the</span>
+<span class="sd">            refined mesh.</span>
+<span class="sd">        parent_facet: Index of the local parent facet for each cell</span>
+<span class="sd">            in the refined mesh. Only required for transfer tags on</span>
+<span class="sd">            facets.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Mesh tags on the refined mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
+        <span class="n">mt</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">transfer_cell_meshtag</span><span class="p">(</span>
+            <span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">msh1</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">parent_cell</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">mt</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="n">meshtag</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">parent_facet</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">mt</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">transfer_facet_meshtag</span><span class="p">(</span>
+            <span class="n">meshtag</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">msh1</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span><span class="n">mt</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;MeshTag transfer is supported on on cells or facets.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="uniform_refine">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.uniform_refine">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">uniform_refine</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Uniformly refine a mesh.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Using the default partitioner for the refined mesh, the refined</span>
+<span class="sd">        mesh will **not** include ghosts cells (cells connected by facet</span>
+<span class="sd">        to an owned cells) even if the parent mesh is ghosted. The</span>
+<span class="sd">        refined cells will be on the same process as the parent cell.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: Mesh from which to create the refined mesh.</span>
+<span class="sd">        partitioner: Partitioner to distribute the refined mesh.</span>
+<span class="sd">            If ``None`` is passed (default) no redistribution will happen.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The refined mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
+    <span class="c1"># in the ufl_cargo</span>
+    <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">())</span>  <span class="c1"># type: ignore</span>
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">_cpp_mesh</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="refine">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.refine">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">refine</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">edges</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">IdentityPartitionerPlaceholder</span> <span class="o">=</span> <span class="n">IdentityPartitionerPlaceholder</span><span class="p">(),</span>
+    <span class="n">option</span><span class="p">:</span> <span class="n">RefinementOption</span> <span class="o">=</span> <span class="n">RefinementOption</span><span class="o">.</span><span class="n">parent_cell</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Refine a mesh.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Using the `None` partitioner for the refined mesh, the refined mesh</span>
+<span class="sd">        will **not** include ghosts cells (cells connected by facet to an</span>
+<span class="sd">        owned cells) even if the parent mesh is ghosted. The refined cells</span>
+<span class="sd">        will be on the same process as the parent cell.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: Mesh from which to create the refined mesh.</span>
+<span class="sd">        edges: Indices of edges to split during refinement. If ``None``,</span>
+<span class="sd">            mesh refinement is uniform.</span>
+<span class="sd">        partitioner: Partitioner to distribute the refined mesh. If a</span>
+<span class="sd">            :py:class:`IdentityPartitionerPlaceholder` is passed (default)</span>
+<span class="sd">            no redistribution is performed, i.e. refined cells remain on</span>
+<span class="sd">            the same process as the parent cell, but the ghost layer is</span>
+<span class="sd">            updated. If a custom partitioner is passed, it will be used for</span>
+<span class="sd">            distributing the refined mesh. If ``None`` is passed no</span>
+<span class="sd">            redistribution will happen.</span>
+<span class="sd">        option: Controls whether parent cells and/or parent facets are</span>
+<span class="sd">            computed.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">       Refined mesh, (optional) parent cells, (optional) parent facets</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mesh1</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span>
+        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">option</span>
+    <span class="p">)</span>
+    <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
+    <span class="c1"># in the ufl_cargo</span>
+    <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">())</span>  <span class="c1"># type: ignore</span>
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">),</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span></div>
+
+
+
+<div class="viewcode-block" id="create_mesh">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_mesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_mesh</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">],</span>
+    <span class="n">e</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span> <span class="o">|</span> <span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span> <span class="o">|</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_BasixElement</span> <span class="o">|</span> <span class="n">_CoordinateElement</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span>
+    <span class="n">partitioner</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh from topology and geometry arrays.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator to define the mesh on.</span>
+<span class="sd">        cells: Cells of the mesh. ``cells[i]`` are the &#39;nodes&#39; of</span>
+<span class="sd">            cell ``i``.</span>
+<span class="sd">        x: Mesh geometry (&#39;node&#39; coordinates), with shape</span>
+<span class="sd">            ``(num_nodes, gdim)``.</span>
+<span class="sd">        e: UFL mesh. The mesh scalar type is determined by the scalar</span>
+<span class="sd">            type of ``e``.</span>
+<span class="sd">        partitioner: Function that determines the parallel distribution of</span>
+<span class="sd">            cells across MPI ranks.</span>
+<span class="sd">        max_facet_to_cell_links: Maximum number of cells a facet can</span>
+<span class="sd">            be connected to.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        If required, the coordinates ``x`` will be cast to the same</span>
+<span class="sd">        scalar type as the domain/element ``e``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">)</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">gdim</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gdim</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">dtype</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">Mesh</span><span class="p">):</span>
+        <span class="c1"># e is a UFL domain</span>
+        <span class="n">e_ufl</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span>  <span class="c1"># type: ignore</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">_coordinate_element</span><span class="p">(</span><span class="n">e_ufl</span><span class="o">.</span><span class="n">basix_element</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">e</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">cmap</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="c1"># TODO: Resolve UFL vs Basix geometric dimension issue</span>
+        <span class="c1"># assert domain.geometric_dimension() == gdim</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span><span class="p">):</span>
+        <span class="c1"># e is a Basix element</span>
+        <span class="c1"># TODO: Resolve geometric dimension vs shape for manifolds</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">_coordinate_element</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">e_ufl</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_BasixElement</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">e_ufl</span> <span class="o">=</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">blocked_element</span><span class="p">(</span><span class="n">e_ufl</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">gdim</span><span class="p">,))</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">e_ufl</span><span class="p">)</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">cmap</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">assert</span> <span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span> <span class="o">==</span> <span class="n">gdim</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">finiteelement</span><span class="o">.</span><span class="n">AbstractFiniteElement</span><span class="p">):</span>
+        <span class="c1"># e is a Basix &#39;UFL&#39; element</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">_coordinate_element</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">basix_element</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">cmap</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">assert</span> <span class="n">domain</span><span class="o">.</span><span class="n">geometric_dimension</span><span class="p">()</span> <span class="o">==</span> <span class="n">gdim</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">_CoordinateElement</span><span class="p">):</span>
+        <span class="c1"># e is a CoordinateElement</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">e</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">cmap</span><span class="o">.</span><span class="n">dtype</span>  <span class="c1"># type: ignore</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported element type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_mesh</span><span class="p">(</span>
+        <span class="n">comm</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">cmap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
+
+
+
+<div class="viewcode-block" id="create_submesh">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_submesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_submesh</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">EntityMap</span><span class="p">,</span> <span class="n">EntityMap</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh with specified entities from another mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: Mesh to create the sub-mesh from.</span>
+<span class="sd">        dim: Topological dimension of the entities in ``msh`` to include</span>
+<span class="sd">            in the sub-mesh.</span>
+<span class="sd">        entities: Indices of entities in ``msh`` to include in the</span>
+<span class="sd">            sub-mesh.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The (1) sub mesh, (2) entity map, (3) vertex map, and (4) node</span>
+<span class="sd">        map (geometry). Each of the maps a local index of the sub mesh</span>
+<span class="sd">        to a local index of ``msh``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">submsh</span><span class="p">,</span> <span class="n">entity_map</span><span class="p">,</span> <span class="n">vertex_map</span><span class="p">,</span> <span class="n">geom_map</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_submesh</span><span class="p">(</span>
+        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span>
+    <span class="p">)</span>
+    <span class="n">submsh_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
+        <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
+            <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
+            <span class="n">to_string</span><span class="p">(</span><span class="n">submsh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span><span class="p">),</span>
+            <span class="n">submsh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">degree</span><span class="p">,</span>
+            <span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="p">(</span><span class="n">submsh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">variant</span><span class="p">),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">submsh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">,),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">submsh</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Mesh</span><span class="p">(</span><span class="n">submsh</span><span class="p">,</span> <span class="n">submsh_domain</span><span class="p">),</span> <span class="n">EntityMap</span><span class="p">(</span><span class="n">entity_map</span><span class="p">),</span> <span class="n">EntityMap</span><span class="p">(</span><span class="n">vertex_map</span><span class="p">),</span> <span class="n">geom_map</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="meshtags">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.meshtags">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">meshtags</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
+    <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MeshTags</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a MeshTags object that associates data with a subset of</span>
+<span class="sd">    mesh entities.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the mesh entity.</span>
+<span class="sd">        entities: Indices(local to process) of entities to associate</span>
+<span class="sd">            values with . The array must be sorted and must not contain</span>
+<span class="sd">            duplicates.</span>
+<span class="sd">        values: The corresponding value for each entity.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh tags object.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The type of the returned MeshTags is inferred from the type of</span>
+<span class="sd">        ``values``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">values</span> <span class="o">&gt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">min</span> <span class="ow">and</span> <span class="n">values</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">max</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">MeshTags_int8</span>
+    <span class="k">elif</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">MeshTags_int32</span>
+    <span class="k">elif</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">MeshTags_int64</span>
+    <span class="k">elif</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">MeshTags_float64</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span>
+        <span class="n">ftype</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">),</span> <span class="n">values</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="meshtags_from_entities">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.meshtags_from_entities">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">meshtags_from_entities</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">AdjacencyList</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">]</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a :class:dolfinx.mesh.MeshTags` object that associates</span>
+<span class="sd">    data with a subset of mesh entities, where the entities are defined</span>
+<span class="sd">    by their vertices.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the mesh entity.</span>
+<span class="sd">        entities: Entities to associated values with, with entities</span>
+<span class="sd">            defined by their vertices.</span>
+<span class="sd">        values: The corresponding value for each entity.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh tags object.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The type of the returned MeshTags is inferred from the type of</span>
+<span class="sd">        ``values``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">entities</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">MeshTags</span><span class="p">(</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_meshtags</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_interval">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_interval">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_interval</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">points</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an interval mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        nx: Number of cells.</span>
+<span class="sd">        points: Coordinates of the end points.</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``).</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning. Options</span>
+<span class="sd">            are ``GhostMode.none`` and ``GhostMode.shared_facet``.</span>
+<span class="sd">        partitioner: Partitioning function to use for determining the</span>
+<span class="sd">            parallel distribution of cells across MPI ranks.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        An interval mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">)</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
+        <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
+            <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;interval&quot;</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">lagrange_variant</span><span class="o">=</span><span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">unset</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_interval_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_interval_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mesh geometry float type: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_unit_interval">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_unit_interval">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_unit_interval</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh on the unit interval.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        nx: Number of cells.</span>
+<span class="sd">        points: Coordinates of the end points.</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``).</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning. Options</span>
+<span class="sd">            are ``GhostMode.none`` and ``GhostMode.shared_facet``.</span>
+<span class="sd">        partitioner: Partitioning function to use for determining the</span>
+<span class="sd">            parallel distribution of cells across MPI ranks.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A unit interval mesh with end points at 0 and 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">create_interval</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">nx</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_rectangle">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_rectangle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_rectangle</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">points</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">cell_type</span><span class="o">=</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">diagonal</span><span class="p">:</span> <span class="n">DiagonalType</span> <span class="o">=</span> <span class="n">DiagonalType</span><span class="o">.</span><span class="n">right</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a rectangle mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        points: Coordinates of the lower - left and upper - right</span>
+<span class="sd">            corners of the rectangle.</span>
+<span class="sd">        n: Number of cells in each direction.</span>
+<span class="sd">        cell_type: Mesh cell type.</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``)</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning.</span>
+<span class="sd">        partitioner: Function that computes the parallel distribution of</span>
+<span class="sd">            cells across MPI ranks.</span>
+<span class="sd">        diagonal: Direction of diagonal of triangular meshes.</span>
+<span class="sd">            See :class:`DiagonalType` for available options.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh of a rectangle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">)</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
+        <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
+            <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
+            <span class="n">cell_type</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">lagrange_variant</span><span class="o">=</span><span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">unset</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_rectangle_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_rectangle_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mesh geometry float type: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_unit_square">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_unit_square">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_unit_square</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">cell_type</span><span class="o">=</span><span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">diagonal</span><span class="p">:</span> <span class="n">DiagonalType</span> <span class="o">=</span> <span class="n">DiagonalType</span><span class="o">.</span><span class="n">right</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh of a unit square.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        nx: Number of cells in the &quot;x&quot; direction.</span>
+<span class="sd">        ny: Number of cells in the &quot;y&quot; direction.</span>
+<span class="sd">        cell_type: Mesh cell type.</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``).</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning.</span>
+<span class="sd">        partitioner: Function that computes the parallel distribution of</span>
+<span class="sd">            cells across MPI ranks.</span>
+<span class="sd">        diagonal:</span>
+<span class="sd">            Direction of diagonal. See :class:`DiagonalType` for</span>
+<span class="sd">            available options.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh of a square with corners at ``(0, 0)`` and ``(1, 1)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">create_rectangle</span><span class="p">(</span>
+        <span class="n">comm</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])],</span>
+        <span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">),</span>
+        <span class="n">cell_type</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">,</span>
+        <span class="n">ghost_mode</span><span class="p">,</span>
+        <span class="n">partitioner</span><span class="p">,</span>
+        <span class="n">diagonal</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_box">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_box">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_box</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">points</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">ArrayLike</span><span class="p">],</span>
+    <span class="n">n</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+    <span class="n">cell_type</span><span class="o">=</span><span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a box mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        points: Coordinates of the &#39;lower-left&#39; and &#39;upper-right&#39;</span>
+<span class="sd">            corners of the box.</span>
+<span class="sd">        n: List of cells in each direction</span>
+<span class="sd">        cell_type: The cell type.</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``).</span>
+<span class="sd">        ghost_mode: The ghost mode used in the mesh partitioning.</span>
+<span class="sd">        partitioner: Function that computes the parallel distribution of</span>
+<span class="sd">            cells across MPI ranks.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh of a box domain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">)</span>
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
+        <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
+            <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
+            <span class="n">cell_type</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">,</span>
+            <span class="n">lagrange_variant</span><span class="o">=</span><span class="n">basix</span><span class="o">.</span><span class="n">LagrangeVariant</span><span class="o">.</span><span class="n">unset</span><span class="p">,</span>
+            <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>  <span class="c1"># type: ignore</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mesh geometry float type: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_unit_cube">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_unit_cube">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_unit_cube</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">nx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">ny</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">nz</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">cell_type</span><span class="o">=</span><span class="n">CellType</span><span class="o">.</span><span class="n">tetrahedron</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">default_real_type</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="o">=</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">shared_facet</span><span class="p">,</span>
+    <span class="n">partitioner</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh of a unit cube.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator.</span>
+<span class="sd">        nx: Number of cells in &quot;x&quot; direction.</span>
+<span class="sd">        ny: Number of cells in &quot;y&quot; direction.</span>
+<span class="sd">        nz: Number of cells in &quot;z&quot; direction.</span>
+<span class="sd">        cell_type: Mesh cell type</span>
+<span class="sd">        dtype: Float type for the mesh geometry(``numpy.float32``</span>
+<span class="sd">            or ``numpy.float64``).</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning.</span>
+<span class="sd">        partitioner: Function that computes the parallel distribution of</span>
+<span class="sd">            cells across MPI ranks.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A mesh of an axis-aligned unit cube with corners at ``(0, 0, 0)``</span>
+<span class="sd">        and ``(1, 1, 1)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">create_box</span><span class="p">(</span>
+        <span class="n">comm</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])],</span>
+        <span class="p">(</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nz</span><span class="p">),</span>
+        <span class="n">cell_type</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">,</span>
+        <span class="n">ghost_mode</span><span class="p">,</span>
+        <span class="n">partitioner</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="entities_to_geometry">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.entities_to_geometry">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">entities_to_geometry</span><span class="p">(</span>
+    <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">permute</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the geometric DOFs associated with the closure of the</span>
+<span class="sd">    given mesh entities.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the entities of interest.</span>
+<span class="sd">        entities: Entity indices (local to the process).</span>
+<span class="sd">        permute: Permute the DOFs such that they are consistent with the</span>
+<span class="sd">            orientation of `dim`-dimensional mesh entities. This</span>
+<span class="sd">            requires `create_entity_permutations` to be called first.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The geometric DOFs associated with the closure of the entities</span>
+<span class="sd">        in `entities`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">entities_to_geometry</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">permute</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="exterior_facet_indices">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.exterior_facet_indices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">exterior_facet_indices</span><span class="p">(</span><span class="n">topology</span><span class="p">:</span> <span class="n">Topology</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the indices of all exterior facets that are owned by the</span>
+<span class="sd">    caller.</span>
+
+<span class="sd">    An exterior facet (co-dimension 1) is one that is connected globally</span>
+<span class="sd">    to only one cell of co-dimension 0).</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        This is a collective operation that should be called on all</span>
+<span class="sd">        processes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        topology: The topology</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Sorted list of owned facet indices that are exterior facets of</span>
+<span class="sd">        the mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">exterior_facet_indices</span><span class="p">(</span><span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_geometry">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_geometry">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_geometry</span><span class="p">(</span>
+    <span class="n">index_map</span><span class="p">:</span> <span class="n">_IndexMap</span><span class="p">,</span>
+    <span class="n">dofmap</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">element</span><span class="p">:</span> <span class="n">_CoordinateElement</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">input_global_indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Geometry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Geometry object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        index_map: Index map describing the layout of the geometry</span>
+<span class="sd">            points (nodes).</span>
+<span class="sd">        dofmap: The geometry (point) dofmap. For a cell, it gives the</span>
+<span class="sd">            row in the point coordinates ``x`` of each local geometry</span>
+<span class="sd">            node. ``shape=(num_cells, num_dofs_per_cell)``.</span>
+<span class="sd">        element: Element that describes the cell geometry map.</span>
+<span class="sd">        x: The point coordinates. The shape is</span>
+<span class="sd">            ``(num_points, geometric_dimension).``</span>
+<span class="sd">        input_global_indices: The &#39;global&#39; input index of each point,</span>
+<span class="sd">            commonly from a mesh input file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span>
+    <span class="k">elif</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+        <span class="n">ftype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown floating type for geometry, got: </span><span class="si">{x.dtype}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">dtype</span> <span class="o">:=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span> <span class="o">!=</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mismatch in x dtype (</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">) and coordinate element (</span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">Geometry</span><span class="p">(</span><span class="n">ftype</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
