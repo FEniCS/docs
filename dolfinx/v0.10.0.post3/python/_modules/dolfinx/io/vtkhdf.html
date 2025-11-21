@@ -1,0 +1,220 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.io.vtkhdf &mdash; DOLFINx 0.10.0.post2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=4273909c"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dolfinx.io.vtkhdf</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.io.vtkhdf</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2024-2025 Chris Richardson and Jørgen S. Dokken</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">basix</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.io</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">read_vtkhdf_mesh_float32</span><span class="p">,</span>
+    <span class="n">read_vtkhdf_mesh_float64</span><span class="p">,</span>
+    <span class="n">write_vtkhdf_data</span><span class="p">,</span>
+    <span class="n">write_vtkhdf_mesh</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mesh</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;read_mesh&quot;</span><span class="p">,</span> <span class="s2">&quot;write_cell_data&quot;</span><span class="p">,</span> <span class="s2">&quot;write_mesh&quot;</span><span class="p">,</span> <span class="s2">&quot;write_point_data&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="read_mesh">
+<a class="viewcode-back" href="../../../generated/dolfinx.io.vtkhdf.html#dolfinx.io.vtkhdf.read_mesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_mesh</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+    <span class="n">gdim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a mesh from a VTKHDF format file.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Changing `max_facet_to_cell_links` from the default value should</span>
+<span class="sd">        only be required when working on branching manifolds. Changing this</span>
+<span class="sd">        value on non-branching meshes will only result in a slower mesh</span>
+<span class="sd">        partitioning and creation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: An MPI communicator.</span>
+<span class="sd">        filename: File to read from.</span>
+<span class="sd">        dtype: Scalar type of mesh geometry (need not match dtype in</span>
+<span class="sd">            file).</span>
+<span class="sd">        gdim: Geometric dimension of the mesh.</span>
+<span class="sd">        max_facet_to_cell_links: Maximum number of cells that can be</span>
+<span class="sd">            linked to a facet.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">:</span>
+        <span class="n">mesh_cpp</span> <span class="o">=</span> <span class="n">read_vtkhdf_mesh_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">gdim</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+        <span class="n">mesh_cpp</span> <span class="o">=</span> <span class="n">read_vtkhdf_mesh_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">gdim</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">)</span>
+
+    <span class="n">cell_types</span> <span class="o">=</span> <span class="n">mesh_cpp</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">entity_types</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cell_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># FIXME: not yet defined for mixed topology</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cell_degree</span> <span class="o">=</span> <span class="n">mesh_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">degree</span>
+        <span class="n">variant</span> <span class="o">=</span> <span class="n">mesh_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">cmap</span><span class="o">.</span><span class="n">variant</span>
+        <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
+            <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
+                <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">cell_degree</span><span class="p">,</span> <span class="n">variant</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">mesh_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">dim</span><span class="p">,)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">mesh_cpp</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="write_mesh">
+<a class="viewcode-back" href="../../../generated/dolfinx.io.vtkhdf.html#dolfinx.io.vtkhdf.write_mesh">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_mesh</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write a mesh to file in VTKHDF format</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename: File to write to.</span>
+<span class="sd">        mesh: Mesh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">write_vtkhdf_mesh</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="write_point_data">
+<a class="viewcode-back" href="../../../generated/dolfinx.io.vtkhdf.html#dolfinx.io.vtkhdf.write_point_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_point_data</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write data at vertices of the mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename: File to write to.</span>
+<span class="sd">        mesh: Mesh.</span>
+<span class="sd">        data: Data at the points of the mesh, local to each process.</span>
+<span class="sd">        time: Timestamp.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">write_vtkhdf_data</span><span class="p">(</span><span class="s2">&quot;Point&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="write_cell_data">
+<a class="viewcode-back" href="../../../generated/dolfinx.io.vtkhdf.html#dolfinx.io.vtkhdf.write_cell_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_cell_data</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">mesh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write data at cells of the mesh.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename: File to write to.</span>
+<span class="sd">        mesh: Mesh.</span>
+<span class="sd">        data: Data at the cells of the mesh, local to each process.</span>
+<span class="sd">        time: Timestamp.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">write_vtkhdf_data</span><span class="p">(</span><span class="s2">&quot;Cell&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
