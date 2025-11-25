@@ -2,19 +2,19 @@
 
 #### DOLFINx
 
-`0.10.0.post0` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/cpp/)
+`0.10.0.post3` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/)
 
-`0.10.0.post0` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/python/)
+`0.10.0.post3` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/)
 
 #### FFCx
 
-`0.10.0`: [https://docs.fenicsproject.org/ffcx/v0.10.0](https://docs.fenicsproject.org/ffcx/v0.10.0)
+`0.10.1`: [https://docs.fenicsproject.org/ffcx/v0.10.1](https://docs.fenicsproject.org/ffcx/v0.10.1)
 
 #### Basix
 
-`0.10.0` C++: [https://docs.fenicsproject.org/basix/v0.10.0/](https://docs.fenicsproject.org/basix/v0.10.0/cpp/)
+`0.10.0.post0` C++: [https://docs.fenicsproject.org/basix/v0.10.0.post0/](https://docs.fenicsproject.org/basix/v0.10.0.post0/cpp/)
 
-`0.10.0` Python: [https://docs.fenicsproject.org/basix/v0.10.0/](https://docs.fenicsproject.org/basix/v0.10.0/python/)
+`0.10.0.post0` Python: [https://docs.fenicsproject.org/basix/v0.10.0/](https://docs.fenicsproject.org/basix/v0.10.0.post0/python/)
 
 #### UFL
 
@@ -101,6 +101,8 @@
 `0.1.0` Python: [https://docs.fenicsproject.org/dolfinx/v0.1.0/python/](https://docs.fenicsproject.org/dolfinx/v0.1.0/python/)
 
 #### FFCx
+
+`0.10.0`: [https://docs.fenicsproject.org/ffcx/v0.10.0](https://docs.fenicsproject.org/ffcx/v0.10.0)
 
 `0.9.0`: [https://docs.fenicsproject.org/ffcx/v0.9.0](https://docs.fenicsproject.org/ffcx/v0.9.0)
 
