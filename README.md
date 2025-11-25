@@ -2,9 +2,9 @@
 
 #### DOLFINx
 
-`0.10.0.post3` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/)
+`0.10.0.post3` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/)
 
-`0.10.0.post3` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post0/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/)
+`0.10.0.post3` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/)
 
 #### FFCx
 
