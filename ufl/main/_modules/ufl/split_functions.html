@@ -333,12 +333,16 @@
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 <span class="c1">#</span>
 <span class="c1"># Modified by Anders Logg, 2008</span>
+<span class="c1"># Modified by Pablo Brubeck, 2025</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.functionspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">FunctionSpace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.indexed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Indexed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.permutation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_indices</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">ListTensor</span><span class="p">,</span> <span class="n">as_matrix</span><span class="p">,</span> <span class="n">as_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.pullback</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymmetricPullback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">ListTensor</span><span class="p">,</span> <span class="n">as_tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.indexflattening</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_multiindex</span><span class="p">,</span> <span class="n">shape_to_strides</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.sequences</span><span class="w"> </span><span class="kn">import</span> <span class="n">product</span>
 
@@ -362,7 +366,8 @@
 
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ListTensor</span><span class="p">):</span>
         <span class="c1"># Special case: split previous output of split again</span>
-        <span class="n">ops</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">))</span>
+
         <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">)</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">):</span>
             <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">comp</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
             <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">))):</span>
@@ -414,8 +419,18 @@
     <span class="c1"># Build expressions representing the subfunction of v for each subelement</span>
     <span class="n">offset</span> <span class="o">=</span> <span class="n">begin</span>
     <span class="n">sub_functions</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">domains</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">)):</span>
+
+    <span class="c1"># Deal with symmetry</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">SymmetricPullback</span><span class="p">):</span>
+        <span class="n">symmetry</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="o">.</span><span class="n">_symmetry</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">(</span><span class="n">comp</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">comp</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">symmetry</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">))</span>
+
+    <span class="n">domains</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">element</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
         <span class="c1"># Get shape, size, indices, and v components</span>
         <span class="c1"># corresponding to subelement value</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">value_shape</span>
@@ -428,16 +443,8 @@
         <span class="c1"># Shape components into same shape as subelement</span>
         <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="p">(</span><span class="n">subv</span><span class="p">,)</span> <span class="o">=</span> <span class="n">components</span>
-        <span class="k">elif</span> <span class="n">rank</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">subv</span> <span class="o">=</span> <span class="n">as_vector</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">subv</span> <span class="o">=</span> <span class="n">as_matrix</span><span class="p">(</span>
-                <span class="p">[</span><span class="n">components</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span>
-            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Don&#39;t know how to split functions with sub functions of rank </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.&quot;</span>
-            <span class="p">)</span>
+            <span class="n">subv</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">shape</span><span class="p">))</span>
 
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">sub_size</span>
         <span class="n">sub_functions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subv</span><span class="p">)</span>
