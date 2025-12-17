@@ -2,9 +2,9 @@
 
 #### DOLFINx
 
-`0.10.0.post3` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/cpp/)
+`0.10.0.post4` C++: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post4/cpp/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post4/cpp/)
 
-`0.10.0.post3` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post3/python/)
+`0.10.0.post4` Python: [https://docs.fenicsproject.org/dolfinx/v0.10.0.post4/python/](https://docs.fenicsproject.org/dolfinx/v0.10.0.post4/python/)
 
 #### FFCx
 
@@ -14,7 +14,7 @@
 
 `0.10.0.post0` C++: [https://docs.fenicsproject.org/basix/v0.10.0.post0/](https://docs.fenicsproject.org/basix/v0.10.0.post0/cpp/)
 
-`0.10.0.post0` Python: [https://docs.fenicsproject.org/basix/v0.10.0/](https://docs.fenicsproject.org/basix/v0.10.0.post0/python/)
+`0.10.0.post0` Python: [https://docs.fenicsproject.org/basix/v0.10.0.post0/](https://docs.fenicsproject.org/basix/v0.10.0.post0/python/)
 
 #### UFL
 
