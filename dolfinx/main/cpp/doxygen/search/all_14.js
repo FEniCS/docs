@@ -9,7 +9,7 @@ var searchData=
   ['vector_6',['Vector',['../d2/d0b/classdolfinx_1_1la_1_1Vector.html',1,'Vector&lt; T, Container, ScatterContainer &gt;'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a5e05669c7cdb76c40cf5260bee4682be',1,'dolfinx::la::Vector::Vector(std::shared_ptr&lt; const common::IndexMap &gt; map, int bs)'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#ae6dfe382b0653b9282ad56ec3c3ff17e',1,'dolfinx::la::Vector::Vector(const Vector &amp;x)=default'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#abb4bc159ceec64c5dfff2d9c705d135a',1,'dolfinx::la::Vector::Vector(Vector &amp;&amp;x)=default'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a43eeee26647538435811ab84696bcc98',1,'dolfinx::la::Vector::Vector(const Vector&lt; T0, Container0, ScatterContainer0 &gt; &amp;x)']]],
   ['vector_7',['vector',['../d0/d23/classHyperElasticProblem.html#a8f4236b2da6d407c01e8fd708a5ed177',1,'HyperElasticProblem']]],
   ['vectorpackkernel_8',['VectorPackKernel',['../d7/d16/conceptdolfinx_1_1la_1_1VectorPackKernel.html',1,'dolfinx::la']]],
-  ['version_9',['version',['../d2/dc7/namespacedolfinx.html#ac3a29640c3dadfe882faed565ee376ec',1,'dolfinx']]],
+  ['version_9',['version',['../d2/dc7/namespacedolfinx.html#ab5396be8e8b84c9e9be5704f48a845de',1,'dolfinx']]],
   ['vertex_10',['vertex',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a2b5bc093b09bd81f51de433bde9d202a',1,'dolfinx::fem']]],
   ['vtk_5fmesh_5ffrom_5fspace_11',['vtk_mesh_from_space',['../d6/d7a/namespacedolfinx_1_1io.html#aa6f5bca201b37b723b59be5eb44f0454',1,'dolfinx::io']]],
   ['vtkfile_12',['VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html',1,'VTKFile'],['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac70742368a538e40dddddffd87eb7c46',1,'dolfinx::io::VTKFile::VTKFile()']]]
