@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.split_functions &#8212; Unified Form Language (UFL) 2025.2.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=53f08d36"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.split_functions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithm for splitting a Coefficient or Argument into subfunctions.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008</span>
+<span class="c1"># Modified by Pablo Brubeck, 2025</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.functionspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">FunctionSpace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.indexed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Indexed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.permutation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_indices</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.pullback</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymmetricPullback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">ListTensor</span><span class="p">,</span> <span class="n">as_tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.indexflattening</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_multiindex</span><span class="p">,</span> <span class="n">shape_to_strides</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.sequences</span><span class="w"> </span><span class="kn">import</span> <span class="n">product</span>
+
+
+<div class="viewcode-block" id="split">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.split_functions.split">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a coefficient or argument.</span>
+
+<span class="sd">    If v is a Coefficient or Argument in a mixed space, returns a tuple</span>
+<span class="sd">    with the function components corresponding to the subelements.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Default range is all of v</span>
+    <span class="n">begin</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">):</span>
+        <span class="c1"># Special case: split previous output of split again</span>
+        <span class="c1"># Consistent with simple element, just return function in a tuple</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">v</span><span class="p">,)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ListTensor</span><span class="p">):</span>
+        <span class="c1"># Special case: split previous output of split again</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">comp</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">)</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">):</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">comp</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">))):</span>
+                <span class="c1"># Get innermost terminal here and its element</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="c1"># Get relevant range of v components</span>
+                <span class="p">(</span><span class="n">begin</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">(</span><span class="n">end</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">begin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">begin</span><span class="p">)</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Don&#39;t know how to split </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Don&#39;t know how to split </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Special case: simple element, just return function in a tuple</span>
+    <span class="n">element</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">num_sub_elements</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">v</span><span class="p">,)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Don&#39;t know how to split tensor valued mixed functions without flattened index space.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Compute value size and set default range end</span>
+    <span class="n">value_size</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span><span class="o">.</span><span class="n">value_size</span>
+    <span class="k">if</span> <span class="n">end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">value_size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Recursively dive into mixedelement in to subelement</span>
+        <span class="c1"># corresponding to beginning of range</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">begin</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">domains</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">domains</span><span class="p">,</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">value_size</span><span class="p">:</span>
+                    <span class="n">domain</span> <span class="o">=</span> <span class="n">d</span>
+                    <span class="n">element</span> <span class="o">=</span> <span class="n">e</span>
+                    <span class="k">break</span>
+                <span class="n">j</span> <span class="o">-=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">value_size</span>
+            <span class="c1"># Then break when we find the subelement that covers the whole range</span>
+            <span class="k">if</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span><span class="o">.</span><span class="n">value_size</span> <span class="o">==</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">begin</span><span class="p">):</span>
+                <span class="k">break</span>
+
+    <span class="c1"># Build expressions representing the subfunction of v for each subelement</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="n">begin</span>
+    <span class="n">sub_functions</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Deal with symmetry</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">SymmetricPullback</span><span class="p">):</span>
+        <span class="n">symmetry</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">pullback</span><span class="o">.</span><span class="n">_symmetry</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">(</span><span class="n">comp</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">comp</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">symmetry</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">))</span>
+
+    <span class="n">domains</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">element</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="c1"># Get shape, size, indices, and v components</span>
+        <span class="c1"># corresponding to subelement value</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">value_shape</span>
+        <span class="n">strides</span> <span class="o">=</span> <span class="n">shape_to_strides</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">rank</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">sub_size</span> <span class="o">=</span> <span class="n">product</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">subindices</span> <span class="o">=</span> <span class="p">[</span><span class="n">flatten_multiindex</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">strides</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">compute_indices</span><span class="p">(</span><span class="n">shape</span><span class="p">)]</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="n">offset</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">subindices</span><span class="p">]</span>
+
+        <span class="c1"># Shape components into same shape as subelement</span>
+        <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">subv</span><span class="p">,)</span> <span class="o">=</span> <span class="n">components</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">subv</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">shape</span><span class="p">))</span>
+
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">sub_size</span>
+        <span class="n">sub_functions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subv</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">end</span> <span class="o">!=</span> <span class="n">offset</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Function splitting failed to extract components for whole intended range.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sub_functions</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

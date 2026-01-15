@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.formoperators &#8212; Unified Form Language (UFL) 2025.2.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=53f08d36"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.formoperators</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Various high level ways to transform a complete Form into a new Form.&quot;&quot;&quot;</span>
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009</span>
+<span class="c1"># Modified by Massimiliano Leoni, 2016</span>
+<span class="c1"># Modified by Cecile Daversin-Catty, 2018</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.action</span><span class="w"> </span><span class="kn">import</span> <span class="n">Action</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.adjoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Adjoint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">compute_energy_norm</span><span class="p">,</span>
+    <span class="n">compute_form_action</span><span class="p">,</span>
+    <span class="n">compute_form_adjoint</span><span class="p">,</span>
+    <span class="n">compute_form_functional</span><span class="p">,</span>
+    <span class="n">compute_form_lhs</span><span class="p">,</span>
+    <span class="n">compute_form_rhs</span><span class="p">,</span>
+    <span class="n">expand_derivatives</span><span class="p">,</span>
+    <span class="n">extract_arguments</span><span class="p">,</span>
+    <span class="n">formsplitter</span><span class="p">,</span>
+    <span class="n">replace</span><span class="p">,</span>  <span class="c1"># noqa: F401</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.cell</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cell</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.coefficient</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coefficient</span><span class="p">,</span> <span class="n">Cofunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">as_ufl</span><span class="p">,</span> <span class="n">is_true_ufl_scalar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.base_form_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseFormOperator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.multiindex</span><span class="w"> </span><span class="kn">import</span> <span class="n">FixedIndex</span><span class="p">,</span> <span class="n">MultiIndex</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.differentiation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BaseFormCoordinateDerivative</span><span class="p">,</span>
+    <span class="n">BaseFormDerivative</span><span class="p">,</span>
+    <span class="n">BaseFormOperatorCoordinateDerivative</span><span class="p">,</span>
+    <span class="n">BaseFormOperatorDerivative</span><span class="p">,</span>
+    <span class="n">CoefficientDerivative</span><span class="p">,</span>
+    <span class="n">CoordinateDerivative</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.exprcontainers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExprList</span><span class="p">,</span> <span class="n">ExprMapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.finiteelement</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractFiniteElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">,</span> <span class="n">ZeroBaseForm</span><span class="p">,</span> <span class="n">as_form</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.functionspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">FunctionSpace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpatialCoordinate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.indexed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Indexed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.pullback</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractPullback</span><span class="p">,</span> <span class="n">IdentityPullback</span><span class="p">,</span> <span class="n">MixedPullback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.sobolevspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">SobolevSpace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.sorting</span><span class="w"> </span><span class="kn">import</span> <span class="n">sorted_expr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.split_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">ListTensor</span><span class="p">,</span> <span class="n">as_tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.variable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Variable</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_MixedElement</span><span class="p">(</span><span class="n">AbstractFiniteElement</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A mixed element.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sub_elements</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise a mixed element.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">sub_elements</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">e</span><span class="o">.</span><span class="n">cell</span> <span class="o">==</span> <span class="n">sub_elements</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cell</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">pullback</span><span class="p">,</span> <span class="n">IdentityPullback</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">sub_elements</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pullback</span> <span class="o">=</span> <span class="n">IdentityPullback</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_pullback</span> <span class="o">=</span> <span class="n">MixedPullback</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span> <span class="o">=</span> <span class="n">sub_elements</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as string for evaluation as Python object.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ufl.formoperators._MixedElement(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="si">!r}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Format as string for nice printing.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;&lt;MixedElement with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">)</span><span class="si">}</span><span class="s2"> sub-element(s)&gt;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a hash.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if this element is equal to another element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">repr</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sobolev_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SobolevSpace</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the underlying Sobolev space.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">sobolev_space</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pullback</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractPullback</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the pullback for this element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pullback</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">embedded_superdegree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Degree of the minimum degree Lagrange space that spans this element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">embedded_superdegree</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">embedded_subdegree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Degree of the maximum degree Lagrange space that is spanned by this element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">embedded_subdegree</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Cell</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the cell of the finite element.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">cell</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reference_value_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the shape of the value space on the reference cell.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">reference_value_size</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span><span class="p">),)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sub_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return list of sub-elements.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sub_elements</span>
+
+
+<div class="viewcode-block" id="extract_blocks">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.extract_blocks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_blocks</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">:</span> <span class="n">Form</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">replace_argument</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract blocks.</span>
+
+<span class="sd">    Given a linear or bilinear form on a mixed space,</span>
+<span class="sd">    extract the block corresponding to the indices ix, iy.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">       a = inner(grad(u), grad(v))*dx + div(u)*q*dx + div(v)*p*dx</span>
+<span class="sd">       extract_blocks(a, 0, 0) -&gt; inner(grad(u), grad(v))*dx</span>
+<span class="sd">       extract_blocks(a) -&gt; [inner(grad(u), grad(v))*dx, div(v)*p*dx, div(u)*q*dx, 0]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">formsplitter</span><span class="o">.</span><span class="n">extract_blocks</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">replace_argument</span><span class="o">=</span><span class="n">replace_argument</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="lhs">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.lhs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lhs</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the left hand side.</span>
+
+<span class="sd">    Given a combined bilinear and linear form,</span>
+<span class="sd">    extract the left hand side (bilinear form part).</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        a = u*v*dx + f*v*dx</span>
+<span class="sd">        a = lhs(a) -&gt; u*v*dx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compute_form_lhs</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="rhs">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.rhs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rhs</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the right hand side.</span>
+
+<span class="sd">    Given a combined bilinear and linear form,</span>
+<span class="sd">    extract the right hand side (negated linear form part).</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        a = u*v*dx + f*v*dx</span>
+<span class="sd">        L = rhs(a) -&gt; -f*v*dx</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compute_form_rhs</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="system">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.system">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">system</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split a form into the left hand side and right hand side.</span>
+
+<span class="sd">    See ``lhs`` and ``rhs``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">lhs</span><span class="p">(</span><span class="n">form</span><span class="p">),</span> <span class="n">rhs</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="functional">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.functional">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">functional</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>  <span class="c1"># TODO: Does this make sense for anything other than testing?</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract the functional part of form.&quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compute_form_functional</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="action">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.action">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">action</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">derivatives_expanded</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the action.</span>
+
+<span class="sd">    Given a bilinear form, return a linear form</span>
+<span class="sd">    with an additional coefficient, representing the</span>
+<span class="sd">    action of the form on the coefficient. This can be</span>
+<span class="sd">    used for matrix-free methods.</span>
+<span class="sd">    For formbase objects,coefficient can be any object of the correct type,</span>
+<span class="sd">    and this function returns an Action object.</span>
+
+<span class="sd">    When `action` is being called multiple times on the same form, expanding derivatives</span>
+<span class="sd">    become expensive -&gt; `derivatives_expanded` enables to use caching mechanisms to avoid that.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="n">is_coefficient_valid</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">coefficient</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="c1"># Can&#39;t expand derivatives on objects that are not Form or Expr (e.g. Matrix)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">BaseFormOperator</span><span class="p">)</span> <span class="ow">and</span> <span class="n">is_coefficient_valid</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">derivatives_expanded</span><span class="p">:</span>
+            <span class="c1"># For external operators differentiation may turn a Form into a FormSum</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">compute_form_action</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Action</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="energy_norm">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.energy_norm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">energy_norm</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the energy norm.</span>
+
+<span class="sd">    Given a bilinear form *a* and a coefficient *f*,</span>
+<span class="sd">    return the functional :math:`a(f,f)`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">compute_energy_norm</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="adjoint">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.adjoint">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">adjoint</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">reordered_arguments</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">derivatives_expanded</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the adjoint.</span>
+
+<span class="sd">    Given a combined bilinear form, compute the adjoint form by</span>
+<span class="sd">    changing the ordering (count) of the test and trial functions, and</span>
+<span class="sd">    taking the complex conjugate of the result.</span>
+
+<span class="sd">    By default, new ``Argument`` objects will be created with</span>
+<span class="sd">    opposite ordering. However, if the adjoint form is to</span>
+<span class="sd">    be added to other forms later, their arguments must match.</span>
+<span class="sd">    In that case, the user must provide a tuple *reordered_arguments*=(u2,v2).</span>
+
+<span class="sd">    If the form is a baseform instance instead of a Form object, we return an Adjoint</span>
+<span class="sd">    object instructing the adjoint to be computed at a later point.</span>
+
+<span class="sd">    When `adjoint` is being called multiple times on the same form, expanding derivatives</span>
+<span class="sd">    become expensive -&gt; `derivatives_expanded` enables to use caching mechanisms to avoid that.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">form</span> <span class="o">=</span> <span class="n">as_form</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+        <span class="c1"># Allow BaseForm objects that are not BaseForm such as Adjoint since there are cases</span>
+        <span class="c1"># where we need to expand derivatives: e.g. to get the number of arguments</span>
+        <span class="c1">#   =&gt; For example: Adjoint(Action(2-form, derivative(u,u)))</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">derivatives_expanded</span><span class="p">:</span>
+            <span class="c1"># For external operators differentiation may turn a Form into a FormSum</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">compute_form_adjoint</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">reordered_arguments</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Adjoint</span><span class="p">(</span><span class="n">form</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="zero_lists">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.zero_lists">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">zero_lists</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Createa list of zeros of the given shape.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid shape.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">zero_lists</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span></div>
+
+
+
+<div class="viewcode-block" id="set_list_item">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.set_list_item">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_list_item</span><span class="p">(</span><span class="n">li</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set an item in a nested list.&quot;&quot;&quot;</span>
+    <span class="c1"># Get to the innermost list</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">i</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">li</span> <span class="o">=</span> <span class="n">li</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="c1"># Set item in innermost list</span>
+    <span class="n">li</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">v</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_handle_derivative_arguments</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle derivative arguments.&quot;&quot;&quot;</span>
+    <span class="c1"># Wrap single coefficient in tuple for uniform treatment below</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">ListTensor</span><span class="p">):</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coefficient</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">coefficient</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">coefficient</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">coefficients</span> <span class="o">=</span> <span class="p">(</span><span class="n">coefficient</span><span class="p">,)</span>
+
+    <span class="k">if</span> <span class="n">argument</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Try to create argument if not provided</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Coefficient</span> <span class="o">|</span> <span class="n">Cofunction</span> <span class="o">|</span> <span class="n">BaseFormOperator</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coefficients</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Can only create arguments automatically for non-indexed coefficients.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Get existing arguments from form and position the new one</span>
+        <span class="c1"># with the next argument number</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+            <span class="n">form_arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># To handle derivative(expression), which is at least used</span>
+            <span class="c1"># in tests. Remove?</span>
+            <span class="n">form_arguments</span> <span class="o">=</span> <span class="n">extract_arguments</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+
+        <span class="n">numbers</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">form_arguments</span><span class="p">))</span>
+        <span class="n">number</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">numbers</span> <span class="o">+</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="c1"># Don&#39;t know what to do with parts, let the user sort it out</span>
+        <span class="c1"># in that case</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">part</span><span class="p">()</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">form_arguments</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">})</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Not expecting parts here, provide your own arguments.&quot;</span><span class="p">)</span>
+        <span class="n">part</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Create argument and split it if in a mixed space</span>
+        <span class="n">function_spaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">function_spaces</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">arguments</span> <span class="o">=</span> <span class="p">(</span><span class="n">Argument</span><span class="p">(</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">number</span><span class="p">,</span> <span class="n">part</span><span class="p">),)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Create in mixed space over assumed (for now) same domain</span>
+            <span class="n">domains</span> <span class="o">=</span> <span class="p">[</span><span class="n">fs</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">function_spaces</span><span class="p">]</span>
+            <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">fs</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">function_spaces</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span> <span class="o">==</span> <span class="n">domains</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="n">function_spaces</span><span class="p">)</span>
+            <span class="n">elm</span> <span class="o">=</span> <span class="n">_MixedElement</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domains</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">elm</span><span class="p">)</span>
+            <span class="n">arguments</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="n">Argument</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="n">number</span><span class="p">,</span> <span class="n">part</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Wrap single argument in tuple for uniform treatment below</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">argument</span><span class="p">,</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="n">arguments</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">argument</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">arguments</span> <span class="o">=</span> <span class="p">(</span><span class="n">argument</span><span class="p">,)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">argument</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">n</span><span class="p">,):</span>
+                    <span class="n">arguments</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">argument</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">arguments</span> <span class="o">=</span> <span class="n">split</span><span class="p">(</span><span class="n">argument</span><span class="p">)</span>
+
+    <span class="c1"># Build mapping from coefficient to argument</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">!=</span> <span class="n">a</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Coefficient and argument shapes do not match!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Coefficient</span> <span class="o">|</span> <span class="n">Cofunction</span> <span class="o">|</span> <span class="n">BaseFormOperator</span> <span class="o">|</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+            <span class="n">m</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Indexed</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid coefficient type for </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_operands</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting an indexed coefficient, not </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">MultiIndex</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">i</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting one or more fixed indices, not </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">i</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">f</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">m</span><span class="p">:</span>
+                <span class="n">m</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">m</span><span class="p">[</span><span class="n">f</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+
+    <span class="c1"># Merge coefficient derivatives (arguments) based on indices</span>
+    <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">zero_lists</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">set_list_item</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span>
+            <span class="n">m</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">as_tensor</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+    <span class="c1"># Wrap and return generic tuples</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="n">ExprList</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">])</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">ExprList</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span>
+
+
+<div class="viewcode-block" id="derivative">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.derivative">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">derivative</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the Gateaux derivative of *form* w.r.t. *coefficient* in direction of *argument*.</span>
+
+<span class="sd">    If the argument is omitted, a new ``Argument`` is created</span>
+<span class="sd">    in the same space as the coefficient, with argument number</span>
+<span class="sd">    one higher than the highest one in the form.</span>
+
+<span class="sd">    The resulting form has one additional ``Argument``</span>
+<span class="sd">    in the same finite element space as the coefficient.</span>
+
+<span class="sd">    A tuple of ``Coefficient`` s may be provided in place of</span>
+<span class="sd">    a single ``Coefficient``, in which case the new ``Argument``</span>
+<span class="sd">    argument is based on a ``MixedElement`` created from this tuple.</span>
+
+<span class="sd">    An indexed ``Coefficient`` from a mixed space may be provided,</span>
+<span class="sd">    in which case the argument should be in the corresponding</span>
+<span class="sd">    subspace of the coefficient space.</span>
+
+<span class="sd">    If provided, *coefficient_derivatives* should be a mapping from</span>
+<span class="sd">    ``Coefficient`` instances to their derivatives w.r.t. *coefficient*.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">FormSum</span><span class="p">):</span>
+        <span class="c1"># Distribute derivative over FormSum components</span>
+        <span class="k">return</span> <span class="n">FormSum</span><span class="p">(</span>
+            <span class="o">*</span><span class="p">[</span>
+                <span class="p">(</span><span class="n">derivative</span><span class="p">(</span><span class="n">component</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">component</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">components</span><span class="p">(),</span> <span class="n">form</span><span class="o">.</span><span class="n">weights</span><span class="p">())</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Adjoint</span><span class="p">):</span>
+        <span class="c1"># Is `derivative(Adjoint(A), ...)` with A a 2-form even legal ?</span>
+        <span class="c1"># -&gt; If yes, what&#39;s the right thing to do here ?</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Adjoint derivative is not supported.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Action</span><span class="p">):</span>
+        <span class="c1"># Push derivative through Action slots</span>
+        <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="c1"># Eagerly simplify spatial derivatives when Action results in a scalar.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(())</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">dleft</span> <span class="o">=</span> <span class="n">derivative</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">)</span>
+            <span class="n">dright</span> <span class="o">=</span> <span class="n">derivative</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">)</span>
+            <span class="c1"># Leibniz formula</span>
+            <span class="k">return</span> <span class="n">action</span><span class="p">(</span>
+                <span class="n">adjoint</span><span class="p">(</span><span class="n">dleft</span><span class="p">,</span> <span class="n">derivatives_expanded</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">right</span><span class="p">,</span> <span class="n">derivatives_expanded</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span> <span class="o">+</span> <span class="n">action</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">dright</span><span class="p">,</span> <span class="n">derivatives_expanded</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Action derivative not supported when the left argument is not a 1-form.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span> <span class="o">=</span> <span class="n">_handle_derivative_arguments</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">,</span> <span class="n">argument</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coefficient_derivatives</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">coefficient_derivatives</span> <span class="o">=</span> <span class="n">ExprMapping</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cd</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sorted_expr</span><span class="p">(</span><span class="n">coefficient_derivatives</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="n">cd</span> <span class="o">+=</span> <span class="p">[</span><span class="n">as_ufl</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">as_ufl</span><span class="p">(</span><span class="n">coefficient_derivatives</span><span class="p">[</span><span class="n">k</span><span class="p">])]</span>
+        <span class="n">coefficient_derivatives</span> <span class="o">=</span> <span class="n">ExprMapping</span><span class="p">(</span><span class="o">*</span><span class="n">cd</span><span class="p">)</span>
+
+    <span class="c1"># Got a form? Apply derivatives to the integrands in turn.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="n">integrals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+                <span class="n">fd</span> <span class="o">=</span> <span class="n">CoordinateDerivative</span><span class="p">(</span>
+                    <span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">coefficient</span><span class="p">,</span> <span class="n">BaseFormOperator</span>
+            <span class="p">):</span>
+                <span class="c1"># Make the `ZeroBaseForm` arguments</span>
+                <span class="n">arguments</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span> <span class="o">+</span> <span class="n">coefficient</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fd</span> <span class="o">=</span> <span class="n">CoefficientDerivative</span><span class="p">(</span>
+                    <span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span>
+                <span class="p">)</span>
+            <span class="n">integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">fd</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">Form</span><span class="p">(</span><span class="n">integrals</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">BaseFormOperator</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">BaseFormOperatorDerivative</span><span class="p">(</span>
+                <span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BaseFormOperatorCoordinateDerivative</span><span class="p">(</span>
+                <span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span>
+            <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">BaseFormDerivative</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BaseFormCoordinateDerivative</span><span class="p">(</span>
+                <span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span>
+            <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+        <span class="c1"># What we got was in fact an integrand</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">SpatialCoordinate</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">CoefficientDerivative</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CoordinateDerivative</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficient_derivatives</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid argument type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">form</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="sensitivity_rhs">
+<a class="viewcode-back" href="../../api-doc/ufl.html#ufl.formoperators.sensitivity_rhs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sensitivity_rhs</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute the right hand side for a sensitivity calculation system.</span>
+
+<span class="sd">    The derivation behind this computation is as follows.</span>
+<span class="sd">    Assume *a*, *L* to be bilinear and linear forms</span>
+<span class="sd">    corresponding to the assembled linear system</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        Ax = b.</span>
+
+<span class="sd">    Where *x* is the vector of the discrete function corresponding to *u*.</span>
+<span class="sd">    Let *v* be some scalar variable this equation depends on.</span>
+<span class="sd">    Then we can write</span>
+
+<span class="sd">    .. math::</span>
+<span class="sd">        0 = \\frac{d}{dv}(Ax-b) = \\frac{dA}{dv} x + A \\frac{dx}{dv} -</span>
+<span class="sd">        \\frac{db}{dv},</span>
+
+<span class="sd">        A \\frac{dx}{dv} = \\frac{db}{dv} - \\frac{dA}{dv} x,</span>
+
+<span class="sd">    and solve this system for :math:`\\frac{dx}{dv}`, using the same bilinear</span>
+<span class="sd">    form *a* and matrix *A* from the original system.</span>
+<span class="sd">    Assume the forms are written</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        v = variable(v_expression)</span>
+<span class="sd">        L = IL(v) * dx</span>
+<span class="sd">        a = Ia(v) * dx</span>
+
+<span class="sd">    where ``IL`` and ``Ia`` are integrand expressions.</span>
+<span class="sd">    Define a ``Coefficient u`` representing the solution</span>
+<span class="sd">    to the equations. Then we can compute :math:`\\frac{db}{dv}`</span>
+<span class="sd">    and :math:`\\frac{dA}{dv}` from the forms</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        da = diff(a, v)</span>
+<span class="sd">        dL = diff(L, v)</span>
+
+<span class="sd">    and the action of ``da`` on ``u`` by</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        dau = action(da, u)</span>
+
+<span class="sd">    In total, we can build the right hand side of the system</span>
+<span class="sd">    to compute :math:`\\frac{du}{dv}` with the single line</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        dL = diff(L, v) - action(diff(a, v), u)</span>
+
+<span class="sd">    or, using this function,</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        dL = sensitivity_rhs(a, u, L, v)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Expecting (a, u, L, v), (bilinear form, function, linear form and scalar variable).&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expecting scalar variable.&quot;</span><span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.operators</span><span class="w"> </span><span class="kn">import</span> <span class="n">diff</span>
+
+    <span class="k">return</span> <span class="n">diff</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">-</span> <span class="n">action</span><span class="p">(</span><span class="n">diff</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="n">u</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.apply_coefficient_split &#8212; Unified Form Language (UFL) 2025.2.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=53f08d36"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.apply_coefficient_split</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Apply coefficient split.</span>
+
+<span class="sd">This module contains the apply_coefficient_split function that</span>
+<span class="sd">decomposes mixed coefficients in the given Expr into components.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatchmethod</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Coefficient</span><span class="p">,</span>
+    <span class="n">ComponentTensor</span><span class="p">,</span>
+    <span class="n">Expr</span><span class="p">,</span>
+    <span class="n">MultiIndex</span><span class="p">,</span>
+    <span class="n">NegativeRestricted</span><span class="p">,</span>
+    <span class="n">PositiveRestricted</span><span class="p">,</span>
+    <span class="n">ReferenceGrad</span><span class="p">,</span>
+    <span class="n">ReferenceValue</span><span class="p">,</span>
+    <span class="n">Restricted</span><span class="p">,</span>
+    <span class="n">Terminal</span><span class="p">,</span>
+    <span class="n">Zero</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.multiindex</span><span class="w"> </span><span class="kn">import</span> <span class="n">indices</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.dag_traverser</span><span class="w"> </span><span class="kn">import</span> <span class="n">DAGTraverser</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">as_tensor</span>
+
+
+<div class="viewcode-block" id="CoefficientSplitter">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_coefficient_split.CoefficientSplitter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CoefficientSplitter</span><span class="p">(</span><span class="n">DAGTraverser</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;DAGTraverser to split mixed coefficients.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">coefficient_split</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">compress</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">visited_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">result_cache</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            coefficient_split: `dict` that maps mixed coefficients to their components.</span>
+<span class="sd">            compress: If True, ``result_cache`` will be used.</span>
+<span class="sd">            visited_cache: cache of intermediate results; expr -&gt; r = self.process(expr, ...).</span>
+<span class="sd">            result_cache: cache of result objects for memory reuse, r -&gt; r.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">compress</span><span class="o">=</span><span class="n">compress</span><span class="p">,</span> <span class="n">visited_cache</span><span class="o">=</span><span class="n">visited_cache</span><span class="p">,</span> <span class="n">result_cache</span><span class="o">=</span><span class="n">result_cache</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_split</span> <span class="o">=</span> <span class="n">coefficient_split</span>
+
+<div class="viewcode-block" id="CoefficientSplitter.process">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_coefficient_split.CoefficientSplitter.process">[docs]</a>
+    <span class="nd">@singledispatchmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Split mixed coefficients.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            o: `Expr` to be processed.</span>
+<span class="sd">            reference_value: Whether `ReferenceValue` has been applied or not.</span>
+<span class="sd">            reference_grad: Number of `ReferenceGrad`s that have been applied.</span>
+<span class="sd">            restricted: &#39;+&#39;, &#39;-&#39;, or None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            This ``o`` wrapped with `ReferenceValue` (if ``reference_value``),</span>
+<span class="sd">            `ReferenceGrad` (``reference_grad`` times), and `Restricted` (if</span>
+<span class="sd">            ``restricted`` is &#39;+&#39; or &#39;-&#39;). The underlying terminal will be</span>
+<span class="sd">            decomposed into components according to ``self._coefficient_split``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">o</span><span class="p">)</span></div>
+
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Expr</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle Expr.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span>
+            <span class="n">o</span><span class="p">,</span>
+            <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+            <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+            <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ReferenceValue</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle ReferenceValue.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reference_value</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can not apply ReferenceValue on a ReferenceValue: got </span><span class="si">{</span><span class="n">o</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">op</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">_ufl_terminal_modifiers_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Must be a terminal modifier: </span><span class="si">{</span><span class="n">op</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">(</span>
+            <span class="n">op</span><span class="p">,</span>
+            <span class="n">reference_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+            <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ReferenceGrad</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle ReferenceGrad.&quot;&quot;&quot;</span>
+        <span class="p">(</span><span class="n">op</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">_ufl_terminal_modifiers_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Must be a terminal modifier: </span><span class="si">{</span><span class="n">op</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">(</span>
+            <span class="n">op</span><span class="p">,</span>
+            <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+            <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Restricted</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Restricted</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle Restricted.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">restricted</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can not apply Restricted on a Restricted: got </span><span class="si">{</span><span class="n">o</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">op</span><span class="p">,)</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">op</span><span class="o">.</span><span class="n">_ufl_terminal_modifiers_</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Must be a terminal modifier: </span><span class="si">{</span><span class="n">op</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">(</span>
+            <span class="n">op</span><span class="p">,</span>
+            <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+            <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+            <span class="n">restricted</span><span class="o">=</span><span class="n">o</span><span class="o">.</span><span class="n">_side</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Terminal</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle Terminal.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_terminal</span><span class="p">(</span>
+            <span class="n">o</span><span class="p">,</span>
+            <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+            <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+            <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Coefficient</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle Coefficient.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">o</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_split</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_terminal</span><span class="p">(</span>
+                <span class="n">o</span><span class="p">,</span>
+                <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+                <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+                <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">reference_value</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;ReferenceValue expected&quot;</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="n">reference_grad</span><span class="p">)</span>
+        <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_coefficient_split</span><span class="p">[</span><span class="n">o</span><span class="p">]:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handle_terminal</span><span class="p">(</span>
+                <span class="n">coeff</span><span class="p">,</span>
+                <span class="n">reference_value</span><span class="o">=</span><span class="n">reference_value</span><span class="p">,</span>
+                <span class="n">reference_grad</span><span class="o">=</span><span class="n">reference_grad</span><span class="p">,</span>
+                <span class="n">restricted</span><span class="o">=</span><span class="n">restricted</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">coeff</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">reference_value_shape</span><span class="p">):</span>
+                <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">beta</span><span class="p">])</span>
+        <span class="p">(</span><span class="n">i</span><span class="p">,)</span> <span class="o">=</span> <span class="n">indices</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ComponentTensor</span><span class="p">(</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">components</span><span class="p">)[</span><span class="n">i</span><span class="p">],</span> <span class="n">MultiIndex</span><span class="p">((</span><span class="n">i</span><span class="p">,)</span> <span class="o">+</span> <span class="n">beta</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_handle_terminal</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">o</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span>
+        <span class="n">reference_value</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">reference_grad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">restricted</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap terminal as needed.&quot;&quot;&quot;</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">o</span>
+        <span class="k">if</span> <span class="n">reference_value</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">ReferenceValue</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">reference_grad</span><span class="p">):</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">ReferenceGrad</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
+                <span class="n">gdim</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">Zero</span><span class="p">(</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">ufl_shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">gdim</span><span class="p">,)</span> <span class="o">*</span> <span class="p">(</span><span class="n">reference_grad</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">ufl_free_indices</span><span class="p">,</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">ufl_index_dimensions</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="n">restricted</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">PositiveRestricted</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">restricted</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">NegativeRestricted</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">restricted</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Got unknown restriction: </span><span class="si">{</span><span class="n">restricted</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">c</span></div>
+
+
+
+<div class="viewcode-block" id="apply_coefficient_split">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.apply_coefficient_split.apply_coefficient_split">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_coefficient_split</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">coefficient_split</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Split mixed coefficients.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        expr: UFL expression.</span>
+<span class="sd">        coefficient_split: `dict` that maps mixed coefficients to their components.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ``expr`` with uderlying mixed coefficients split according to ``coefficient_split``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">coefficient_split</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">expr</span>
+    <span class="k">return</span> <span class="n">CoefficientSplitter</span><span class="p">(</span><span class="n">coefficient_split</span><span class="p">)(</span><span class="n">expr</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.checks &#8212; Unified Form Language (UFL) 2025.2.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=53f08d36"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.checks</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Functions to check the validity of forms.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2008-2009.</span>
+<span class="c1"># Modified by Mehdi Nikbakht, 2010.</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.check_restrictions</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_restrictions</span>
+
+<span class="c1"># UFL algorithms</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.traversal</span><span class="w"> </span><span class="kn">import</span> <span class="n">iter_expressions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.coefficient</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coefficient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_true_ufl_scalar</span>
+
+<span class="c1"># UFL classes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.traversal</span><span class="w"> </span><span class="kn">import</span> <span class="n">traverse_unique_terminals</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
+
+
+<div class="viewcode-block" id="validate_form">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.checks.validate_form">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_form</span><span class="p">(</span>
+    <span class="n">form</span><span class="p">,</span>
+<span class="p">):</span>  <span class="c1"># TODO: Can we make this return a list of errors instead of raising exception?</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Performs all implemented validations on a form. Raises exception if something fails.&quot;&quot;&quot;</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Validation failed, not a Form:</span><span class="se">\n</span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">form</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># FIXME: There&#39;s a bunch of other checks we should do here.</span>
+
+    <span class="c1"># FIXME: Add back check for multilinearity</span>
+    <span class="c1"># Check that form is multilinear</span>
+    <span class="c1"># if not is_multilinear(form):</span>
+    <span class="c1">#     errors.append(&quot;Form is not multilinear in arguments.&quot;)</span>
+
+    <span class="c1"># FIXME DOMAIN: Add check for consistency between domains somehow</span>
+    <span class="n">domains</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">domains</span><span class="p">:</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Missing domain definition in form.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that cell is the same everywhere</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dom</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span> <span class="k">for</span> <span class="n">dom</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cells</span><span class="p">:</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Missing cell definition in form.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Multiple cell definitions in form: </span><span class="si">{</span><span class="n">cells</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that no Coefficient or Argument instance have the same</span>
+    <span class="c1"># count unless they are the same</span>
+    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">:</span>
+                    <span class="n">g</span> <span class="o">=</span> <span class="n">coefficients</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">g</span><span class="p">:</span>
+                        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found different Coefficients with same count: </span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">g</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">coefficients</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span>
+
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">Argument</span><span class="p">):</span>
+                <span class="n">n</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">number</span><span class="p">()</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">part</span><span class="p">()</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">:</span>
+                    <span class="n">g</span> <span class="o">=</span> <span class="n">arguments</span><span class="p">[(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">)]</span>
+                    <span class="k">if</span> <span class="n">f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">g</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;TestFunctions&quot;</span>
+                        <span class="k">elif</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;TrialFunctions&quot;</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Arguments with same number and part&quot;</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Found different </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="si">!r}</span><span class="s2"> and </span><span class="si">{</span><span class="n">g</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">arguments</span><span class="p">[(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">)]</span> <span class="o">=</span> <span class="n">f</span>
+
+    <span class="c1"># Check that all integrands are scalar</span>
+    <span class="k">for</span> <span class="n">expression</span> <span class="ow">in</span> <span class="n">iter_expressions</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_true_ufl_scalar</span><span class="p">(</span><span class="n">expression</span><span class="p">):</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Found non-scalar integrand expression: {ufl_err_str(expression)}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that restrictions are permissible</span>
+    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
+        <span class="c1"># Only allow restrictions on interior facet integrals and</span>
+        <span class="c1"># surface measures</span>
+        <span class="k">if</span> <span class="n">integral</span><span class="o">.</span><span class="n">integral_type</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">):</span>
+            <span class="n">check_restrictions</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">check_restrictions</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Raise exception with all error messages</span>
+    <span class="c1"># TODO: Return errors list instead, need to collect messages from</span>
+    <span class="c1"># all validations above first.</span>
+    <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Found errors in validation of form:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">errors</span><span class="p">))</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

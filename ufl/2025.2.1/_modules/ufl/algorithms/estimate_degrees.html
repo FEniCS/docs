@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ufl.algorithms.estimate_degrees &#8212; Unified Form Language (UFL) 2025.2.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=53f08d36"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ufl.algorithms.estimate_degrees</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Algorithms for estimating polynomial degrees of expressions.&quot;&quot;&quot;</span>
+
+<span class="c1"># Copyright (C) 2008-2016 Martin Sandve Alnæs and Anders Logg</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of UFL (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="c1">#</span>
+<span class="c1"># Modified by Anders Logg, 2009-2010</span>
+<span class="c1"># Modified by Jan Blechta, 2012</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_cellwise_constant</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntValue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.map_dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_expr_dags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_domains</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.integral</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SumDegreeEstimator</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sum degree estimator.</span>
+
+<span class="sd">    This algorithm is exact for a few operators and heuristic for many.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_degree</span><span class="p">,</span> <span class="n">element_replace_map</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise.&quot;&quot;&quot;</span>
+        <span class="n">MultiFunction</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_degree</span> <span class="o">=</span> <span class="n">default_degree</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span> <span class="o">=</span> <span class="n">element_replace_map</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.constant_value">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.constant_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">constant_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to constant_value.</span>
+
+<span class="sd">        Constant values are constant.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.constant">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.constant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">constant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to constant.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.geometric_quantity">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.geometric_quantity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geometric_quantity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to geometric_quantity.</span>
+
+<span class="sd">        Some geometric quantities are cellwise constant. Others are</span>
+<span class="sd">        nonpolynomial and thus hard to estimate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">is_cellwise_constant</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># As a heuristic, just returning domain degree to bump up degree somewhat</span>
+            <span class="k">return</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.spatial_coordinate">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.spatial_coordinate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">spatial_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to spatial_coordinate.</span>
+
+<span class="sd">        A coordinate provides additional degrees depending on coordinate field of domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.cell_coordinate">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.cell_coordinate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to cell_coordinate.</span>
+
+<span class="sd">        A coordinate provides one additional degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.argument">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.argument">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">argument</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to argument.</span>
+
+<span class="sd">        A form argument provides a degree depending on the element,</span>
+<span class="sd">        or the default degree if the element has no degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span>
+        <span class="p">)</span>  <span class="c1"># FIXME: Use component to improve accuracy for mixed elements</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.coefficient">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.coefficient">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to coefficient.</span>
+
+<span class="sd">        A form argument provides a degree depending on the element,</span>
+<span class="sd">        or the default degree if the element has no degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">embedded_superdegree</span>  <span class="c1"># FIXME: Use component to improve accuracy for mixed elements</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_degree</span>
+        <span class="k">return</span> <span class="n">d</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reduce_degree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reduce the estimated degree by one.</span>
+
+<span class="sd">        This is used when derivatives are taken. It does not reduce the degree when</span>
+<span class="sd">        TensorProduct elements or quadrilateral elements are involved.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Can have multiple domains of the same cell type.</span>
+        <span class="p">(</span><span class="n">cell</span><span class="p">,)</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">extract_domains</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">cell</span><span class="o">.</span><span class="n">cellname</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="s2">&quot;hexahedron&quot;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">f</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">f</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_degrees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to _add_degrees.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">):</span>
+            <span class="c1"># we can add a slight hack here to handle things</span>
+            <span class="c1"># like adding 0 to (3, 3) [by expanding</span>
+            <span class="c1"># 0 to (0, 0) when making tempops]</span>
+            <span class="n">tempops</span> <span class="o">=</span> <span class="p">[</span><span class="n">foo</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="n">foo</span><span class="p">)</span> <span class="k">for</span> <span class="n">foo</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">sum</span><span class="p">,</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">tempops</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_max_degrees</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to _max_degrees.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">):</span>
+            <span class="n">tempops</span> <span class="o">=</span> <span class="p">[</span><span class="n">foo</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="n">foo</span><span class="p">)</span> <span class="k">for</span> <span class="n">foo</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">]</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">max</span><span class="p">,</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">tempops</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">ops</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span><span class="p">,))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_not_handled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to _not_handled.&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing degree handler for type </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.expr">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.expr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to expr.</span>
+
+<span class="sd">        For most operators we take the max degree of its operands.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing degree estimation handler for type </span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">_ufl_class_</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span></div>
+
+
+    <span class="c1"># Utility types with no degree concept</span>
+<div class="viewcode-block" id="SumDegreeEstimator.multi_index">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.multi_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">multi_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to multi_index.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.label">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.label">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to label.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+    <span class="c1"># Fall-through, indexing and similar types</span>
+<div class="viewcode-block" id="SumDegreeEstimator.reference_value">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.reference_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reference_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rv</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to reference_value.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">f</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.variable">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.variable">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to variable.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">e</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.transposed">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.transposed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transposed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to transposed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.index_sum">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.index_sum">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_sum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to index_sum.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.indexed">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.indexed">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to indexed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.component_tensor">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.component_tensor">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">component_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to component_tensor.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+    <span class="n">list_tensor</span> <span class="o">=</span> <span class="n">_max_degrees</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.positive_restricted">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.positive_restricted">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">positive_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to positive_restricted.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.negative_restricted">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.negative_restricted">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">negative_restricted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to negative_restricted.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.conj">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.conj">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">conj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to conj.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.real">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.real">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">real</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to real.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.imag">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.imag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">imag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to imag.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">a</span></div>
+
+
+    <span class="c1"># A sum takes the max degree of its operands:</span>
+    <span class="nb">sum</span> <span class="o">=</span> <span class="n">_max_degrees</span>
+
+    <span class="c1"># TODO: Need a new algorithm which considers direction of</span>
+    <span class="c1"># derivatives of form arguments A spatial derivative reduces the</span>
+    <span class="c1"># degree with one</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">reference_grad</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="c1"># Handling these types although they should not occur... please</span>
+    <span class="c1"># apply preprocessing before using this algorithm:</span>
+    <span class="n">nabla_grad</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">div</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">reference_div</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">nabla_div</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">curl</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+    <span class="n">reference_curl</span> <span class="o">=</span> <span class="n">_reduce_degree</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.cell_avg">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.cell_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to cell_avg.</span>
+
+<span class="sd">        Cell average of a function is always cellwise constant.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.facet_avg">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.facet_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">facet_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to facet_avg.</span>
+
+<span class="sd">        Facet average of a function is always cellwise constant.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+    <span class="c1"># A product accumulates the degrees of its operands:</span>
+    <span class="n">product</span> <span class="o">=</span> <span class="n">_add_degrees</span>
+    <span class="c1"># Handling these types although they should not occur... please</span>
+    <span class="c1"># apply preprocessing before using this algorithm:</span>
+    <span class="n">inner</span> <span class="o">=</span> <span class="n">_add_degrees</span>
+    <span class="n">dot</span> <span class="o">=</span> <span class="n">_add_degrees</span>
+    <span class="n">outer</span> <span class="o">=</span> <span class="n">_add_degrees</span>
+    <span class="n">cross</span> <span class="o">=</span> <span class="n">_add_degrees</span>
+
+    <span class="c1"># Explicitly not handling these types, please apply preprocessing</span>
+    <span class="c1"># before using this algorithm:</span>
+    <span class="n">derivative</span> <span class="o">=</span> <span class="n">_not_handled</span>  <span class="c1"># base type</span>
+    <span class="n">compound_derivative</span> <span class="o">=</span> <span class="n">_not_handled</span>  <span class="c1"># base type</span>
+    <span class="n">compound_tensor_operator</span> <span class="o">=</span> <span class="n">_not_handled</span>  <span class="c1"># base class</span>
+    <span class="n">variable_derivative</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">determinant</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">cofactor</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">inverse</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">deviatoric</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">skew</span> <span class="o">=</span> <span class="n">_not_handled</span>
+    <span class="n">sym</span> <span class="o">=</span> <span class="n">_not_handled</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.abs">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.abs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">abs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to abs.</span>
+
+<span class="sd">        This is a heuristic, correct if there is no.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.division">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.division">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">division</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to division.</span>
+
+<span class="sd">        Using the sum here is a heuristic. Consider e.g. (x+1)/(x-1).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">ops</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.power">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.power">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to power.</span>
+
+<span class="sd">        If b is a positive integer: degree(a**b) == degree(a)*b</span>
+<span class="sd">        otherwise use the heuristic: degree(a**b) == degree(a) + 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_f</span><span class="p">,</span> <span class="n">g</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_operands</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">IntValue</span><span class="p">):</span>
+            <span class="n">gi</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">gi</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">gi</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">foo</span> <span class="o">*</span> <span class="n">gi</span> <span class="k">for</span> <span class="n">foo</span> <span class="ow">in</span> <span class="n">a</span><span class="p">)</span>
+
+        <span class="c1"># Something to a non-(positive integer) power, e.g. float,</span>
+        <span class="c1"># negative integer, Coefficient, etc.</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.atan2">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.atan2">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">atan2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to atan2.</span>
+
+<span class="sd">        Using the heuristic:</span>
+<span class="sd">        degree(atan2(const,const)) == 0</span>
+<span class="sd">        degree(atan2(a,b)) == max(degree(a),degree(b))+2</span>
+<span class="sd">        which can be wildly inaccurate but at least gives a somewhat</span>
+<span class="sd">        high integration degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="ow">or</span> <span class="n">b</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.math_function">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.math_function">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">math_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to math_function.</span>
+
+<span class="sd">        Using the heuristic:</span>
+<span class="sd">        degree(sin(const)) == 0</span>
+<span class="sd">        degree(sin(a)) == degree(a)+2</span>
+<span class="sd">        which can be wildly inaccurate but at least gives a somewhat</span>
+<span class="sd">        high integration degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">a</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">a</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.bessel_function">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.bessel_function">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bessel_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to bessel_function.</span>
+
+<span class="sd">        Using the heuristic</span>
+<span class="sd">        degree(bessel_*(const)) == 0</span>
+<span class="sd">        degree(bessel_*(x)) == degree(x)+2</span>
+<span class="sd">        which can be wildly inaccurate but at least gives a somewhat</span>
+<span class="sd">        high integration degree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.condition">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.condition">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to condition.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.conditional">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.conditional">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">conditional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to conditional.</span>
+
+<span class="sd">        Degree of condition does not influence degree of values which conditional takes. So</span>
+<span class="sd">        heuristicaly taking max of true degree and false degree. This will be exact in cells</span>
+<span class="sd">        where condition takes single value. For improving accuracy of quadrature near</span>
+<span class="sd">        condition transition surface quadrature order must be adjusted manually.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.min_value">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.min_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">min_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to min_value.</span>
+
+<span class="sd">        Same as conditional.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span></div>
+
+
+    <span class="n">max_value</span> <span class="o">=</span> <span class="n">min_value</span>
+
+<div class="viewcode-block" id="SumDegreeEstimator.coordinate_derivative">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.coordinate_derivative">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coordinate_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">integrand_degree</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">direction_degree</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to coordinate_derivative.</span>
+
+<span class="sd">        We use the heuristic that a shape derivative in direction V</span>
+<span class="sd">        introduces terms V and grad(V) into the integrand. Hence we add the</span>
+<span class="sd">        degree of the deformation to the estimate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">integrand_degree</span><span class="p">,</span> <span class="n">direction_degree</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.expr_list">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.expr_list">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expr_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to expr_list.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">o</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SumDegreeEstimator.expr_mapping">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.SumDegreeEstimator.expr_mapping">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expr_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">o</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply to expr_mapping.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_degrees</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">o</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="estimate_total_polynomial_degree">
+<a class="viewcode-back" href="../../../api-doc/ufl.algorithms.html#ufl.algorithms.estimate_degrees.estimate_total_polynomial_degree">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">estimate_total_polynomial_degree</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">default_degree</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">element_replace_map</span><span class="o">=</span><span class="p">{}):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Estimate total polynomial degree of integrand.</span>
+
+<span class="sd">    NB: Although some compound types are supported here,</span>
+<span class="sd">    some derivatives and compounds must be preprocessed</span>
+<span class="sd">    prior to degree estimation. In generic code, this algorithm</span>
+<span class="sd">    should only be applied after preprocessing.</span>
+
+<span class="sd">    For coefficients defined on an element with unspecified degree</span>
+<span class="sd">    (None), the degree is set to the given default degree.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">de</span> <span class="o">=</span> <span class="n">SumDegreeEstimator</span><span class="p">(</span><span class="n">default_degree</span><span class="p">,</span> <span class="n">element_replace_map</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">Form</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">e</span><span class="o">.</span><span class="n">integrals</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Form has no integrals.&quot;</span><span class="p">)</span>
+        <span class="n">degrees</span> <span class="o">=</span> <span class="n">map_expr_dags</span><span class="p">(</span><span class="n">de</span><span class="p">,</span> <span class="p">[</span><span class="n">it</span><span class="o">.</span><span class="n">integrand</span><span class="p">()</span> <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">integrals</span><span class="p">()])</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">Integral</span><span class="p">):</span>
+        <span class="n">degrees</span> <span class="o">=</span> <span class="n">map_expr_dags</span><span class="p">(</span><span class="n">de</span><span class="p">,</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">integrand</span><span class="p">()])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">degrees</span> <span class="o">=</span> <span class="n">map_expr_dags</span><span class="p">(</span><span class="n">de</span><span class="p">,</span> <span class="p">[</span><span class="n">e</span><span class="p">])</span>
+    <span class="n">degree</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">degrees</span><span class="p">)</span> <span class="k">if</span> <span class="n">degrees</span> <span class="k">else</span> <span class="n">default_degree</span>
+    <span class="k">return</span> <span class="n">degree</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Unified Form Language (UFL)</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../manual.html">User manual</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api-doc/ufl.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../releases.html">Release notes</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, FEniCS Project.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
