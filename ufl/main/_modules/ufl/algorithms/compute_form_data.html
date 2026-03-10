@@ -336,199 +336,25 @@
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_coefficients</span><span class="p">,</span> <span class="n">extract_sub_elements</span><span class="p">,</span> <span class="n">unique_tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_algebra_lowering</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_algebra_lowering</span>
 
 <span class="c1"># These are the main symbolic processing steps:</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_coefficient_split</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoefficientSplitter</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_derivatives</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_coordinate_derivatives</span><span class="p">,</span> <span class="n">apply_derivatives</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_function_pullbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_function_pullbacks</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_geometry_lowering</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_integral_scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_integral_scaling</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_restrictions</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_restrictions</span><span class="p">,</span> <span class="n">default_restriction_map</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.check_arities</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_form_arity</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.comparison_checker</span><span class="w"> </span><span class="kn">import</span> <span class="n">do_comparison_check</span>
 
 <span class="c1"># See TODOs at the call sites of these below:</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.domain_analysis</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">build_integral_data</span><span class="p">,</span>
     <span class="n">group_form_integrals</span><span class="p">,</span>
-    <span class="n">reconstruct_form_from_integral_data</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.estimate_degrees</span><span class="w"> </span><span class="kn">import</span> <span class="n">estimate_total_polynomial_degree</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.formdata</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormData</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.formtransformations</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_form_arities</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_complex_nodes</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_complex_nodes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_component_tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_component_tensors</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.replace</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coefficient</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">FunctionSpace</span><span class="p">,</span> <span class="n">GeometricFacetQuantity</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.traversal</span><span class="w"> </span><span class="kn">import</span> <span class="n">traverse_unique_terminals</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">MeshSequence</span><span class="p">,</span> <span class="n">extract_domains</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.sequences</span><span class="w"> </span><span class="kn">import</span> <span class="n">max_degree</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_auto_select_degree</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Automatically select degree for all elements of the form.</span>
-
-<span class="sd">    This is be used in cases where the degree has not been specified by the user.</span>
-<span class="sd">    This feature is used by DOLFIN to allow the specification of Expressions with</span>
-<span class="sd">    undefined degrees.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Use max degree of all elements, at least 1 (to work with</span>
-    <span class="c1"># Lagrange elements)</span>
-    <span class="k">return</span> <span class="n">max_degree</span><span class="p">({</span><span class="n">e</span><span class="o">.</span><span class="n">embedded_superdegree</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">}</span> <span class="o">-</span> <span class="p">{</span><span class="kc">None</span><span class="p">}</span> <span class="o">|</span> <span class="p">{</span><span class="mi">1</span><span class="p">})</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_element_mapping</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute element mapping for element replacement.&quot;&quot;&quot;</span>
-    <span class="c1"># The element mapping is a slightly messy concept with two use</span>
-    <span class="c1"># cases:</span>
-    <span class="c1"># - Expression with missing cell or element TODO: Implement proper</span>
-    <span class="c1">#   Expression handling in UFL and get rid of this</span>
-    <span class="c1"># - Constant with missing cell TODO: Fix anything that needs to be</span>
-    <span class="c1">#   worked around to drop this requirement</span>
-
-    <span class="c1"># Extract all elements and include subelements of mixed elements</span>
-    <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">arguments</span><span class="p">(),</span> <span class="n">form</span><span class="o">.</span><span class="n">coefficients</span><span class="p">())]</span>
-    <span class="n">elements</span> <span class="o">=</span> <span class="n">extract_sub_elements</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
-
-    <span class="c1"># Try to find a common degree for elements</span>
-    <span class="n">common_degree</span> <span class="o">=</span> <span class="n">_auto_select_degree</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
-
-    <span class="c1"># Compute element map</span>
-    <span class="n">element_mapping</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
-        <span class="c1"># Flag for whether element needs to be reconstructed</span>
-        <span class="n">reconstruct</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="c1"># Set cell</span>
-        <span class="n">cell</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">cell</span>
-        <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">domains</span> <span class="o">=</span> <span class="n">form</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">()</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">domains</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span> <span class="o">==</span> <span class="n">d</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Cannot replace unknown element cell without unique common cell in form.&quot;</span>
-                <span class="p">)</span>
-            <span class="n">cell</span> <span class="o">=</span> <span class="n">domains</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">()</span>
-            <span class="n">reconstruct</span> <span class="o">=</span> <span class="kc">True</span>
-
-        <span class="c1"># Set degree</span>
-        <span class="n">degree</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">embedded_superdegree</span>
-        <span class="k">if</span> <span class="n">degree</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">degree</span> <span class="o">=</span> <span class="n">common_degree</span>
-            <span class="n">reconstruct</span> <span class="o">=</span> <span class="kc">True</span>
-
-        <span class="c1"># Reconstruct element and add to map</span>
-        <span class="k">if</span> <span class="n">reconstruct</span><span class="p">:</span>
-            <span class="n">element_mapping</span><span class="p">[</span><span class="n">element</span><span class="p">]</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">cell</span><span class="o">=</span><span class="n">cell</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="n">degree</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">element_mapping</span><span class="p">[</span><span class="n">element</span><span class="p">]</span> <span class="o">=</span> <span class="n">element</span>
-
-    <span class="k">return</span> <span class="n">element_mapping</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_max_subdomain_ids</span><span class="p">(</span><span class="n">integral_data</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the maximum subdomain ids.&quot;&quot;&quot;</span>
-    <span class="n">max_subdomain_ids</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="n">integral_data</span><span class="p">:</span>
-        <span class="n">it</span> <span class="o">=</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integral_type</span>
-        <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-            <span class="c1"># Convert string for default integral to -1</span>
-            <span class="n">sids</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">si</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">si</span> <span class="k">for</span> <span class="n">si</span> <span class="ow">in</span> <span class="n">integral</span><span class="o">.</span><span class="n">subdomain_id</span><span class="p">())</span>
-            <span class="n">newmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">sids</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-            <span class="n">prevmax</span> <span class="o">=</span> <span class="n">max_subdomain_ids</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-            <span class="n">max_subdomain_ids</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">prevmax</span><span class="p">,</span> <span class="n">newmax</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">max_subdomain_ids</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_compute_form_data_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arguments</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">domains</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute form data elements.&quot;&quot;&quot;</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">argument_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">arguments</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">coefficients</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">coordinate_elements</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">()</span> <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">)</span>
-
-    <span class="c1"># TODO: Include coordinate elements from argument and coefficient</span>
-    <span class="c1"># domains as well? Can they differ?</span>
-
-    <span class="c1"># Note: Removed self.elements and self.sub_elements to make sure</span>
-    <span class="c1">#       code that depends on the selection of argument +</span>
-    <span class="c1">#       coefficient elements blow up, as opposed to silently</span>
-    <span class="c1">#       almost working, with the introduction of the coordinate</span>
-    <span class="c1">#       elements here.</span>
-
-    <span class="n">all_elements</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_elements</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_elements</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinate_elements</span>
-    <span class="n">all_sub_elements</span> <span class="o">=</span> <span class="n">extract_sub_elements</span><span class="p">(</span><span class="n">all_elements</span><span class="p">)</span>
-
-    <span class="bp">self</span><span class="o">.</span><span class="n">unique_elements</span> <span class="o">=</span> <span class="n">unique_tuple</span><span class="p">(</span><span class="n">all_elements</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">unique_sub_elements</span> <span class="o">=</span> <span class="n">unique_tuple</span><span class="p">(</span><span class="n">all_sub_elements</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_check_elements</span><span class="p">(</span><span class="n">form_data</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check elements.&quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">(</span><span class="n">form_data</span><span class="o">.</span><span class="n">unique_elements</span><span class="p">,</span> <span class="n">form_data</span><span class="o">.</span><span class="n">unique_sub_elements</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">element</span><span class="o">.</span><span class="n">cell</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found element with undefined cell: </span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_check_facet_geometry</span><span class="p">(</span><span class="n">integral_data</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check facet geometry.&quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="n">integral_data</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">traverse_unique_terminals</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">()):</span>
-                <span class="bp">cls</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">_ufl_class_</span>
-                <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">GeometricFacetQuantity</span><span class="p">):</span>
-                    <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">MeshSequence</span><span class="p">):</span>
-                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;Not expecting a terminal object on a &quot;</span>
-                            <span class="sa">f</span><span class="s2">&quot;mesh sequence at this stage: found </span><span class="si">{</span><span class="n">expr</span><span class="si">!r}</span><span class="s2">&quot;</span>
-                        <span class="p">)</span>
-                    <span class="n">it</span> <span class="o">=</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">domain_integral_type_map</span><span class="p">[</span><span class="n">domain</span><span class="p">]</span>
-                    <span class="c1"># Facet geometry is only valid in facet integrals.</span>
-                    <span class="c1"># Allowing custom integrals to pass as well, although</span>
-                    <span class="c1"># that&#39;s not really strict enough.</span>
-                    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="s2">&quot;facet&quot;</span> <span class="ow">in</span> <span class="n">it</span> <span class="ow">or</span> <span class="s2">&quot;custom&quot;</span> <span class="ow">in</span> <span class="n">it</span> <span class="ow">or</span> <span class="s2">&quot;interface&quot;</span> <span class="ow">in</span> <span class="n">it</span><span class="p">):</span>
-                        <span class="c1"># Not a facet integral</span>
-                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Integral of type </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2"> cannot contain a </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_check_form_arity</span><span class="p">(</span><span class="n">preprocessed_form</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check that we don&#39;t have a mixed linear/bilinear form or anything like that.&quot;&quot;&quot;</span>
-    <span class="c1"># FIXME: This is slooow and should be moved to form compiler</span>
-    <span class="c1"># and/or replaced with something faster</span>
-    <span class="k">if</span> <span class="mi">1</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">compute_form_arities</span><span class="p">(</span><span class="n">preprocessed_form</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All terms in form must have same rank.&quot;</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_build_coefficient_replace_map</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">element_mapping</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create new Coefficient objects with count starting at 0.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        mapping from old to new objects, and lists of the new objects</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">element_mapping</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">element_mapping</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="n">new_coefficients</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">replace_map</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coefficients</span><span class="p">):</span>
-        <span class="n">old_e</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
-        <span class="n">new_e</span> <span class="o">=</span> <span class="n">element_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">old_e</span><span class="p">,</span> <span class="n">old_e</span><span class="p">)</span>
-        <span class="c1"># XXX: This is a hack to ensure that if the original</span>
-        <span class="c1"># coefficient had a domain, the new one does too.</span>
-        <span class="c1"># This should be overhauled with requirement that Expressions</span>
-        <span class="c1"># always have a domain.</span>
-        <span class="n">domain</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">new_e</span> <span class="o">=</span> <span class="n">FunctionSpace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">new_e</span><span class="p">)</span>
-        <span class="n">new_f</span> <span class="o">=</span> <span class="n">Coefficient</span><span class="p">(</span><span class="n">new_e</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
-        <span class="n">new_coefficients</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_f</span><span class="p">)</span>
-        <span class="n">replace_map</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_f</span>
-
-    <span class="k">return</span> <span class="n">new_coefficients</span><span class="p">,</span> <span class="n">replace_map</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">attach_estimated_degrees</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
@@ -602,21 +428,40 @@
     <span class="n">coefficients_to_split</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">complex_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">do_remove_component_tensors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="p">):</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FormData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute form data.</span>
 
-<span class="sd">    The default arguments configured to behave the way old FFC expects.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        form: The form to compute form data for.</span>
+<span class="sd">        do_apply_function_pullbacks: Apply pull-back to reference cell</span>
+<span class="sd">            for coefficients, including Piola and symmetry transforms</span>
+<span class="sd">            if required.</span>
+<span class="sd">        do_apply_integral_scaling: Apply scaling of moving the integral</span>
+<span class="sd">            from physical to reference frame.</span>
+<span class="sd">        do_apply_geometry_lowering: Lower the representation of geometrical</span>
+<span class="sd">            quantities to a smaller subset of quantities</span>
+<span class="sd">        preserve_geometry_types: Set of quantities not to lower, and keep</span>
+<span class="sd">            at its present stage for the form-compiler.</span>
+<span class="sd">        do_apply_default_restrictions: Apply default restrictions, defined in</span>
+<span class="sd">            {py:mod}`ufl.algorithms.apply_restrictions` to integrals if no</span>
+<span class="sd">            restriction has been set.</span>
+<span class="sd">        do_apply_restrictions: Apply restrictions towards terminal nodes.</span>
+<span class="sd">        do_replace_functions: Replace functions with with its cannonically numbered</span>
+<span class="sd">            function or thos provided in coefficients_to_split.</span>
+<span class="sd">        coefficients_to_split: Sequence of coefficients to split over a MeshSequence.</span>
+<span class="sd">        do_estimate_degrees: Estimate polynomial degree of integrands.</span>
+<span class="sd">        do_append_everywhere_integrals: If True append every `dx` integral to each `dx(i)`</span>
+<span class="sd">            integral defined in the form.</span>
+<span class="sd">        do_remove_component_tensors: Remove component-tensor if true.</span>
+<span class="sd">        complex_mode: If false remove complex nodes from the form.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># TODO: Move this to the constructor instead</span>
-    <span class="bp">self</span> <span class="o">=</span> <span class="n">FormData</span><span class="p">()</span>
-
     <span class="c1"># --- Store untouched form for reference.</span>
     <span class="c1"># The user of FormData may get original arguments,</span>
     <span class="c1"># original coefficients, and form signature from this object.</span>
     <span class="c1"># But be aware that the set of original coefficients are not</span>
     <span class="c1"># the same as the ones used in the final UFC form.</span>
     <span class="c1"># See &#39;reduced_coefficients&#39; below.</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span> <span class="o">=</span> <span class="n">form</span>
+    <span class="n">original_form</span> <span class="o">=</span> <span class="n">form</span>
 
     <span class="c1"># --- Pass form integrands through some symbolic manipulation</span>
 
@@ -628,7 +473,7 @@
     <span class="c1">#       It will matter when we start including &#39;num_domains&#39; in ufc form.</span>
     <span class="n">form</span> <span class="o">=</span> <span class="n">group_form_integrals</span><span class="p">(</span>
         <span class="n">form</span><span class="p">,</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">(),</span>
+        <span class="n">original_form</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">(),</span>
         <span class="n">do_append_everywhere_integrals</span><span class="o">=</span><span class="n">do_append_everywhere_integrals</span><span class="p">,</span>
     <span class="p">)</span>
 
@@ -680,182 +525,16 @@
     <span class="c1"># Remove component tensors</span>
     <span class="k">if</span> <span class="n">do_remove_component_tensors</span><span class="p">:</span>
         <span class="n">form</span> <span class="o">=</span> <span class="n">remove_component_tensors</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
-
-    <span class="c1"># --- Group integrals into IntegralData objects</span>
-    <span class="c1"># Most of the heavy lifting is done above in group_form_integrals.</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span> <span class="o">=</span> <span class="n">build_integral_data</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span>
-
-    <span class="c1"># --- Create replacements for arguments and coefficients</span>
-
-    <span class="c1"># Figure out which form coefficients each integral should enable</span>
-    <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-        <span class="n">itg_coeffs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="c1"># Get all coefficients in integrand</span>
-        <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-            <span class="n">itg_coeffs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extract_coefficients</span><span class="p">(</span><span class="n">itg</span><span class="o">.</span><span class="n">integrand</span><span class="p">()))</span>
-        <span class="c1"># Store with IntegralData object</span>
-        <span class="n">itg_data</span><span class="o">.</span><span class="n">integral_coefficients</span> <span class="o">=</span> <span class="n">itg_coeffs</span>
-
-    <span class="c1"># Figure out which coefficients from the original form are</span>
-    <span class="c1"># actually used in any integral (Differentiation may reduce the</span>
-    <span class="c1"># set of coefficients w.r.t. the original form)</span>
-    <span class="n">reduced_coefficients_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-        <span class="n">reduced_coefficients_set</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">itg_data</span><span class="o">.</span><span class="n">integral_coefficients</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">reduced_coefficients_set</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">num_coefficients</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">original_coefficient_positions</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">coefficients</span><span class="p">())</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span>
-    <span class="p">]</span>
-
-    <span class="c1"># Store back into integral data which form coefficients are used</span>
-    <span class="c1"># by each integral</span>
-    <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-        <span class="n">itg_data</span><span class="o">.</span><span class="n">enabled_coefficients</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">bool</span><span class="p">(</span><span class="n">coeff</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integral_coefficients</span><span class="p">)</span> <span class="k">for</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span>
-        <span class="p">]</span>
-
-    <span class="c1"># --- Collect some trivial data</span>
-
-    <span class="c1"># Get rank of form from argument list (assuming not a mixed arity form)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span>
-
-    <span class="c1"># Extract common geometric dimension (topological is not common!)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">geometric_dimension</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">integrals</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ufl_domain</span><span class="p">()</span><span class="o">.</span><span class="n">geometric_dimension</span>
-
-    <span class="c1"># --- Build mapping from old incomplete element objects to new</span>
-    <span class="c1"># well defined elements.  This is to support the Expression</span>
-    <span class="c1"># construct in dolfin which subclasses Coefficient but doesn&#39;t</span>
-    <span class="c1"># provide an element, and the Constant construct that doesn&#39;t</span>
-    <span class="c1"># provide the domain that a Coefficient is supposed to have. A</span>
-    <span class="c1"># future design iteration in UFL/UFC/FFC/DOLFIN may allow removal</span>
-    <span class="c1"># of this mapping with the introduction of UFL types for</span>
-    <span class="c1"># Expression-like functions that can be evaluated in quadrature</span>
-    <span class="c1"># points.</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span> <span class="o">=</span> <span class="n">_compute_element_mapping</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="p">)</span>
-
-    <span class="c1"># Mappings from elements and coefficients that reside in form to</span>
-    <span class="c1"># objects with canonical numbering as well as completed cells and</span>
-    <span class="c1"># elements</span>
-    <span class="n">renumbered_coefficients</span><span class="p">,</span> <span class="n">function_replace_map</span> <span class="o">=</span> <span class="n">_build_coefficient_replace_map</span><span class="p">(</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span>
-    <span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">function_replace_map</span> <span class="o">=</span> <span class="n">function_replace_map</span>
-
-    <span class="c1"># --- Store various lists of elements and sub elements (adds</span>
-    <span class="c1">#     members to self)</span>
-    <span class="n">_compute_form_data_elements</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">arguments</span><span class="p">(),</span>
-        <span class="n">renumbered_coefficients</span><span class="p">,</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">ufl_domains</span><span class="p">(),</span>
-    <span class="p">)</span>
-
-    <span class="c1"># --- Store number of domains for integral types</span>
-    <span class="c1"># TODO: Group this by domain first. For now keep a backwards</span>
-    <span class="c1"># compatible data structure.</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">max_subdomain_ids</span> <span class="o">=</span> <span class="n">_compute_max_subdomain_ids</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">)</span>
-
-    <span class="c1"># --- Apply replace(integrand, self.function_replace_map)</span>
-    <span class="k">if</span> <span class="n">do_replace_functions</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-                <span class="n">integrand</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_replace_map</span><span class="p">)</span>
-                <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">integrand</span><span class="p">))</span>
-            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
-
-    <span class="c1"># --- Split mixed coefficients with their components</span>
-    <span class="k">if</span> <span class="n">coefficients_to_split</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">do_replace_functions</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must call with do_replace_functions=True&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-                <span class="c1"># Propagate restrictions as required by CoefficientSplitter.</span>
-                <span class="c1"># Can not yet apply default restrictions at this point</span>
-                <span class="c1"># as restrictions can only be applied to the components.</span>
-                <span class="n">new_integral</span> <span class="o">=</span> <span class="n">apply_restrictions</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
-                <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_integral</span><span class="p">)</span>
-            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
-        <span class="c1"># Split coefficients that are contained in ``coefficients_to_split``</span>
-        <span class="c1"># into components, and store a dict in ``self`` that maps</span>
-        <span class="c1"># each coefficient to its components.</span>
-        <span class="n">coefficient_split</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduced_coefficients</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">coefficients_to_split</span><span class="p">:</span>
-                <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_replace_map</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
-                <span class="n">mesh</span> <span class="o">=</span> <span class="n">extract_unique_domain</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">expand_mesh_sequence</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-                <span class="n">elem</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
-                <span class="n">coefficient_split</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">Coefficient</span><span class="p">(</span><span class="n">FunctionSpace</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
-                    <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">iterable_like</span><span class="p">(</span><span class="n">elem</span><span class="p">),</span> <span class="n">elem</span><span class="o">.</span><span class="n">sub_elements</span><span class="p">)</span>
-                <span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span> <span class="o">=</span> <span class="n">coefficient_split</span>
-        <span class="n">coeff_splitter</span> <span class="o">=</span> <span class="n">CoefficientSplitter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coefficient_split</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-                <span class="n">integrand</span> <span class="o">=</span> <span class="n">coeff_splitter</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">integrand</span><span class="p">())</span>
-                <span class="c1"># Potentially need to call `remove_component_tensors()` here, but</span>
-                <span class="c1"># early-simplifications of Indexed objects seem sufficient.</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">Zero</span><span class="p">):</span>
-                    <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">integral</span><span class="o">.</span><span class="n">reconstruct</span><span class="p">(</span><span class="n">integrand</span><span class="o">=</span><span class="n">integrand</span><span class="p">))</span>
-            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
-
-    <span class="c1"># Propagate restrictions to terminals</span>
-    <span class="k">if</span> <span class="n">do_apply_restrictions</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">itg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">:</span>
-            <span class="c1"># Need the following if block in case not all participating domains</span>
-            <span class="c1"># have been included in the Measure (backwards compat).</span>
-            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span>
-                <span class="ow">not</span> <span class="n">integral_type</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;interior_facet&quot;</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">domain_integral_type_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-            <span class="p">):</span>
-                <span class="k">continue</span>
-            <span class="k">if</span> <span class="n">do_apply_default_restrictions</span><span class="p">:</span>
-                <span class="n">default_restrictions</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">domain</span><span class="p">:</span> <span class="n">default_restriction_map</span><span class="p">[</span><span class="n">integral_type</span><span class="p">]</span>
-                    <span class="k">for</span> <span class="n">domain</span><span class="p">,</span> <span class="n">integral_type</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">domain_integral_type_map</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-                <span class="p">}</span>
-                <span class="c1"># Need the following dict update in case not all participating domains</span>
-                <span class="c1"># have been included in the Measure (backwards compat).</span>
-                <span class="n">extra</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">domain</span><span class="p">:</span> <span class="n">default_restriction_map</span><span class="p">[</span><span class="n">itg_data</span><span class="o">.</span><span class="n">integral_type</span><span class="p">]</span>
-                    <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span>
-                    <span class="k">for</span> <span class="n">domain</span> <span class="ow">in</span> <span class="n">extract_domains</span><span class="p">(</span><span class="n">integral</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">domain</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">default_restrictions</span>
-                <span class="p">}</span>
-                <span class="n">default_restrictions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extra</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">default_restrictions</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">new_integrals</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">integral</span> <span class="ow">in</span> <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span><span class="p">:</span>
-                <span class="n">new_integral</span> <span class="o">=</span> <span class="n">apply_restrictions</span><span class="p">(</span>
-                    <span class="n">integral</span><span class="p">,</span>
-                    <span class="n">default_restrictions</span><span class="o">=</span><span class="n">default_restrictions</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">new_integrals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_integral</span><span class="p">)</span>
-            <span class="n">itg_data</span><span class="o">.</span><span class="n">integrals</span> <span class="o">=</span> <span class="n">new_integrals</span>
-
-    <span class="c1"># --- Checks</span>
-    <span class="n">_check_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-    <span class="n">_check_facet_geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">)</span>
-
-    <span class="c1"># TODO: This is a very expensive check... Replace with something</span>
-    <span class="c1"># faster!</span>
-    <span class="n">preprocessed_form</span> <span class="o">=</span> <span class="n">reconstruct_form_from_integral_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_data</span><span class="p">)</span>
-
-    <span class="c1"># TODO: Test how fast this is</span>
-    <span class="n">check_form_arity</span><span class="p">(</span><span class="n">preprocessed_form</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_form</span><span class="o">.</span><span class="n">arguments</span><span class="p">(),</span> <span class="n">complex_mode</span><span class="p">)</span>
-
-    <span class="c1"># TODO: This member is used by unit tests, change the tests to</span>
-    <span class="c1"># remove this!</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">preprocessed_form</span> <span class="o">=</span> <span class="n">preprocessed_form</span>
-
-    <span class="k">return</span> <span class="bp">self</span></div>
+    <span class="n">integral_data</span> <span class="o">=</span> <span class="n">build_integral_data</span><span class="p">(</span><span class="n">form</span><span class="o">.</span><span class="n">integrals</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">FormData</span><span class="p">(</span>
+        <span class="n">original_form</span><span class="p">,</span>
+        <span class="n">integral_data</span><span class="p">,</span>
+        <span class="n">do_apply_default_restrictions</span><span class="o">=</span><span class="n">do_apply_default_restrictions</span><span class="p">,</span>
+        <span class="n">do_apply_restrictions</span><span class="o">=</span><span class="n">do_apply_restrictions</span><span class="p">,</span>
+        <span class="n">do_replace_functions</span><span class="o">=</span><span class="n">do_replace_functions</span><span class="p">,</span>
+        <span class="n">coefficients_to_split</span><span class="o">=</span><span class="n">coefficients_to_split</span><span class="p">,</span>
+        <span class="n">complex_mode</span><span class="o">=</span><span class="n">complex_mode</span><span class="p">,</span>
+    <span class="p">)</span></div>
 
 </pre></div>
 
