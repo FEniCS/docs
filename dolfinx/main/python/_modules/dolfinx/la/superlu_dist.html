@@ -1,0 +1,309 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dolfinx.la.superlu_dist &mdash; DOLFINx 0.11.0.dev0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-codeautolink.css?v=b2176991" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cba6a91b"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            DOLFINx
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../demos.html">Demos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../release_notes.html">Release notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../developer.html">Developer resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">DOLFINx</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../la.html">dolfinx.la</a></li>
+      <li class="breadcrumb-item active">dolfinx.la.superlu_dist</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dolfinx.la.superlu_dist</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (C) 2026 Jack S. Hale, Chris N. Richardson</span>
+<span class="c1">#</span>
+<span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
+<span class="c1">#</span>
+<span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
+<span class="sd">&quot;&quot;&quot;SuperLU_DIST linear solver support.</span>
+
+<span class="sd">This module provides support for parallel solution of linear systems</span>
+<span class="sd">assembled into :class:`dolfinx.la.MatrixCSR` using SuperLU_DIST.</span>
+
+<span class="sd">Note:</span>
+<span class="sd">  Users with advanced linear solver requirements should use PETSc/petsc4py.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.cpp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_cpp</span>
+
+<span class="k">assert</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_superlu_dist</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;SuperLUDistMatrix&quot;</span><span class="p">,</span> <span class="s2">&quot;SuperLUDistSolver&quot;</span><span class="p">,</span> <span class="s2">&quot;superlu_dist_matrix&quot;</span><span class="p">,</span> <span class="s2">&quot;superlu_dist_solver&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="SuperLUDistMatrix">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.SuperLUDistMatrix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SuperLUDistMatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;SuperLU_DIST matrix.&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="p">(</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_float32</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_float64</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_complex128</span>
+    <span class="p">)</span>
+    <span class="n">_dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">matrix</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a SuperLU_DIST matrix.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            matrix: C++ SuperLUDistMatrix object.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This initialiser is intended for internal library use only.</span>
+<span class="sd">            User code should call :func:`superlu_dist_matrix` to create a</span>
+<span class="sd">            :class:`SuperLUDistMatrix` object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">matrix</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dtype of matrix values.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dtype</span></div>
+
+
+
+<div class="viewcode-block" id="superlu_dist_matrix">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.superlu_dist_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">superlu_dist_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">MatrixCSR</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SuperLUDistMatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a SuperLU_DIST matrix.</span>
+
+<span class="sd">    Deep copies all required data from ``A``.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        A: Assembled matrix.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A SuperLU_DIST matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_float32</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_float64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistMatrix_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">SuperLUDistMatrix</span><span class="p">(</span><span class="n">stype</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="SuperLUDistSolver">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.SuperLUDistSolver">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SuperLUDistSolver</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;SuperLU_DIST solver.&quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="p">(</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_float32</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_float64</span>
+        <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_complex128</span>
+    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a SuperLU_DIST solver.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            solver: C++ SuperLUDistSolver object.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This initialiser is intended for internal library use only.</span>
+<span class="sd">            User code should call :func:`superlu_dist_solver` to create a</span>
+<span class="sd">            :class:`SuperLUDistSolver` object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">solver</span>
+
+<div class="viewcode-block" id="SuperLUDistSolver.set_option">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.SuperLUDistSolver.set_option">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_option</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set SuperLU_DIST option for solve.</span>
+
+<span class="sd">        See SuperLU_DIST User&#39;s Guide for option names and values.</span>
+
+<span class="sd">        Examples:</span>
+<span class="sd">            solver.set_option(&quot;SymmetricMode&quot;, &quot;YES&quot;)</span>
+<span class="sd">            solver.set_option(&quot;Trans&quot;, &quot;NOTRANS&quot;)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Option name.</span>
+<span class="sd">            value: Option value.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SuperLUDistSolver.set_A">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.SuperLUDistSolver.set_A">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_A</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">:</span> <span class="n">SuperLUDistMatrix</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set assembled left-hand side matrix.</span>
+
+<span class="sd">        For advanced use with SuperLU_DIST option `Factor` allowing use of</span>
+<span class="sd">        previously computed permutations when solving with new matrix A.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            A: Assembled left-hand side matrix :math:`A`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">set_A</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SuperLUDistSolver.solve">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.SuperLUDistSolver.solve">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve linear system :math:`Au = b`.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Vectors must have size and parallel layout compatible with</span>
+<span class="sd">            ``A``.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The caller must check the return integer for success</span>
+<span class="sd">            ``(== 0)``.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The caller must ``u.scatter_forward()`` after the solve.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The values of ``A`` are modified in-place during the solve.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            To solve with successive right-hand sides `b` the caller must</span>
+<span class="sd">            ``solver.set_option(&quot;Factor&quot;, &quot;FACTORED&quot;)`` after the first</span>
+<span class="sd">            solve.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            b: Right-hand side vector :math:`b`.</span>
+<span class="sd">            u: Solution vector :math:`u`, overwritten during solve.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">           SuperLU_DIST return integer from ``p*gssvx`` routine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="superlu_dist_solver">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.superlu_dist.html#dolfinx.la.superlu_dist.superlu_dist_solver">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">superlu_dist_solver</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">SuperLUDistMatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SuperLUDistSolver</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a SuperLU_DIST linear solver.</span>
+
+<span class="sd">    Solve linear system :math:`Au = b` via LU decomposition.</span>
+
+<span class="sd">    The SuperLU_DIST solver has options set to upstream defaults, except</span>
+<span class="sd">    PrintStat (verbose solver output) set to NO.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        A: Assembled left-hand side matrix :math:`A`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A SuperLU_DIST solver.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_float32</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_float64</span>
+    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">):</span>
+        <span class="n">stype</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">SuperLUDistSolver_complex128</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">SuperLUDistSolver</span><span class="p">(</span><span class="n">stype</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, FEniCS Project.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -7,15 +7,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>dolfinx.jit &mdash; DOLFINx 0.11.0.dev0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx-codeautolink.css?v=b2176991" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../../_static/documentation_options.js?v=cba6a91b"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
@@ -74,12 +74,13 @@
            <div itemprop="articleBody">
              
   <h1>Source code for dolfinx.jit</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2017-2018 Chris N. Richardson and Garth N. Wells</span>
+<span></span><span class="c1"># Copyright (C) 2017-2026 Jack S. Hale, Chris N. Richardson</span>
+<span class="c1"># and Garth N. Wells</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
-<span class="sd">&quot;&quot;&quot;Just-in-time (JIT) compilation using FFCx&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;Just-in-time (JIT) compilation using FFCx.&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
@@ -133,44 +134,48 @@
 
     <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">local_jit</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">mpi_jit</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="c1"># Just call JIT compiler when running in serial</span>
+        <span class="c1"># Just call JIT compiler when running in with one rank</span>
         <span class="k">if</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-        <span class="c1"># Default status (0 == ok, 1 == fail)</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># Remove possibility of unbound variables</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># assume failure</span>
+        <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
-        <span class="c1"># Compile first on process 0</span>
-        <span class="n">root</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="n">root</span><span class="p">:</span>
+        <span class="c1"># Compile on rank 0</span>
+        <span class="n">is_root</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">is_root</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">status</span> <span class="o">=</span> <span class="mi">1</span>
                 <span class="n">error_msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-
-        <span class="c1"># TODO: This would have lower overhead if using the dijitso.jit</span>
-        <span class="c1"># features to inject a waiting callback instead of waiting out</span>
-        <span class="c1"># here. That approach allows all processes to first look in the</span>
-        <span class="c1"># cache, introducing a barrier only on cache miss. There&#39;s also</span>
-        <span class="c1"># a sketch in dijitso of how to make only one process per</span>
-        <span class="c1"># physical cache directory do the compilation.</span>
-
-        <span class="c1"># Wait for the compiling process to finish and get status</span>
-        <span class="c1"># TODO: Would be better to broadcast the status from root but</span>
-        <span class="c1"># this works.</span>
-        <span class="n">global_status</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">MAX</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">global_status</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Success, call jit on all other processes (this should just</span>
-            <span class="c1"># read the cache)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Fail simultaneously on all processes, to allow catching</span>
-            <span class="c1"># the error without deadlock</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
-                <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;Compilation failed on root node.&quot;</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed just-in-time compilation of form: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># placeholder for bcast</span>
+
+        <span class="n">status</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Only root includes the detailed message.</span>
+            <span class="k">if</span> <span class="n">is_root</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed JIT compilation of form: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;JIT compilation failed on rank 0.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Load cache on all other ranks</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_root</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">status_local</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">status_local</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JIT cache load failed on rank </span><span class="si">{</span><span class="n">comm</span><span class="o">.</span><span class="n">rank</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">flush</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">status_local</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># root already succeeded</span>
+
+        <span class="n">any_fail</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">allreduce</span><span class="p">(</span><span class="n">status_local</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">MAX</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">any_fail</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;JIT cache load failed on at least one rank.&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output</span>
 
@@ -252,10 +257,11 @@
 <span class="sd">        jit_options: Options used in CFFI JIT compilation of C code</span>
 <span class="sd">            generated by FFCx. Execute</span>
 <span class="sd">            ``print(dolfinx.jit.DOLFINX_DEFAULT_JIT_OPTIONS)`` to see all</span>
-<span class="sd">            available options. Takes priority over all other option values.</span>
+<span class="sd">            available options. The values in the ``jit_options``</span>
+<span class="sd">            argument take priority over all other option values.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A tuple containing the compiled object, module and a tuple</span>
+<span class="sd">        A three-tuple containing the compiled object, module and a tuple</span>
 <span class="sd">        containing the header and implementation code.</span>
 
 <span class="sd">    Priority ordering of options controlling DOLFINx JIT</span>
@@ -279,10 +285,6 @@
 <span class="sd">    ``$XDG_CONFIG_HOME`` is ``~/.config/`` if the environment variable is</span>
 <span class="sd">    not set.</span>
 
-<span class="sd">    The contents of the ``dolfinx_options.json`` files are cached</span>
-<span class="sd">    on the first call. Subsequent calls to this function use this</span>
-<span class="sd">    cache.</span>
-
 <span class="sd">    For example, ``dolfinx_jit_options.json`` could contain:</span>
 
 <span class="sd">    Example::</span>
@@ -290,6 +292,10 @@
 <span class="sd">        { &quot;cffi_extra_compile_args&quot;: [&quot;-O2&quot;, &quot;-march=native&quot; ],</span>
 <span class="sd">          &quot;cffi_verbose&quot;: True }</span>
 
+<span class="sd">    Note::</span>
+<span class="sd">        The contents of the ``dolfinx_options.json`` files are cached</span>
+<span class="sd">        on the first call. Subsequent calls to this function use this</span>
+<span class="sd">        cache.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">p_ffcx</span> <span class="o">=</span> <span class="n">ffcx</span><span class="o">.</span><span class="n">get_options</span><span class="p">(</span><span class="n">form_compiler_options</span><span class="p">)</span>
     <span class="n">p_jit</span> <span class="o">=</span> <span class="n">get_options</span><span class="p">(</span><span class="n">jit_options</span><span class="p">)</span>
@@ -313,7 +319,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, FEniCS Project.</p>
+    <p>&#169; Copyright 2026, FEniCS Project.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['getptrconcept_0',['GetPtrConcept',['../d7/df0/conceptdolfinx_1_1la_1_1GetPtrConcept.html',1,'dolfinx::la']]]
+  ['fekernel_0',['FEkernel',['../dc/da9/conceptdolfinx_1_1fem_1_1FEkernel.html',1,'dolfinx::fem']]]
 ];

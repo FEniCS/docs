@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['tag_0',['tag',['../da/dfe/namespacedolfinx_1_1MPI.html#a93666046c4299e770f23e1d5df9b62f0',1,'dolfinx::MPI']]]
+  ['reduction_0',['Reduction',['../db/d97/classdolfinx_1_1Table.html#a900a5fd8da53d5291863e1d96d984fb9',1,'dolfinx::Table']]]
 ];

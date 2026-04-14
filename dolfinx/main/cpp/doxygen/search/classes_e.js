@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['xdmffile_0',['XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html',1,'dolfinx::io']]]
+  ['pointownershipdata_0',['PointOwnershipData',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html',1,'dolfinx::geometry']]]
 ];

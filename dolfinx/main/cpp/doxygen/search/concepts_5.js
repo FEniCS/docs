@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['vectorpackkernel_0',['VectorPackKernel',['../d7/d16/conceptdolfinx_1_1la_1_1VectorPackKernel.html',1,'dolfinx::la']]]
+  ['scalar_0',['scalar',['../da/d5d/conceptdolfinx_1_1scalar.html',1,'dolfinx']]],
+  ['sparsityimplementation_1',['SparsityImplementation',['../d8/dc0/conceptSparsityImplementation.html',1,'']]]
 ];

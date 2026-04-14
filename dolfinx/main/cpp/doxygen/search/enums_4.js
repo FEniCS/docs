@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['ghostmode_0',['GhostMode',['../dd/d7d/namespacedolfinx_1_1mesh.html#aea1d3aae687d7fb2b510fd12026ecd4e',1,'dolfinx::mesh']]]
+  ['encoding_0',['Encoding',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#aa61fc10b6ff6399cea5b4535a10d8642',1,'dolfinx::io::XDMFFile']]]
 ];
