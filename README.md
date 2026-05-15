@@ -34,7 +34,9 @@
 
 #### Basix
 
-`main`: [https://docs.fenicsproject.org/basix/main/](https://docs.fenicsproject.org/basix/main/)
+`main` C++: [https://docs.fenicsproject.org/basix/main/cpp](https://docs.fenicsproject.org/basix/main/cpp)
+
+`main` Python: [https://docs.fenicsproject.org/basix/main/python](https://docs.fenicsproject.org/basix/main/python)
 
 #### UFL
 
