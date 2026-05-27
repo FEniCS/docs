@@ -214,8 +214,8 @@ def generate_mesh_wire(
 
 def compute_a(nu: int, m: complex, alpha: float) -> float:
     """Compute the Mie coefficient a_nu for a cylinder."""
-    J_nu_alpha = jv(nu, alpha)
-    J_nu_malpha = jv(nu, m * alpha)
+    J_nu_alpha = jv(nu, alpha)  # type: ignore
+    J_nu_malpha = jv(nu, m * alpha)  # type: ignore
     J_nu_alpha_p = jvp(nu, alpha, 1)
     J_nu_malpha_p = jvp(nu, m * alpha, 1)
 
@@ -719,7 +719,7 @@ q_abs_analyt, q_sca_analyt, q_ext_analyt = calculate_analytical_efficiencies(
 )
 
 # We calculate the numerical efficiencies in the same way as done in
-# [Electromagnetic scattering demo](./demo_scattering_boundary_conditions),
+# [Electromagnetic scattering demo](./demo_scattering-boundary-conditions),
 # with the only difference that now the scattering efficiency needs to be
 # calculated over an inner facet, and therefore it requires a slightly
 # different approach:

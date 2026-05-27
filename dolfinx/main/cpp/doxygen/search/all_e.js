@@ -2,7 +2,7 @@ var searchData=
 [
   ['o_0',['o',['../d0/d38/structdolfinx_1_1la_1_1SolveStructDeleter.html#ac53e800bfc342b570b2122a08c0ed180',1,'dolfinx::la::SolveStructDeleter']]],
   ['off_5fdiag_5foffset_1',['off_diag_offset',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a0e4fa2488d7568e011bd4e738861d0ab',1,'dolfinx::la::MatrixCSR']]],
-  ['off_5fdiagonal_5foffsets_2',['off_diagonal_offsets',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a88067c688a3d32686a667f9a55bc4f07',1,'dolfinx::la::SparsityPattern']]],
+  ['off_5fdiagonal_5foffsets_2',['off_diagonal_offsets',['../d5/d32/structdolfinx_1_1la_1_1impl_1_1Sparsity.html#a88067c688a3d32686a667f9a55bc4f07',1,'dolfinx::la::impl::Sparsity::off_diagonal_offsets()'],['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a88067c688a3d32686a667f9a55bc4f07',1,'dolfinx::la::SparsityPattern::off_diagonal_offsets()']]],
   ['offsets_3',['offsets',['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#ae17998d2f942ea395dfdc3f984b463f5',1,'dolfinx::graph::AdjacencyList::offsets() const'],['../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html#a15b8f66504137e3ffbf61372539399f1',1,'dolfinx::graph::AdjacencyList::offsets()']]],
   ['operator_4',['Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html',1,'Operator'],['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#a96ee7c468c45ee4d2a538bff13042868',1,'dolfinx::la::petsc::Operator::Operator(Mat A, bool inc_ref_count)'],['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#a00c02e669931287dd8c3e8f9ab898cc7',1,'dolfinx::la::petsc::Operator::Operator(Operator &amp;&amp;A) noexcept']]],
   ['operator_21_3d_5',['operator!=',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a9382c35cf56595f89617732cb1b0eba3',1,'dolfinx::fem::FiniteElement']]],

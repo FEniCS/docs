@@ -13,8 +13,9 @@ var searchData=
   ['version_10',['version',['../d2/dc7/namespacedolfinx.html#ab5396be8e8b84c9e9be5704f48a845de',1,'dolfinx']]],
   ['vertex_11',['vertex',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a2b5bc093b09bd81f51de433bde9d202a',1,'dolfinx::fem']]],
   ['vtk_5fmesh_5ffrom_5fspace_12',['vtk_mesh_from_space',['../d6/d7a/namespacedolfinx_1_1io.html#aa6f5bca201b37b723b59be5eb44f0454',1,'dolfinx::io']]],
-  ['vtkfile_13',['VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html',1,'VTKFile'],['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac70742368a538e40dddddffd87eb7c46',1,'dolfinx::io::VTKFile::VTKFile()']]],
-  ['vtx_5fwrite_5fdata_14',['vtx_write_data',['../df/d34/ADIOS2Writers_8h.html#aa8900461513ceb54be4840ad34d0b655',1,'dolfinx::io::impl_vtx']]],
-  ['vtx_5fwrite_5fmesh_15',['vtx_write_mesh',['../df/d34/ADIOS2Writers_8h.html#a5773d23ea6ba9a8a983ac3f2f1db11a2',1,'dolfinx::io::impl_vtx']]],
-  ['vtx_5fwrite_5fmesh_5ffrom_5fspace_16',['vtx_write_mesh_from_space',['../df/d34/ADIOS2Writers_8h.html#a30701124900661c39d6a104ee09dec49',1,'dolfinx::io::impl_vtx']]]
+  ['vtk_5fto_5fdolfinx_13',['vtk_to_dolfinx',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#a3a6866ce10a963ddc4efad0358a409d7',1,'dolfinx::io::cells']]],
+  ['vtkfile_14',['VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html',1,'VTKFile'],['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac70742368a538e40dddddffd87eb7c46',1,'dolfinx::io::VTKFile::VTKFile()']]],
+  ['vtx_5fwrite_5fdata_15',['vtx_write_data',['../df/d34/ADIOS2Writers_8h.html#aa8900461513ceb54be4840ad34d0b655',1,'dolfinx::io::impl_vtx']]],
+  ['vtx_5fwrite_5fmesh_16',['vtx_write_mesh',['../df/d34/ADIOS2Writers_8h.html#a5773d23ea6ba9a8a983ac3f2f1db11a2',1,'dolfinx::io::impl_vtx']]],
+  ['vtx_5fwrite_5fmesh_5ffrom_5fspace_17',['vtx_write_mesh_from_space',['../df/d34/ADIOS2Writers_8h.html#a30701124900661c39d6a104ee09dec49',1,'dolfinx::io::impl_vtx']]]
 ];
