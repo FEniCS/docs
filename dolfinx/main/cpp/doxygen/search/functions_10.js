@@ -14,7 +14,7 @@ var searchData=
   ['reference_5fvalue_5fsize_11',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
   ['refine_12',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a25ac97c35d1bd4d6b154d5dc7eba270c',1,'dolfinx::refinement']]],
   ['register_5ftiming_13',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a55268b41462e587edb4df1a2d06e7342',1,'dolfinx::common::TimeLogger']]],
-  ['regular_5fadjacency_5flist_14',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#a75a1496725effa483cc8cd3338c05922',1,'dolfinx::graph']]],
+  ['regular_5fadjacency_5flist_14',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#aa6ef0c61627f8b2f8f0c68fce2d4163d',1,'dolfinx::graph']]],
   ['remote_5findices_15',['remote_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a61e39d73a4761cfa31d6ffadc1d552c2',1,'dolfinx::common::Scatterer']]],
   ['reorder_5fgps_16',['reorder_gps',['../d9/d69/namespacedolfinx_1_1graph.html#a37b611787453853f724b8972b6e2a851',1,'dolfinx::graph']]],
   ['reorder_5flist_17',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
