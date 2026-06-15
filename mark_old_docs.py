@@ -16,7 +16,7 @@ def html_files(folder):
 
 for library, latest in zip(
     ["ufl", "basix", "ffcx", "dolfinx"],
-    ["2025.2.0.post0", "v0.10.0.post0", "v0.10.1", "v0.10.0.post5"],
+    ["2025.6.1", "v0.11.0", "v0.11.0", "v0.11.0.post0"],
 ):
     for folder in os.listdir(library):
         if folder != latest and folder != "main":
