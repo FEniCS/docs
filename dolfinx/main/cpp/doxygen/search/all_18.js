@@ -22,10 +22,11 @@ var searchData=
   ['_7eoperator_19',['~Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html#af199ce36b3e947d11258bc12a480c1b7',1,'dolfinx::la::petsc::Operator']]],
   ['_7eslepceigensolver_20',['~SLEPcEigenSolver',['../d0/d6d/classdolfinx_1_1la_1_1SLEPcEigenSolver.html#a90fc74c3f94706365140360fc2d33ca1',1,'dolfinx::la::SLEPcEigenSolver']]],
   ['_7esparsitypattern_21',['~SparsityPattern',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#adbd3a02ebc1814404361a1d6221658f1',1,'dolfinx::la::SparsityPattern']]],
-  ['_7etable_22',['~Table',['../db/d97/classdolfinx_1_1Table.html#a8af764191a54dd1e3aacb4e5afe0472a',1,'dolfinx::Table']]],
-  ['_7etimer_23',['~Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a4f8a8b0b7dca75172a8e036314ad1794',1,'dolfinx::common::Timer']]],
-  ['_7etopology_24',['~Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7e39e8c23962335c09e2481329bf5b99',1,'dolfinx::mesh::Topology']]],
-  ['_7evector_25',['~Vector',['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#aaa9fccd0cb7734271f7a15e5d9dc0d27',1,'dolfinx::la::petsc::Vector']]],
-  ['_7evtkfile_26',['~VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac95bc19dfd6ec760429a151e97a902d6',1,'dolfinx::io::VTKFile']]],
-  ['_7exdmffile_27',['~XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a36e80bb6b3d9e892a3b322b5ef2f2a18',1,'dolfinx::io::XDMFFile']]]
+  ['_7esuperludistsolver_22',['~SuperLUDistSolver',['../db/dee/classdolfinx_1_1la_1_1SuperLUDistSolver.html#add0369a106cb7794eea1e54f574a9fde',1,'dolfinx::la::SuperLUDistSolver']]],
+  ['_7etable_23',['~Table',['../db/d97/classdolfinx_1_1Table.html#a8af764191a54dd1e3aacb4e5afe0472a',1,'dolfinx::Table']]],
+  ['_7etimer_24',['~Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a4f8a8b0b7dca75172a8e036314ad1794',1,'dolfinx::common::Timer']]],
+  ['_7etopology_25',['~Topology',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a7e39e8c23962335c09e2481329bf5b99',1,'dolfinx::mesh::Topology']]],
+  ['_7evector_26',['~Vector',['../dd/d35/classdolfinx_1_1la_1_1petsc_1_1Vector.html#aaa9fccd0cb7734271f7a15e5d9dc0d27',1,'dolfinx::la::petsc::Vector']]],
+  ['_7evtkfile_27',['~VTKFile',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ac95bc19dfd6ec760429a151e97a902d6',1,'dolfinx::io::VTKFile']]],
+  ['_7exdmffile_28',['~XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a36e80bb6b3d9e892a3b322b5ef2f2a18',1,'dolfinx::io::XDMFFile']]]
 ];
