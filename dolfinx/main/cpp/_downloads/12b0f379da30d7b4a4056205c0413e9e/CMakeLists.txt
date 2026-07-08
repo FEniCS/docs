@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.26)
 set(PROJECT_NAME demo_poisson)
 project(${PROJECT_NAME} LANGUAGES C CXX)
 
-if(NOT TARGET dolfinx)
+if(NOT TARGET dolfinx::dolfinx)
   find_package(DOLFINX REQUIRED)
 endif()
 
@@ -42,7 +42,7 @@ add_custom_command(
 )
 
 add_executable(${PROJECT_NAME} main.cpp ${CMAKE_CURRENT_BINARY_DIR}/poisson.c)
-target_link_libraries(${PROJECT_NAME} PRIVATE dolfinx)
+target_link_libraries(${PROJECT_NAME} PRIVATE dolfinx::dolfinx)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Set C++20 standard
