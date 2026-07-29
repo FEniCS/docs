@@ -40,7 +40,7 @@ var searchData=
   ['compute_5fentity_5fpermutations_37',['compute_entity_permutations',['../dd/d7d/namespacedolfinx_1_1mesh.html#aae1cd1fb7cc2e3c342e7ce90496f10a4',1,'dolfinx::mesh']]],
   ['compute_5ffirst_5fcolliding_5fcell_38',['compute_first_colliding_cell',['../de/d27/namespacedolfinx_1_1geometry.html#a3f865ea932e7df7e609dd52c4a7e02b0',1,'dolfinx::geometry']]],
   ['compute_5fghost_5findices_39',['compute_ghost_indices',['../d1/d52/namespacedolfinx_1_1graph_1_1build.html#a6b8b725ef39beec3cf0bdfa46296e071',1,'dolfinx::graph::build']]],
-  ['compute_5fgraph_5fedges_5fnbx_40',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#a4e7d1ac89c2d5c531f9af95b69f69ffb',1,'dolfinx::MPI']]],
+  ['compute_5fgraph_5fedges_5fnbx_40',['compute_graph_edges_nbx',['../da/dfe/namespacedolfinx_1_1MPI.html#a4e7d1ac89c2d5c531f9af95b69f69ffb',1,'dolfinx::MPI::compute_graph_edges_nbx(MPI_Comm comm, std::span&lt; const int &gt; edges, int tag=static_cast&lt; int &gt;(tag::consensus_nbx))'],['../da/dfe/namespacedolfinx_1_1MPI.html#a66011b88acbea4e613de5147943f9e62',1,'dolfinx::MPI::compute_graph_edges_nbx(MPI_Comm comm, std::span&lt; const int &gt; edges0, int tag0, std::span&lt; const int &gt; edges1, int tag1)']]],
   ['compute_5fgraph_5fedges_5fpcx_41',['compute_graph_edges_pcx',['../da/dfe/namespacedolfinx_1_1MPI.html#a982ec85d3630a19909c3fbdfd1873641',1,'dolfinx::MPI']]],
   ['compute_5fincident_5fentities_42',['compute_incident_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#abec76d69eb4bf33692781bc8995c9b5f',1,'dolfinx::mesh']]],
   ['compute_5fintegration_5fdomains_43',['compute_integration_domains',['../d8/dbf/namespacedolfinx_1_1fem.html#a6ab852a47972daf9ace1f3443044f609',1,'dolfinx::fem']]],

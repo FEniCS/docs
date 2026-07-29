@@ -7,7 +7,7 @@ var searchData=
   ['tabulate_5fdof_5fcoordinates_4',['tabulate_dof_coordinates',['../d9/d69/classdolfinx_1_1fem_1_1FunctionSpace.html#acc5ef005ba93f8df878084df4d559d68',1,'dolfinx::fem::FunctionSpace']]],
   ['tabulate_5fexpression_5',['tabulate_expression',['../d8/dbf/namespacedolfinx_1_1fem.html#a41aed9721a8d6bd3bd46a1da477ba093',1,'dolfinx::fem::tabulate_expression(std::span&lt; T &gt; values, const fem::Expression&lt; T, U &gt; &amp;e, md::mdspan&lt; const T, md::dextents&lt; std::size_t, 2 &gt; &gt; coeffs, std::span&lt; const T &gt; constants, const mesh::Mesh&lt; U &gt; &amp;mesh, fem::MDSpan2 auto entities, std::optional&lt; std::pair&lt; std::reference_wrapper&lt; const FiniteElement&lt; U &gt; &gt;, std::size_t &gt; &gt; element)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a508b91434bcce5ef52f48e390869b3c5',1,'dolfinx::fem::tabulate_expression(std::span&lt; T &gt; values, const fem::Expression&lt; T, U &gt; &amp;e, const mesh::Mesh&lt; U &gt; &amp;mesh, fem::MDSpan2 auto entities)']]],
   ['tabulate_5fshape_6',['tabulate_shape',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a6bd3b8fa3f37438b81a5e0943e7acee6',1,'dolfinx::fem::CoordinateElement']]],
-  ['tag_7',['tag',['../da/dfe/namespacedolfinx_1_1MPI.html#a93666046c4299e770f23e1d5df9b62f0',1,'dolfinx::MPI']]],
+  ['tag_7',['tag',['../da/dfe/namespacedolfinx_1_1MPI.html#afcd86812aa931ca4c65bcccedc27592d',1,'dolfinx::MPI']]],
   ['tdim_8',['tdim',['../d1/ddc/classdolfinx_1_1geometry_1_1BoundingBoxTree.html#a7a12ff25a11a9501590322bf1a603430',1,'dolfinx::geometry::BoundingBoxTree']]],
   ['timelogger_9',['TimeLogger',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html',1,'dolfinx::common']]],
   ['timer_10',['Timer',['../d4/d40/classdolfinx_1_1common_1_1Timer.html',1,'Timer&lt; T &gt;'],['../d4/d40/classdolfinx_1_1common_1_1Timer.html#ac418d464f6e061dec053e81a685098cc',1,'dolfinx::common::Timer::Timer()']]],
@@ -31,6 +31,5 @@ var searchData=
   ['tt_5fapply_28',['Tt_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac2c4ae2b7844245eaca60bfad5644609',1,'dolfinx::fem::FiniteElement']]],
   ['tt_5fapply_5fright_29',['Tt_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acff5768975f264f0eeaa521af586ea9c',1,'dolfinx::fem::FiniteElement']]],
   ['tt_5finv_5fapply_30',['Tt_inv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4583796c0195c7ee0eb8e3dbdc270522',1,'dolfinx::fem::FiniteElement']]],
-  ['tt_5finv_5fapply_5fright_31',['Tt_inv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a39ace9c41b11d8a3293ab4b8c28a02b2',1,'dolfinx::fem::FiniteElement']]],
-  ['type_20mappings_32',['type mappings',['../d3/d97/group__MPI.html',1,'']]]
+  ['tt_5finv_5fapply_5fright_31',['Tt_inv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a39ace9c41b11d8a3293ab4b8c28a02b2',1,'dolfinx::fem::FiniteElement']]]
 ];
