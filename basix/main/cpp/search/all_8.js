@@ -5,5 +5,6 @@ var searchData=
   ['interpolation_5fmatrix_2',['interpolation_matrix',['../classbasix_1_1FiniteElement.html#ab4e75eca9399cb44fd41e7b1baf0234f',1,'basix::FiniteElement']]],
   ['interpolation_5fnderivs_3',['interpolation_nderivs',['../classbasix_1_1FiniteElement.html#a51b364ec6c8681526d3f6a15802e21c1',1,'basix::FiniteElement']]],
   ['is_5fsingular_4',['is_singular',['../namespacebasix_1_1math.html#a13e90098fb7da7b376cb30d52b2fc124',1,'basix::math']]],
-  ['isaac_5',['isaac',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97a84311803c723cad9fcda143909218a89',1,'basix::lattice']]]
+  ['isaac_5',['isaac',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97a84311803c723cad9fcda143909218a89',1,'basix::lattice']]],
+  ['iso_6',['iso',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007ae906ec779ab4ac6cbfdf30db5cbb3f1c',1,'basix::element']]]
 ];

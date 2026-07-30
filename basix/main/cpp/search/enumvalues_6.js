@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['none_0',['none',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'basix::lattice']]]
+  ['isaac_0',['isaac',['../namespacebasix_1_1lattice.html#a979fdd52a75d38b44c414f2d5fa13e97a84311803c723cad9fcda143909218a89',1,'basix::lattice']]],
+  ['iso_1',['iso',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007ae906ec779ab4ac6cbfdf30db5cbb3f1c',1,'basix::element']]]
 ];

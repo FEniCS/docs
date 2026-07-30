@@ -10,6 +10,7 @@ var searchData=
   ['dot_7',['dot',['../namespacebasix_1_1math.html#aa3ed2a12b65f7ffb219b8bcd14d3645a',1,'basix::math']]],
   ['double_5fcontravariant_5fpiola_8',['double_contravariant_piola',['../namespacebasix_1_1maps.html#a75777c183fd61a0b2ae34561a6ba6dbf',1,'basix::maps']]],
   ['double_5fcovariant_5fpiola_9',['double_covariant_piola',['../namespacebasix_1_1maps.html#aa1ddd35160d76253a26203e96840403d',1,'basix::maps']]],
-  ['dpc_5fvariant_10',['dpc_variant',['../classbasix_1_1FiniteElement.html#aeae98c4a939f1d98d11943c67496b236',1,'basix::FiniteElement::dpc_variant()'],['../namespacebasix_1_1element.html#a8e196cd0bcdc926110b57d13fa278060',1,'basix::element::dpc_variant']]],
-  ['dual_5fmatrix_11',['dual_matrix',['../classbasix_1_1FiniteElement.html#ae99def8dfe76b04fa4e6e3463803448e',1,'basix::FiniteElement']]]
+  ['dpc_10',['DPC',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007a050682f101aaf2e897331deb2647a261',1,'basix::element']]],
+  ['dpc_5fvariant_11',['dpc_variant',['../classbasix_1_1FiniteElement.html#aeae98c4a939f1d98d11943c67496b236',1,'basix::FiniteElement::dpc_variant()'],['../namespacebasix_1_1element.html#a8e196cd0bcdc926110b57d13fa278060',1,'basix::element::dpc_variant']]],
+  ['dual_5fmatrix_12',['dual_matrix',['../classbasix_1_1FiniteElement.html#ae99def8dfe76b04fa4e6e3463803448e',1,'basix::FiniteElement']]]
 ];

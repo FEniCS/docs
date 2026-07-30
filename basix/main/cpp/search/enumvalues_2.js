@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['equispaced_0',['equispaced',['../namespacebasix_1_1lattice.html#a1c2fc7e0f475c2fc256d726b6354ddf1a0a12c1098d6c6dd51b73235a703c1a27',1,'basix::lattice']]]
+  ['dpc_0',['DPC',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007a050682f101aaf2e897331deb2647a261',1,'basix::element']]]
 ];

@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['lagrange_0',['lagrange',['../namespacebasix_1_1polynomials.html#aa19d49de143e19fc4391ca0cbe35ed65a358bbd8944e77ed1509836a4fb9ad265',1,'basix::polynomials']]],
-  ['legendre_1',['legendre',['../namespacebasix_1_1polynomials.html#aa19d49de143e19fc4391ca0cbe35ed65ad2a7f9f4f38e0a842509fa1404a38530',1,'basix::polynomials']]]
+  ['hermite_0',['Hermite',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007a70457be66a37fd77955ebfb026c57a24',1,'basix::element']]],
+  ['hhj_1',['HHJ',['../namespacebasix_1_1element.html#ada0a7daa08f1923682c927786b8ee007af3b757f18ca272df71c5aab845821641',1,'basix::element']]]
 ];
