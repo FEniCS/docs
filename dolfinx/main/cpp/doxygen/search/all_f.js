@@ -19,6 +19,7 @@ var searchData=
   ['preserve_16',['preserve',['../d7/de1/namespacedolfinx_1_1common.html#a85fe08b363fe014c058cdf79d502910faec4875cf2d241556a0965f7237864693',1,'dolfinx::common']]],
   ['programmer_20s_20reference_17',['DOLFINx Programmer&apos;s Reference',['../index.html',1,'']]],
   ['pull_5fback_5faffine_18',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#af3d479cdc0fc95c8db96a96825132582',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fnonaffine_19',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#aa3f972472216cbe603da1e37e73f61b7',1,'dolfinx::fem::CoordinateElement']]],
-  ['push_5fforward_20',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
+  ['pull_5fback_5fnonaffine_19',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a66ea4607fea2b2ae8ea7a63a009b7a7c',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fworking_5fsize_20',['pull_back_working_size',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a3b2b55e85dae527fd2b6db0395edebbb',1,'dolfinx::fem::CoordinateElement']]],
+  ['push_5fforward_21',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];
