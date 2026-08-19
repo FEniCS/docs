@@ -364,6 +364,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_function_pullbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_function_pullbacks</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_geometry_lowering</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_geometry_lowering</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.apply_integral_scaling</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_integral_scaling</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.cancel_jacobian_products</span><span class="w"> </span><span class="kn">import</span> <span class="n">cancel_jacobian_products</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.comparison_checker</span><span class="w"> </span><span class="kn">import</span> <span class="n">do_comparison_check</span>
 
 <span class="c1"># See TODOs at the call sites of these below:</span>
@@ -375,7 +376,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.formdata</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormData</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_complex_nodes</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_complex_nodes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.remove_component_tensors</span><span class="w"> </span><span class="kn">import</span> <span class="n">remove_component_tensors</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span><span class="p">,</span> <span class="n">Jacobian</span><span class="p">,</span> <span class="n">JacobianDeterminant</span><span class="p">,</span> <span class="n">JacobianInverse</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">attach_estimated_degrees</span><span class="p">(</span><span class="n">form</span><span class="p">):</span>
@@ -441,6 +442,7 @@
     <span class="n">do_apply_integral_scaling</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">do_apply_geometry_lowering</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">preserve_geometry_types</span><span class="o">=</span><span class="p">(),</span>
+    <span class="n">do_cancel_jacobian_products</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">do_apply_default_restrictions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">do_apply_restrictions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">do_estimate_degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -463,6 +465,12 @@
 <span class="sd">            quantities to a smaller subset of quantities</span>
 <span class="sd">        preserve_geometry_types: Set of quantities not to lower, and keep</span>
 <span class="sd">            at its present stage for the form-compiler.</span>
+<span class="sd">        do_cancel_jacobian_products: Delay the expansion of the Jacobian</span>
+<span class="sd">            inverse into individual matrix entries, and cancel out index</span>
+<span class="sd">            contractions of the Jacobian with its inverse.  This</span>
+<span class="sd">            simplifies the expressions that Piola-mapped elements</span>
+<span class="sd">            generate, before lowering the surviving Jacobian quantities</span>
+<span class="sd">            as usual.</span>
 <span class="sd">        do_apply_default_restrictions: Apply default restrictions, defined in</span>
 <span class="sd">            {py:mod}`ufl.algorithms.apply_restrictions` to integrals if no</span>
 <span class="sd">            restriction has been set.</span>
@@ -517,12 +525,25 @@
     <span class="k">if</span> <span class="n">do_apply_integral_scaling</span><span class="p">:</span>
         <span class="n">form</span> <span class="o">=</span> <span class="n">apply_integral_scaling</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
+    <span class="c1"># Keep the Jacobian, its inverse, and its determinant as opaque</span>
+    <span class="c1"># terminals while derivatives are expanded, so that contractions</span>
+    <span class="c1"># of the Jacobian with its inverse can be cancelled out before the</span>
+    <span class="c1"># inverse is expanded into individual matrix entries.</span>
+    <span class="k">if</span> <span class="n">do_cancel_jacobian_products</span><span class="p">:</span>
+        <span class="n">lowering_preserve_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">preserve_geometry_types</span><span class="p">)</span> <span class="o">|</span> <span class="p">{</span>
+            <span class="n">Jacobian</span><span class="p">,</span>
+            <span class="n">JacobianInverse</span><span class="p">,</span>
+            <span class="n">JacobianDeterminant</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lowering_preserve_types</span> <span class="o">=</span> <span class="n">preserve_geometry_types</span>
+
     <span class="c1"># Lower abstractions for geometric quantities into a smaller set</span>
     <span class="c1"># of quantities, allowing the form compiler to deal with a smaller</span>
     <span class="c1"># set of types and treating geometric quantities like any other</span>
     <span class="c1"># expressions w.r.t. loop-invariant code motion etc.</span>
     <span class="k">if</span> <span class="n">do_apply_geometry_lowering</span><span class="p">:</span>
-        <span class="n">form</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">preserve_geometry_types</span><span class="p">)</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">lowering_preserve_types</span><span class="p">)</span>
 
     <span class="c1"># Apply differentiation again, because the algorithms above can</span>
     <span class="c1"># generate new derivatives or rewrite expressions inside</span>
@@ -533,9 +554,18 @@
         <span class="c1"># Neverending story: apply_derivatives introduces new Jinvs,</span>
         <span class="c1"># which needs more geometry lowering</span>
         <span class="k">if</span> <span class="n">do_apply_geometry_lowering</span><span class="p">:</span>
-            <span class="n">form</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">preserve_geometry_types</span><span class="p">)</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">lowering_preserve_types</span><span class="p">)</span>
             <span class="c1"># Lower derivatives that may have appeared</span>
             <span class="n">form</span> <span class="o">=</span> <span class="n">apply_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">do_cancel_jacobian_products</span><span class="p">:</span>
+                <span class="c1"># Cancel contractions of the Jacobian with its inverse,</span>
+                <span class="c1"># which requires component tensors to be removed first</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">remove_component_tensors</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">cancel_jacobian_products</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
+                <span class="c1"># Lower the Jacobian quantities that were preserved above</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">apply_geometry_lowering</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">preserve_geometry_types</span><span class="p">)</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">apply_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
     <span class="n">form</span> <span class="o">=</span> <span class="n">apply_coordinate_derivatives</span><span class="p">(</span><span class="n">form</span><span class="p">)</span>
 
