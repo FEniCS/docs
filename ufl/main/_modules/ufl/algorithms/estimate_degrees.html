@@ -359,13 +359,17 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_cellwise_constant</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.coefficient</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coefficient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntValue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.multiindex</span><span class="w"> </span><span class="kn">import</span> <span class="n">FixedIndex</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.map_dag</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_expr_dags</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_domains</span><span class="p">,</span> <span class="n">extract_unique_domain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.integral</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.indexflattening</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_multiindex</span><span class="p">,</span> <span class="n">shape_to_strides</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">SumDegreeEstimator</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
@@ -423,9 +427,10 @@
 <span class="sd">        A form argument provides a degree depending on the element,</span>
 <span class="sd">        or the default degree if the element has no degree.</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span>
-        <span class="p">)</span>  <span class="c1"># FIXME: Use component to improve accuracy for mixed elements</span>
+        <span class="c1"># For a mixed element this is the max degree over all sub-elements;</span>
+        <span class="c1"># indexed() refines this to the accessed sub-element's own degree</span>
+        <span class="c1"># when the specific component is known.</span>
+        <span class="k">return</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span><span class="o">.</span><span class="n">embedded_superdegree</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Apply to coefficient.</span>
@@ -435,7 +440,8 @@
 <span class="sd">        """</span>
         <span class="n">e</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
         <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">embedded_superdegree</span>  <span class="c1"># FIXME: Use component to improve accuracy for mixed elements</span>
+        <span class="c1"># See the comment in argument() above.</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">embedded_superdegree</span>
         <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_degree</span>
         <span class="k">return</span> <span class="n">d</span>
@@ -513,7 +519,35 @@
         <span class="k">return</span> <span class="n">A</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">indexed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Apply to indexed."""</span>
+<span class="w">        </span><span class="sd">"""Apply to indexed.</span>
+
+<span class="sd">        A fixed-index component of a mixed-element Argument or</span>
+<span class="sd">        Coefficient may belong to a lower-degree sub-element than the</span>
+<span class="sd">        whole mixed element, so look up that sub-element's own degree</span>
+<span class="sd">        instead of falling back to A, the whole element's degree.</span>
+<span class="sd">        """</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">multiindex</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="p">(</span><span class="n">Argument</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">FixedIndex</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">multiindex</span>
+        <span class="p">):</span>
+            <span class="n">element</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">Coefficient</span><span class="p">):</span>
+                <span class="n">element</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_replace_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">element</span><span class="p">)</span>
+            <span class="n">sub_elements</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">sub_elements</span>
+            <span class="k">if</span> <span class="n">sub_elements</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">multiindex</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">):</span>
+                <span class="n">component</span> <span class="o">=</span> <span class="n">flatten_multiindex</span><span class="p">(</span>
+                    <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">multiindex</span><span class="p">],</span> <span class="n">shape_to_strides</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="c1"># Walk the sub-elements in order to find which one covers</span>
+                <span class="c1"># this flattened component.</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">sub_element</span> <span class="ow">in</span> <span class="n">sub_elements</span><span class="p">:</span>
+                    <span class="n">sub_size</span> <span class="o">=</span> <span class="n">sub_element</span><span class="o">.</span><span class="n">reference_value_size</span>
+                    <span class="k">if</span> <span class="n">component</span> <span class="o">&lt;</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">sub_size</span><span class="p">:</span>
+                        <span class="n">d</span> <span class="o">=</span> <span class="n">sub_element</span><span class="o">.</span><span class="n">embedded_superdegree</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_degree</span> <span class="k">if</span> <span class="n">d</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">d</span>
+                    <span class="n">offset</span> <span class="o">+=</span> <span class="n">sub_size</span>
         <span class="k">return</span> <span class="n">A</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">component_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">ii</span><span class="p">):</span>
