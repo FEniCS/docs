@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['operator_0',['Operator',['../db/d4b/classdolfinx_1_1la_1_1petsc_1_1Operator.html',1,'dolfinx::la::petsc']]]
+  ['pointownershipdata_0',['PointOwnershipData',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html',1,'dolfinx::geometry']]]
 ];
