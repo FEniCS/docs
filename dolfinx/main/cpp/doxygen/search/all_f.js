@@ -7,7 +7,7 @@ var searchData=
   ['pack_5fimpl_4',['pack_impl',['../d5/dcb/pack_8h.html#a2b87862e341ee06c50776dffb3177dfa',1,'dolfinx::fem::impl']]],
   ['parent_5fcell_5',['parent_cell',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6c691bb389aec7339fcaba9d1d36f409a8590651f92c51895ca7d8effbf26e3a6',1,'dolfinx::refinement']]],
   ['parent_5ffacet_6',['parent_facet',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6c691bb389aec7339fcaba9d1d36f409afaaa6ae5cd96d1dd51447fb6afb7d6f8',1,'dolfinx::refinement']]],
-  ['partition_5ffn_7',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#a6c561de84de8b99f5f6988d8d52e42a3',1,'dolfinx::graph']]],
+  ['partition_5ffn_7',['partition_fn',['../d9/d69/namespacedolfinx_1_1graph.html#a47f4c03cc8b7e7f2891e6517de2d906f',1,'dolfinx::graph']]],
   ['partition_5fgraph_8',['partition_graph',['../d9/d69/namespacedolfinx_1_1graph.html#aa411c67a12d0bd05e7fe6bd3f0927dcd',1,'dolfinx::graph']]],
   ['partitioner_9',['partitioner',['../d9/d24/namespacedolfinx_1_1graph_1_1kahip.html#a6e08b7ddd0eef4c5776244c7ddaeee8d',1,'dolfinx::graph::kahip']]],
   ['perm_5fgmsh_10',['perm_gmsh',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#acfaaa0934664ccb3c31fb92c2b5a864c',1,'dolfinx::io::cells']]],
