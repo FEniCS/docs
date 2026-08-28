@@ -1,11 +1,6 @@
 var searchData=
 [
-  ['weights_5fdest_0',['weights_dest',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a0e4aaa081ddc60cb601affbf5e88d102',1,'dolfinx::common::IndexMap']]],
-  ['weights_5fsrc_1',['weights_src',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a548c7119bea4983509ec80781ca01bf9',1,'dolfinx::common::IndexMap']]],
-  ['write_2',['write',['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#a2e487f2f34a520d4b1e841825019af93',1,'dolfinx::io::VTKFile::write(const mesh::Mesh&lt; U &gt; &amp;mesh, double t=0.0)'],['../de/d1d/classdolfinx_1_1io_1_1VTKFile.html#ae3a2eb5023df7529d09fda6338cee8c5',1,'dolfinx::io::VTKFile::write(const std::vector&lt; std::reference_wrapper&lt; const fem::Function&lt; T, U &gt; &gt; &gt; &amp;u, double t)']]],
-  ['write_5ffunction_3',['write_function',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a100a886b35b384a80ec09de5c280bcf4',1,'dolfinx::io::XDMFFile']]],
-  ['write_5fgeometry_4',['write_geometry',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#aaec69982d4fe6e952122c4f948229d08',1,'dolfinx::io::XDMFFile']]],
-  ['write_5finformation_5',['write_information',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a9fe615b239653af838a617a05f1a1b9e',1,'dolfinx::io::XDMFFile']]],
-  ['write_5fmesh_6',['write_mesh',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#ab4db46ff3ddad39ee269f4f72b5a75dd',1,'dolfinx::io::XDMFFile']]],
-  ['write_5fmeshtags_7',['write_meshtags',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a6a8935b621b0b0e2a24510e8b8d5e8a6',1,'dolfinx::io::XDMFFile']]]
+  ['x_0',['X',['../d2/db9/classdolfinx_1_1fem_1_1Expression.html#a076c44ef333ff656ae7b28587f524aea',1,'dolfinx::fem::Expression']]],
+  ['x_1',['x',['../d7/d76/classdolfinx_1_1fem_1_1Function.html#ae6be88cb93c44095fe3d31416f9bf731',1,'dolfinx::fem::Function::x() const'],['../d7/d76/classdolfinx_1_1fem_1_1Function.html#a9d8b86b74a962d6f8c32daeeed975f99',1,'dolfinx::fem::Function::x()'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#aeec2bf02c10e1b68ca9641158b79c569',1,'dolfinx::mesh::Geometry::x() const'],['../d8/dfb/classdolfinx_1_1mesh_1_1Geometry.html#a0cf59d7852762a70c11c02927057a85a',1,'dolfinx::mesh::Geometry::x()']]],
+  ['xdmffile_2',['XDMFFile',['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a145913a74f61b8175600517744188cdd',1,'dolfinx::io::XDMFFile::XDMFFile(MPI_Comm comm, const std::filesystem::path &amp;filename, std::string_view file_mode, Encoding encoding=Encoding::HDF5)'],['../d9/d9e/classdolfinx_1_1io_1_1XDMFFile.html#a755c4e774aca008ec78f001813671f80',1,'dolfinx::io::XDMFFile::XDMFFile(XDMFFile &amp;&amp;)=default']]]
 ];
