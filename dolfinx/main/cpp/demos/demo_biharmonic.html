@@ -269,8 +269,8 @@ V = \left\{v \in H^{1}_{0}(\Omega)\,:\, v \in P_{k}(K) \
 \forall \ K \in \mathcal{T} \right\}
 \]</div>
 <p>and considering the boundary conditions</p>
-<div class="amsmath math notranslate nohighlight" id="equation-970998cc-d88b-432f-804a-e6b9708d695c">
-<span class="eqno">(1)<a class="headerlink" href="#equation-970998cc-d88b-432f-804a-e6b9708d695c" title="Permalink to this equation">#</a></span>\[\begin{align}
+<div class="amsmath math notranslate nohighlight" id="equation-d49f31dd-97a1-4ce6-b385-01f8c2b7d61e">
+<span class="eqno">(1)<a class="headerlink" href="#equation-d49f31dd-97a1-4ce6-b385-01f8c2b7d61e" title="Permalink to this equation">#</a></span>\[\begin{align}
 u &amp;= 0 \quad {\rm on} \ \partial\Omega, \\
 \nabla^{2} u &amp;= 0 \quad {\rm on} \ \partial\Omega,
 \end{align}\]</div>
@@ -426,6 +426,8 @@ convenience we also include the DOLFINx namespace.</p>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;dolfinx/fem/petsc.h&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;memory&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;numbers&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;petscksp.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdexcept&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;utility&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
 </pre></div>
@@ -547,7 +549,15 @@ in the form file) defined relative to this mesh, we do as follows</p>
 <span class="w">    </span><span class="n">lu</span><span class="p">.</span><span class="n">set_operator</span><span class="p">(</span><span class="n">A</span><span class="p">.</span><span class="n">mat</span><span class="p">());</span>
 <span class="w">    </span><span class="n">la</span><span class="o">::</span><span class="n">petsc</span><span class="o">::</span><span class="n">Vector</span><span class="w"> </span><span class="n">_u</span><span class="p">(</span><span class="n">la</span><span class="o">::</span><span class="n">petsc</span><span class="o">::</span><span class="n">create_vector_wrap</span><span class="p">(</span><span class="o">*</span><span class="n">u</span><span class="p">.</span><span class="n">x</span><span class="p">()),</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
 <span class="w">    </span><span class="n">la</span><span class="o">::</span><span class="n">petsc</span><span class="o">::</span><span class="n">Vector</span><span class="w"> </span><span class="n">_b</span><span class="p">(</span><span class="n">la</span><span class="o">::</span><span class="n">petsc</span><span class="o">::</span><span class="n">create_vector_wrap</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="w"> </span><span class="nb">false</span><span class="p">);</span>
-<span class="w">    </span><span class="n">lu</span><span class="p">.</span><span class="n">solve</span><span class="p">(</span><span class="n">_u</span><span class="p">.</span><span class="n">vec</span><span class="p">(),</span><span class="w"> </span><span class="n">_b</span><span class="p">.</span><span class="n">vec</span><span class="p">());</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">lu</span><span class="p">.</span><span class="n">solve</span><span class="p">(</span><span class="n">_u</span><span class="p">.</span><span class="n">vec</span><span class="p">(),</span><span class="w"> </span><span class="n">_b</span><span class="p">.</span><span class="n">vec</span><span class="p">())</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">"Linear solver did not converge."</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// The KSP object is available for anything the solver does not</span>
+<span class="w">    </span><span class="c1">// wrap, here the number of linear solver iterations</span>
+<span class="w">    </span><span class="n">PetscInt</span><span class="w"> </span><span class="n">num_it</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">common</span><span class="o">::</span><span class="n">petsc</span><span class="o">::</span><span class="n">check</span><span class="p">(</span><span class="n">KSPGetIterationNumber</span><span class="p">(</span><span class="n">lu</span><span class="p">.</span><span class="n">ksp</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="n">num_it</span><span class="p">),</span>
+<span class="w">                         </span><span class="s">"KSPGetIterationNumber"</span><span class="p">);</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Number of linear solver iterations: "</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">num_it</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
 
 <span class="w">    </span><span class="c1">//  Update ghost values before output</span>
 <span class="w">    </span><span class="n">u</span><span class="p">.</span><span class="n">x</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">scatter_fwd</span><span class="p">();</span>
