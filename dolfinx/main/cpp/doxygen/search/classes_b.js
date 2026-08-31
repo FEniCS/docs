@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['newtonsolver_0',['NewtonSolver',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html',1,'dolfinx::nls::petsc']]]
+  ['partitioner_0',['Partitioner',['../d6/d9d/structdolfinx_1_1graph_1_1Partitioner.html',1,'dolfinx::graph']]],
+  ['pointownershipdata_1',['PointOwnershipData',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html',1,'dolfinx::geometry']]]
 ];
