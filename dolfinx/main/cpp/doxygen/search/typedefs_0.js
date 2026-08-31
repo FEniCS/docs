@@ -1,7 +1,4 @@
 var searchData=
 [
-  ['cellpartitionfunction_0',['CellPartitionFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#ad34b9ac7da21537660be3ef7a8461e3f',1,'dolfinx::mesh']]],
-  ['cellreorderfunction_1',['CellReorderFunction',['../dd/d7d/namespacedolfinx_1_1mesh.html#a6ae04a49cad2b0638dbc083a221f2279',1,'dolfinx::mesh']]],
-  ['column_5fcontainer_5ftype_2',['column_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a57a12155c51f09fb23dc396ed08ecf08',1,'dolfinx::la::MatrixCSR']]],
-  ['container_5ftype_3',['container_type',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a9c2014b8eab41918aa55438cb370dd55',1,'dolfinx::common::Scatterer::container_type'],['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a9c2014b8eab41918aa55438cb370dd55',1,'dolfinx::la::MatrixCSR::container_type'],['../d2/d0b/classdolfinx_1_1la_1_1Vector.html#a9c2014b8eab41918aa55438cb370dd55',1,'dolfinx::la::Vector::container_type']]]
+  ['anypartitionfunction_0',['AnyPartitionFunction',['../d9/d69/namespacedolfinx_1_1graph.html#ac28578f0cb3804f1197f949db3684ee5',1,'dolfinx::graph']]]
 ];

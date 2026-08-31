@@ -94,7 +94,7 @@ Functions</h2></td></tr>
 <tr class="memitem:acaec57499e623c18ef20134c4532163e" id="r_acaec57499e623c18ef20134c4532163e"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; <a class="el" href="../../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html">graph::AdjacencyList</a>&lt; std::int64_t &gt;, std::vector&lt; int &gt;, std::vector&lt; std::int64_t &gt;, std::vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acaec57499e623c18ef20134c4532163e">distribute</a> (MPI_Comm comm, const <a class="el" href="../../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html">graph::AdjacencyList</a>&lt; std::int64_t &gt; &amp;list, const <a class="el" href="../../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html">graph::AdjacencyList</a>&lt; std::int32_t &gt; &amp;destinations)</td></tr>
 <tr class="memdesc:acaec57499e623c18ef20134c4532163e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Distribute adjacency list nodes to destination ranks.  <br /></td></tr>
 <tr class="memitem:a2e8a15e5aaf2b08b1a995c0428682937" id="r_a2e8a15e5aaf2b08b1a995c0428682937"><td class="memItemLeft" align="right" valign="top">std::tuple&lt; std::vector&lt; std::int64_t &gt;, std::vector&lt; int &gt;, std::vector&lt; std::int64_t &gt;, std::vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2e8a15e5aaf2b08b1a995c0428682937">distribute</a> (MPI_Comm comm, std::span&lt; const std::int64_t &gt; list, std::array&lt; std::size_t, 2 &gt; shape, const <a class="el" href="../../df/d84/classdolfinx_1_1graph_1_1AdjacencyList.html">graph::AdjacencyList</a>&lt; std::int32_t &gt; &amp;destinations)</td></tr>
-<tr class="memdesc:a2e8a15e5aaf2b08b1a995c0428682937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Distribute fixed size nodes to destination ranks.  <br /></td></tr>
+<tr class="memdesc:a2e8a15e5aaf2b08b1a995c0428682937"><td class="mdescLeft">&#160;</td><td class="mdescRight">Distribute rows of a fixed-degree array to destination ranks.  <br /></td></tr>
 <tr class="memitem:a6b8b725ef39beec3cf0bdfa46296e071" id="r_a6b8b725ef39beec3cf0bdfa46296e071"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6b8b725ef39beec3cf0bdfa46296e071">compute_ghost_indices</a> (MPI_Comm comm, std::span&lt; const std::int64_t &gt; owned_indices, std::span&lt; const std::int64_t &gt; ghost_indices, std::span&lt; const int &gt; ghost_owners, int num_threads)</td></tr>
 <tr class="memdesc:a6b8b725ef39beec3cf0bdfa46296e071"><td class="mdescLeft">&#160;</td><td class="mdescRight">Take a set of distributed input global indices, including ghosts, and determine the new global indices after remapping.  <br /></td></tr>
 <tr class="memitem:abb5b31c983ae23a599fd09383cf003b3" id="r_abb5b31c983ae23a599fd09383cf003b3"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abb5b31c983ae23a599fd09383cf003b3">compute_local_to_global</a> (std::span&lt; const std::int64_t &gt; global, std::span&lt; const std::int32_t &gt; local)</td></tr>
@@ -243,20 +243,23 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Distribute adjacency list nodes to destination ranks. </p>
-<p>The global index of each node is assumed to be the local index plus the offset for this rank.</p>
+<p>The global index of the <span class="tt">i</span>th node (row) in <span class="tt">list</span> is assumed to be <span class="tt">i</span> plus the offset for this rank, i.e. the number of nodes owned by lower-ranked processes.</p>
+<dl class="section note"><dt>Note</dt><dd>Collective.</dd>
+<dd>
+The neighbourhood communicator is built with <a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a4e7d1ac89c2d5c531f9af95b69f69ffb" title="Determine incoming graph edges using the NBX consensus algorithm.">MPI::compute_graph_edges_nbx</a>, which discovers incoming edges from the outgoing edges alone via the scalable NBX consensus algorithm, keeping the communication pattern sparse. This is not free: it costs one or more non-blocking consensus rounds, so calling this function repeatedly (e.g. once per cell type) has a real cost.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">comm</td><td><a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html" title="MPI support functionality.">MPI</a> Communicator </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">list</td><td>The adjacency list to distribute </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">destinations</td><td>Destination ranks for the ith node in the adjacency list. The first rank is the 'owner' of the node. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">comm</td><td><a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html" title="MPI support functionality.">MPI</a> Communicator that <span class="tt">list</span>/<span class="tt">destinations</span> are distributed across. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">list</td><td>The adjacency list to distribute. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">destinations</td><td>Destination rank(s) for the <span class="tt">i</span>th node in <span class="tt">list</span>. The first rank is the 'owner' of the node; any further ranks receive it as a ghost. </td></tr>
   </table>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><ol type="1">
-<li>Received adjacency list for this process</li>
-<li>Source ranks for each node in the adjacency list</li>
-<li>Original global index for each node in the adjacency list</li>
-<li>Owning rank of ghost nodes. </li>
+<li>Received adjacency list for this process. Nodes owned by this process come first, followed by any ghost nodes.</li>
+<li>Source rank of each node in (1), i.e. the rank it was sent from.</li>
+<li>Original global index of each node in (1).</li>
+<li>Owning rank of the ghost nodes among (1). This has one entry per ghost node &ndash; the trailing entries of (1) &ndash; not one entry per node of (1). </li>
 </ol>
 </dd></dl>
 
@@ -291,22 +294,25 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Distribute fixed size nodes to destination ranks. </p>
-<p>The global index of each node is assumed to be the local index plus the offset for this rank.</p>
+<p>Distribute rows of a fixed-degree array to destination ranks. </p>
+<p>The global index of the <span class="tt">i</span>th row of <span class="tt">list</span> is assumed to be <span class="tt">i</span> plus the offset for this rank, i.e. the number of rows owned by lower-ranked processes.</p>
+<dl class="section note"><dt>Note</dt><dd>Collective.</dd>
+<dd>
+The neighbourhood communicator is built with <a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a4e7d1ac89c2d5c531f9af95b69f69ffb" title="Determine incoming graph edges using the NBX consensus algorithm.">MPI::compute_graph_edges_nbx</a>, which discovers incoming edges from the outgoing edges alone via the scalable NBX consensus algorithm, keeping the communication pattern sparse. This is not free: it costs one or more non-blocking consensus rounds, so calling this function repeatedly (e.g. once per cell type) has a real cost.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">comm</td><td><a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html" title="MPI support functionality.">MPI</a> Communicator </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">list</td><td>Constant degree (valency) adjacency list. The array shape is (num_nodes, degree). Storage is row-major. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">comm</td><td><a class="el" href="../../da/dfe/namespacedolfinx_1_1MPI.html" title="MPI support functionality.">MPI</a> Communicator that <span class="tt">list</span>/<span class="tt">destinations</span> are distributed across. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">list</td><td>Constant degree (valency) data, flattened row-major with shape <span class="tt">shape</span>. </td></tr>
     <tr><td class="paramdir">[in]</td><td class="paramname">shape</td><td>Shape <span class="tt">(num_nodes, degree)</span> of <span class="tt">list</span>. </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">destinations</td><td>Destination ranks for the ith node (row) of <span class="tt">list</span>. The first rank is the 'owner' of the node. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">destinations</td><td>Destination rank(s) for the <span class="tt">i</span>th row of <span class="tt">list</span>. The first rank is the 'owner' of the row; any further ranks receive it as a ghost. </td></tr>
   </table>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><ol type="1">
-<li>Received adjacency list on this process. The array shape is (num_nodes, degree). Storage is row-major.</li>
-<li>Source rank for each received node.</li>
-<li>Original global index for each received node.</li>
-<li>Owning rank of ghost nodes. </li>
+<li>Received rows for this process, flattened row-major with shape (num_nodes, degree). Rows owned by this process come first, followed by any ghost rows.</li>
+<li>Source rank of each row in (1), i.e. the rank it was sent from.</li>
+<li>Original global index of each row in (1).</li>
+<li>Owning rank of the ghost rows among (1). This has one entry per ghost row &ndash; the trailing rows of (1) &ndash; not one entry per row of (1). </li>
 </ol>
 </dd></dl>
 

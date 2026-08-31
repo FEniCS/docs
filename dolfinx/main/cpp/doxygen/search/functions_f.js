@@ -12,14 +12,15 @@ var searchData=
   ['reduce_9',['reduce',['../db/d97/classdolfinx_1_1Table.html#aec673cb60c49c7e56f303497d244fa31',1,'dolfinx::Table']]],
   ['reference_5fvalue_5fshape_10',['reference_value_shape',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aceb716e9df8e32218f50a9c8e7b178f7',1,'dolfinx::fem::FiniteElement']]],
   ['reference_5fvalue_5fsize_11',['reference_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a78737d3c0a9c143fa24c503cac16d519',1,'dolfinx::fem::FiniteElement']]],
-  ['refine_12',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a25ac97c35d1bd4d6b154d5dc7eba270c',1,'dolfinx::refinement']]],
+  ['refine_12',['refine',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6cb9d61b8d09d60b99936864e32c520c',1,'dolfinx::refinement']]],
   ['register_5ftiming_13',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a60b7b0ee951d2017ebc1e88f42bf45d0',1,'dolfinx::common::TimeLogger']]],
   ['regular_5fadjacency_5flist_14',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#aa6ef0c61627f8b2f8f0c68fce2d4163d',1,'dolfinx::graph']]],
   ['remote_5findices_15',['remote_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a61e39d73a4761cfa31d6ffadc1d552c2',1,'dolfinx::common::Scatterer']]],
-  ['reorder_5flist_16',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
-  ['reorder_5frcm_17',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
-  ['residual_18',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['residual0_19',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
-  ['resume_20',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['row_5fptr_21',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
+  ['reorder_5fcells_16',['reorder_cells',['../d0/d47/mesh_2utils_8h.html#a9c2935c5a48ee0f715bca7a668742c25',1,'dolfinx::mesh::impl']]],
+  ['reorder_5flist_17',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
+  ['reorder_5frcm_18',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
+  ['residual_19',['residual',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a717b95e6e6efa8a04be878054e592e5f',1,'dolfinx::nls::petsc::NewtonSolver']]],
+  ['residual0_20',['residual0',['../d7/d9a/classdolfinx_1_1nls_1_1petsc_1_1NewtonSolver.html#a85130dbb62b7fcee162572ff7fc3d727',1,'dolfinx::nls::petsc::NewtonSolver']]],
+  ['resume_21',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['row_5fptr_22',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
 ];

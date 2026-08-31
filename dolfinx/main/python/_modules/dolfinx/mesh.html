@@ -387,7 +387,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatch</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
 
@@ -435,11 +434,13 @@
     <span class="s2">&quot;Topology&quot;</span><span class="p">,</span>
     <span class="s2">&quot;build_dual_graph&quot;</span><span class="p">,</span>
     <span class="s2">&quot;cell_dim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;compute_cell_centroids&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_incident_entities&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_midpoints&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_box&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;create_cell_partitioner&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_geometric_cell_partitioner&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_geometry&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_hybrid_cell_partitioner&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_interval&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_mesh&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_point_mesh&quot;</span><span class="p">,</span>
@@ -468,66 +469,144 @@
         <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
         <span class="nb">int</span><span class="p">,</span>
         <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int64</span><span class="p">,</span>
-        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
-        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># float64 to match the C++ span&lt;double&gt; interface. Unlike</span>
+<span class="c1"># PartitioningFunc/HybridPartitioningFunc, the return is a plain</span>
+<span class="c1"># destination rank per node, not an AdjacencyList: a geometric</span>
+<span class="c1"># partitioner never ghosts.</span>
+<span class="n">GeometricPartitioningFunc</span> <span class="o">=</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span><span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+<span class="p">]</span>
+<span class="n">HybridPartitioningFunc</span> <span class="o">=</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[</span>
+    <span class="p">[</span>
+        <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+        <span class="nb">int</span><span class="p">,</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int64</span><span class="p">,</span>
+        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
+        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="nb">bool</span><span class="p">,</span>
     <span class="p">],</span>
     <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span>
 <span class="p">]</span>
 
 
-<span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_cell_partitioner</span><span class="p">(</span>
-    <span class="n">part</span><span class="p">:</span> <span class="n">PartitioningFunc</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">GhostMode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span> <span class="o">...</span>
+<div class="viewcode-block" id="create_geometric_cell_partitioner">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_geometric_cell_partitioner">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_geometric_cell_partitioner</span><span class="p">(</span>
+    <span class="n">part</span><span class="p">:</span> <span class="n">GeometricPartitioningFunc</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricPartitioner</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a function to partition a mesh using cell positions.</span>
 
+<span class="sd">    ``part`` is called by :func:`create_mesh` with each cell&#39;s centroid</span>
+<span class="sd">    (mean of its vertex positions), letting position-based partitioners</span>
+<span class="sd">    be used where :func:`create_mesh` otherwise expects graph edges.</span>
 
-<span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_cell_partitioner</span><span class="p">(</span><span class="n">mode</span><span class="p">:</span> <span class="n">GhostMode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span> <span class="o">...</span>
+<span class="sd">    The returned partitioner has no access to the dual graph, so it</span>
+<span class="sd">    never ghosts: the mesh always has ``GhostMode.none`` regardless of</span>
+<span class="sd">    what was requested. Use :func:`create_hybrid_cell_partitioner` if</span>
+<span class="sd">    the partitioner also needs the dual graph, e.g. to support ghosting.</span>
 
-
-<div class="viewcode-block" id="create_cell_partitioner">
-<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_cell_partitioner">[docs]</a>
-<span class="nd">@singledispatch</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">create_cell_partitioner</span><span class="p">(</span>
-    <span class="n">part</span><span class="p">:</span> <span class="n">PartitioningFunc</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="n">GhostMode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a function to partition a mesh.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        part: Partition function.</span>
-<span class="sd">        mode: Ghosting mode to use.</span>
-<span class="sd">        max_facet_to_cell_links: Maximum number of cells connected to a</span>
-<span class="sd">            facet. Equal to 2 for non-branching manifold meshes.</span>
-<span class="sd">            ``None`` corresponds to no upper bound on the number of</span>
-<span class="sd">            possible connections.</span>
-
-<span class="sd">    Return:</span>
-<span class="sd">        Partitioning function.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">GhostMode</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Expected a partition function, not a GhostMode.&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">mode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">)</span></div>
-
-
-
-<span class="nd">@create_cell_partitioner</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">GhostMode</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_create_cell_partitioner_from_ghost_mode</span><span class="p">(</span>
-    <span class="n">mode</span><span class="p">:</span> <span class="n">GhostMode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a function to partition a mesh.</span>
+<span class="sd">    ``part`` also receives optional node weights, matching</span>
+<span class="sd">    :data:`PartitioningFunc`; :func:`create_mesh` supplies its</span>
+<span class="sd">    ``cell_weights`` as the node weights. Not every geometric</span>
+<span class="sd">    partitioner honours these, e.g. ``partitioner_parmetis_geom`` raises</span>
+<span class="sd">    if given anything other than ``None``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        mode: Ghosting mode to use</span>
-<span class="sd">        max_facet_to_cell_links: Maximum number of cells connected to a</span>
-<span class="sd">            facet. Equal to 2 for non-branching manifold meshes.</span>
-<span class="sd">            ``None`` corresponds to no upper bound on the number of</span>
-<span class="sd">            possible connections.</span>
+<span class="sd">        part: A custom geometric graph partitioning function. The</span>
+<span class="sd">            built-in geometric partitioners (``dolfinx.cpp.graph``&#39;s</span>
+<span class="sd">            ``partition_morton``, ``partition_hilbert`` and</span>
+<span class="sd">            ``partitioner_parmetis_geom``) already return a</span>
+<span class="sd">            :class:`~dolfinx.cpp.graph.GeometricPartitioner` and do not</span>
+<span class="sd">            need to be wrapped.</span>
 
 <span class="sd">    Return:</span>
-<span class="sd">        Partitioning function.</span>
+<span class="sd">        Partitioning function, for use as :func:`create_mesh`&#39;s</span>
+<span class="sd">        ``partitioner`` argument.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">create_geometric_cell_partitioner</span><span class="p">(</span><span class="n">part</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="create_hybrid_cell_partitioner">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.create_hybrid_cell_partitioner">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_hybrid_cell_partitioner</span><span class="p">(</span>
+    <span class="n">part</span><span class="p">:</span> <span class="n">HybridPartitioningFunc</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">HybridPartitioner</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a function to partition a mesh using a hybrid partitioner.</span>
+
+<span class="sd">    Unlike :func:`create_geometric_cell_partitioner`, the dual graph is</span>
+<span class="sd">    always computed and passed to ``part`` along with cell positions,</span>
+<span class="sd">    regardless of ghost mode. Use this when the partitioner needs graph</span>
+<span class="sd">    edges for the partitioning decision itself, not only to determine</span>
+<span class="sd">    ghost cells.</span>
+
+<span class="sd">    The dual graph (its ``max_facet_to_cell_links`` and ``num_threads``)</span>
+<span class="sd">    is controlled at call time by :func:`create_mesh`&#39;s matching</span>
+<span class="sd">    arguments, rather than fixed when the partitioner is created.</span>
+
+<span class="sd">    ``part`` also receives optional node and edge weights, matching</span>
+<span class="sd">    :data:`PartitioningFunc`; :func:`create_mesh` supplies its</span>
+<span class="sd">    ``cell_weights`` as the node weights and always passes ``None`` for</span>
+<span class="sd">    edge weights, since it has no way to compute them.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        part: A custom hybrid graph partitioning function. ParMETIS&#39;s</span>
+<span class="sd">            built-in hybrid partitioner (``dolfinx.cpp.graph``&#39;s</span>
+<span class="sd">            ``partitioner_parmetis_hybrid``, i.e. ParMETIS `GeomKway`)</span>
+<span class="sd">            already returns a :class:`~dolfinx.cpp.graph.HybridPartitioner`</span>
+<span class="sd">            and does not need to be wrapped.</span>
+
+<span class="sd">    Return:</span>
+<span class="sd">        Partitioning function, for use as :func:`create_mesh`&#39;s</span>
+<span class="sd">        ``partitioner`` argument.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">create_hybrid_cell_partitioner</span><span class="p">(</span><span class="n">part</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="compute_cell_centroids">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.compute_cell_centroids">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_cell_centroids</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">cell_types</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">CellType</span><span class="p">],</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]],</span>
+    <span class="n">commg</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the centroid of each cell from its vertex positions.</span>
+
+<span class="sd">    :func:`create_mesh` performs this computation internally before</span>
+<span class="sd">    calling a partitioner created by</span>
+<span class="sd">    :func:`create_geometric_cell_partitioner` or</span>
+<span class="sd">    :func:`create_hybrid_cell_partitioner`. Use it directly to call such</span>
+<span class="sd">    a partitioner without going through :func:`create_mesh`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator that ``cells`` is distributed over.</span>
+<span class="sd">        cell_types: Cell types in the mesh.</span>
+<span class="sd">        cells: Cells of each cell type, using global vertex indices, as</span>
+<span class="sd">            accepted by :func:`create_mesh`.</span>
+<span class="sd">        commg: MPI communicator that ``x`` is distributed over.</span>
+<span class="sd">        x: Geometry (&#39;node&#39;) coordinates, distributed over ``commg``.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Cell centroids, with shape ``(num_cells, gdim)``, with the cells</span>
+<span class="sd">        of each cell type concatenated in the order they appear in</span>
+<span class="sd">        ``cells``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">compute_cell_centroids</span><span class="p">(</span>
+        <span class="n">comm</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">commg</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="p">)</span></div>
+
 
 
 <div class="viewcode-block" id="Topology">
@@ -1233,6 +1312,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">uniform_refine</span><span class="p">(</span>
     <span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">,</span>
     <span class="n">partitioner</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="p">:</span> <span class="n">GhostMode</span> <span class="o">=</span> <span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Uniformly refine a mesh.</span>
 
@@ -1246,11 +1326,13 @@
 <span class="sd">        msh: Mesh from which to create the refined mesh.</span>
 <span class="sd">        partitioner: Partitioner to distribute the refined mesh.</span>
 <span class="sd">            If ``None`` is passed (default) no redistribution will happen.</span>
+<span class="sd">        ghost_mode: Ghost mode of the refined mesh, passed to</span>
+<span class="sd">            ``partitioner``. Has no effect if ``partitioner`` is ``None``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        The refined mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>
+    <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
     <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
@@ -1269,6 +1351,7 @@
         <span class="n">IdentityPartitionerPlaceholder</span><span class="p">()</span>
     <span class="p">),</span>
     <span class="n">option</span><span class="p">:</span> <span class="n">RefinementOption</span> <span class="o">=</span> <span class="n">RefinementOption</span><span class="o">.</span><span class="n">parent_cell</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="p">:</span> <span class="n">GhostMode</span> <span class="o">=</span> <span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Mesh</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Refine a mesh.</span>
 
@@ -1291,12 +1374,17 @@
 <span class="sd">            redistribution will happen.</span>
 <span class="sd">        option: Controls whether parent cells and/or parent facets are</span>
 <span class="sd">            computed.</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning, passed to</span>
+<span class="sd">            ``partitioner`` at call time if it is a callable. Has no</span>
+<span class="sd">            effect if ``partitioner`` is an</span>
+<span class="sd">            :py:class:`IdentityPartitionerPlaceholder` (see the note</span>
+<span class="sd">            above).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">       Refined mesh, (optional) parent cells, (optional) parent facets</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mesh1</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span>
-        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">option</span>
+        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">option</span><span class="p">,</span> <span class="n">ghost_mode</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
@@ -1315,6 +1403,7 @@
     <span class="n">e</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span> <span class="o">|</span> <span class="n">basix</span><span class="o">.</span><span class="n">finite_element</span><span class="o">.</span><span class="n">FiniteElement</span> <span class="o">|</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_BasixElement</span> <span class="o">|</span> <span class="n">_CoordinateElement</span><span class="p">,</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">],</span>
     <span class="n">partitioner</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ghost_mode</span><span class="p">:</span> <span class="n">GhostMode</span> <span class="o">=</span> <span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">,</span>
     <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">num_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">cell_weights</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1331,13 +1420,16 @@
 <span class="sd">            ``(num_nodes, gdim)``.</span>
 <span class="sd">        partitioner: Function that determines the parallel distribution of</span>
 <span class="sd">            cells across MPI ranks.</span>
+<span class="sd">        ghost_mode: Ghost mode used in the mesh partitioning, passed to</span>
+<span class="sd">            ``partitioner`` at call time.</span>
 <span class="sd">        max_facet_to_cell_links: Maximum number of cells a facet can</span>
 <span class="sd">            be connected to.</span>
 <span class="sd">        num_threads: Number of threads to use to build mesh. Must be</span>
 <span class="sd">            greater than 0.</span>
 <span class="sd">        cell_weights: Weights associated with each cell in ``cells``,</span>
-<span class="sd">            e.g. for use by the graph partitioner. If not provided,</span>
-<span class="sd">            cells are treated as having equal weight.</span>
+<span class="sd">            e.g. for use by a plain graph partitioner or a hybrid</span>
+<span class="sd">            partitioner. If not provided, cells are treated as having</span>
+<span class="sd">            equal weight.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        If required, the coordinates ``x`` will be cast to the same</span>
@@ -1347,7 +1439,7 @@
 <span class="sd">        A mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_create_cell_partitioner_from_ghost_mode</span><span class="p">(</span><span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
 
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1392,14 +1484,15 @@
     <span class="k">if</span> <span class="n">cell_weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">cell_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">cell_weights</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;C&quot;</span><span class="p">)</span>
     <span class="n">msh</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_mesh</span><span class="p">(</span>
-        <span class="n">comm</span><span class="p">,</span>
-        <span class="n">cells</span><span class="p">,</span>
-        <span class="n">cmap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
-        <span class="n">x</span><span class="p">,</span>
-        <span class="n">partitioner</span><span class="p">,</span>
-        <span class="n">max_facet_to_cell_links</span><span class="p">,</span>
-        <span class="n">num_threads</span><span class="p">,</span>
-        <span class="n">cell_weights</span><span class="p">,</span>
+        <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">,</span>
+        <span class="n">cells</span><span class="o">=</span><span class="n">cells</span><span class="p">,</span>
+        <span class="n">element</span><span class="o">=</span><span class="n">cmap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
+        <span class="n">partitioner</span><span class="o">=</span><span class="n">partitioner</span><span class="p">,</span>
+        <span class="n">ghost_mode</span><span class="o">=</span><span class="n">ghost_mode</span><span class="p">,</span>
+        <span class="n">max_facet_to_cell_links</span><span class="o">=</span><span class="n">max_facet_to_cell_links</span><span class="p">,</span>
+        <span class="n">num_threads</span><span class="o">=</span><span class="n">num_threads</span><span class="p">,</span>
+        <span class="n">cell_weights</span><span class="o">=</span><span class="n">cell_weights</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
@@ -1571,7 +1664,7 @@
 <span class="sd">        An interval mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -1662,7 +1755,7 @@
 <span class="sd">        A mesh of a rectangle.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -1683,6 +1776,7 @@
             <span class="n">partitioner</span><span class="p">,</span>
             <span class="n">diagonal</span><span class="p">,</span>
             <span class="n">gdim</span><span class="p">,</span>
+            <span class="n">ghost_mode</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
         <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_rectangle_float64</span><span class="p">(</span>
@@ -1693,6 +1787,7 @@
             <span class="n">partitioner</span><span class="p">,</span>
             <span class="n">diagonal</span><span class="p">,</span>
             <span class="n">gdim</span><span class="p">,</span>
+            <span class="n">ghost_mode</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mesh geometry float type: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -1778,7 +1873,7 @@
 <span class="sd">        A mesh of a box domain.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_cell_partitioner</span><span class="p">(</span><span class="n">ghost_mode</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -1791,9 +1886,9 @@
     <span class="p">)</span>
     <span class="n">msh</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
-        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float32</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
     <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">):</span>
-        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">msh</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">create_box_float64</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported mesh geometry float type: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
