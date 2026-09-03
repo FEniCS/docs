@@ -755,23 +755,33 @@
     <span class="n">points</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">Real</span><span class="p">],</span>
     <span class="n">padding</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">cells</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">find_closest_cell</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PointOwnershipData</span><span class="p">[</span><span class="n">Real</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build point ownership data for a mesh-points pair.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine, for each point, the owning process of a containing cell.</span>
 
-<span class="sd">    First, potential collisions are found by computing intersections</span>
-<span class="sd">    between the bounding boxes of the cells and the set of points.</span>
-<span class="sd">    Then, actual containment pairs are determined using the GJK algorithm.</span>
+<span class="sd">    A cell is a *candidate* for a point if the cell&#39;s bounding box,</span>
+<span class="sd">    padded by ``padding``, contains the point. Each candidate is then</span>
+<span class="sd">    tested for actual containment of the point with the GJK algorithm.</span>
+<span class="sd">    If no candidate actually contains a point, the point is either left</span>
+<span class="sd">    unowned or, if ``find_closest_cell`` is ``True``, assigned to the</span>
+<span class="sd">    candidate cell closest to it (by GJK distance).</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        mesh: The mesh</span>
 <span class="sd">        points: Points to check for collision, ``shape=(num_points, gdim)``</span>
-<span class="sd">        padding: Amount of absolute padding of bounding boxes of the mesh.</span>
-<span class="sd">            Each bounding box of the mesh is padded with this amount,</span>
-<span class="sd">            to increase the number of candidates, avoiding rounding errors</span>
-<span class="sd">            in determining the owner of a point if the point is on the</span>
-<span class="sd">            surface of a cell in the mesh.</span>
+<span class="sd">        padding: Amount of absolute padding applied to each cell&#39;s</span>
+<span class="sd">            bounding box before searching for candidate cells/processes.</span>
+<span class="sd">            Increasing ``padding`` increases the number of cells</span>
+<span class="sd">            considered as candidates for a point; it does not by</span>
+<span class="sd">            itself decide whether a point with no actually-containing</span>
+<span class="sd">            cell is assigned an owner, which is controlled by</span>
+<span class="sd">            ``find_closest_cell``.</span>
 <span class="sd">        cells: Cells to check for ownership</span>
 <span class="sd">            If ``None`` then all cells are considered.</span>
+<span class="sd">        find_closest_cell: If ``True`` (default), a point not</span>
+<span class="sd">            actually contained in any candidate cell is instead</span>
+<span class="sd">            assigned to the process owning the candidate cell closest</span>
+<span class="sd">            to it. If ``False``, such a point is left unowned.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Point ownership data</span>
@@ -779,14 +789,24 @@
 <span class="sd">    Note:</span>
 <span class="sd">        ``dest_owner`` is sorted</span>
 
-<span class="sd">        ``src_owner`` is -1 if no colliding process is found</span>
+<span class="sd">        An entry of ``src_owner`` is ``-1`` if the corresponding point</span>
+<span class="sd">        was not contained in any candidate cell and, if</span>
+<span class="sd">        ``find_closest_cell`` is ``True``, had no candidate cell to</span>
+<span class="sd">        fall back on either (e.g. because ``padding`` was too small).</span>
 
-<span class="sd">        A large padding value will increase the run-time of the code</span>
-<span class="sd">            by orders of magnitude. General advice is to use a padding on</span>
-<span class="sd">            the scale of the cell size.</span>
+<span class="sd">        With ``find_closest_cell`` set to ``True``, a large padding</span>
+<span class="sd">            value will increase the run-time of the code by orders of</span>
+<span class="sd">            magnitude. General advice is to use a padding on the scale</span>
+<span class="sd">            of the cell size.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">PointOwnershipData</span><span class="p">(</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">determine_point_ownership</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">padding</span><span class="p">,</span> <span class="n">cells</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">determine_point_ownership</span><span class="p">(</span>
+            <span class="n">mesh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">points</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">padding</span><span class="p">,</span>
+            <span class="n">cells</span><span class="p">,</span>
+            <span class="n">find_closest_cell</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="p">)</span></div>
 
 </pre></div>
