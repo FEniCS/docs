@@ -411,6 +411,7 @@ built with ghost cells, i.e. with <code class="docutils literal notranslate"><sp
 <span class="kn">import</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/typing.html#module-numpy.typing"><span class="nn">numpy.typing</span></a><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.common.html#module-dolfinx.common" title="dolfinx.common"><span class="n">common</span></a><span class="p">,</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.graph.html#module-dolfinx.graph" title="dolfinx.graph"><span class="n">graph</span></a><span class="p">,</span> <span class="n">has_kahip</span><span class="p">,</span> <span class="n">has_parmetis</span><span class="p">,</span> <span class="n">has_ptscotch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="../generated/dolfinx.fem.html#module-dolfinx.fem"><span class="nn">dolfinx.fem</span></a><span class="w"> </span><span class="kn">import</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.fem.html#dolfinx.fem.coordinate_element" title="dolfinx.fem.coordinate_element"><span class="n">coordinate_element</span></a>
 <span class="kn">from</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#module-dolfinx.mesh"><span class="nn">dolfinx.mesh</span></a><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <a class="sphinx-codeautolink-a" href="../generated/dolfinx.cpp.mesh.html#dolfinx.cpp.mesh.CellType" title="dolfinx.cpp.mesh.CellType"><span class="n">CellType</span></a><span class="p">,</span>
@@ -694,6 +695,71 @@ only.</p>
         <span class="n">imbalance</span><span class="p">,</span> <span class="n">cut</span> <span class="o">=</span> <span class="n">partition_quality</span><span class="p">(</span><a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh" title="dolfinx.mesh.Mesh"><span class="n">msh</span></a><span class="p">)</span>
         <span class="k">if</span> <a class="sphinx-codeautolink-a" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.Comm.html#mpi4py.MPI.Comm.rank" title="mpi4py.MPI.Comm.rank"><span class="n">comm</span><span class="o">.</span><span class="n">rank</span></a> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;20</span><span class="si">}{</span><span class="n">imbalance</span><span class="si">:</span><span class="s2">&gt;12.3f</span><span class="si">}{</span><span class="n">cut</span><span class="si">:</span><span class="s2">&gt;12</span><span class="si">}{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">&gt;12.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ## Cell weights</span>
+<span class="c1">#</span>
+<span class="c1"># Cell weights can account for unequal per-cell work. A weight is a</span>
+<span class="c1"># positive integer associated with each local input cell; it is passed to</span>
+<span class="c1"># {py:func}`create_mesh &lt;dolfinx.mesh.create_mesh&gt;` together with the</span>
+<span class="c1"># partitioner as ``(partitioner, cell_weights)``. The two arrays must have</span>
+<span class="c1"># the same length, so the weights follow the cells even when the input is</span>
+<span class="c1"># redistributed.</span>
+<span class="c1">#</span>
+<span class="c1"># PT-SCOTCH and ParMETIS support cell weights. The following example makes</span>
+<span class="c1"># every second local input cell twice as expensive and creates a weighted</span>
+<span class="c1"># partition. KaHIP is not used here because it ignores weights.</span>
+<span class="c1">#</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">weighted_partitioner</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">graph</span><span class="o">.</span><span class="n">partitioner_scotch</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">has_ptscotch</span>
+    <span class="k">else</span> <span class="n">graph</span><span class="o">.</span><span class="n">partitioner_parmetis</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">has_parmetis</span>
+    <span class="k">else</span> <span class="kc">None</span>
+<span class="p">)</span>
+
+<span class="k">if</span> <span class="n">weighted_partitioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">cell_weights</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/generated/numpy.where.html#numpy.where" title="numpy.where"><span class="n">np</span><span class="o">.</span><span class="n">where</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/generated/numpy.arange.html#numpy.arange" title="numpy.arange"><span class="n">np</span><span class="o">.</span><span class="n">arange</span></a><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cells0</span><span class="p">))</span> <span class="o">%</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/arrays.scalars.html#numpy.int32" title="numpy.int32"><span class="n">np</span><span class="o">.</span><span class="n">int32</span></a><span class="p">)</span>
+    <a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh" title="dolfinx.mesh.Mesh"><span class="n">weighted_mesh</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#dolfinx.mesh.create_mesh" title="dolfinx.mesh.create_mesh"><span class="n">create_mesh</span></a><span class="p">(</span>
+        <a class="sphinx-codeautolink-a" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.COMM_WORLD.html#mpi4py.MPI.COMM_WORLD" title="mpi4py.MPI.COMM_WORLD"><span class="n">comm</span></a><span class="p">,</span>
+        <span class="n">cells0</span><span class="p">,</span>
+        <a class="sphinx-codeautolink-a" href="../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement" title="dolfinx.fem.element.CoordinateElement"><span class="n">cmap</span></a><span class="p">,</span>
+        <span class="n">x</span><span class="p">,</span>
+        <span class="n">partitioner</span><span class="o">=</span><span class="p">(</span><span class="n">weighted_partitioner</span><span class="p">,</span> <span class="n">cell_weights</span><span class="p">),</span>
+        <span class="n">ghost_mode</span><span class="o">=</span><a class="sphinx-codeautolink-a" href="../generated/dolfinx.cpp.mesh.html#dolfinx.cpp.mesh.GhostMode.none" title="dolfinx.cpp.mesh.GhostMode.none"><span class="n">ghost_mode</span></a><span class="p">,</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ## Cell ordering</span>
+<span class="c1">#</span>
+<span class="c1"># By default, DOLFINx applies reverse Cuthill-McKee (RCM) ordering to the</span>
+<span class="c1"># cells held by each rank after partitioning. Pass ``reorder_fn`` to</span>
+<span class="c1"># {py:func}`create_mesh &lt;dolfinx.mesh.create_mesh&gt;` to select a different</span>
+<span class="c1"># local ordering. The callback receives the local cell dual graph and must</span>
+<span class="c1"># return an ``int32`` map from each old cell index to its new index.</span>
+<span class="c1">#</span>
+<span class="c1"># The identity map below preserves the post-partition order. It is useful</span>
+<span class="c1"># when reproducible input ordering is more important than the locality</span>
+<span class="c1"># benefits of RCM.</span>
+<span class="c1">#</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">identity_cell_ordering</span><span class="p">(</span>
+    <a class="sphinx-codeautolink-a" href="../generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32" title="dolfinx.cpp.graph.AdjacencyList_int32"><span class="n">dual_graph</span></a><span class="p">:</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32" title="dolfinx.cpp.graph.AdjacencyList_int32"><span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span></a><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/typing.html#numpy.typing.NDArray" title="numpy.typing.NDArray"><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span></a><span class="p">[</span><a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/arrays.scalars.html#numpy.int32" title="numpy.int32"><span class="n">np</span><span class="o">.</span><span class="n">int32</span></a><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Preserve the local cell order after partitioning."""</span>
+    <span class="k">return</span> <a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/generated/numpy.arange.html#numpy.arange" title="numpy.arange"><span class="n">np</span><span class="o">.</span><span class="n">arange</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="../generated/dolfinx.cpp.graph.html#dolfinx.cpp.graph.AdjacencyList_int32.num_nodes" title="dolfinx.cpp.graph.AdjacencyList_int32.num_nodes"><span class="n">dual_graph</span><span class="o">.</span><span class="n">num_nodes</span></a><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><a class="sphinx-codeautolink-a" href="https://numpy.org/doc/2.3/reference/arrays.scalars.html#numpy.int32" title="numpy.int32"><span class="n">np</span><span class="o">.</span><span class="n">int32</span></a><span class="p">)</span>
+
+
+<a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#dolfinx.mesh.Mesh" title="dolfinx.mesh.Mesh"><span class="n">input_order_mesh</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="../generated/dolfinx.mesh.html#dolfinx.mesh.create_mesh" title="dolfinx.mesh.create_mesh"><span class="n">create_mesh</span></a><span class="p">(</span>
+    <a class="sphinx-codeautolink-a" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.COMM_WORLD.html#mpi4py.MPI.COMM_WORLD" title="mpi4py.MPI.COMM_WORLD"><span class="n">comm</span></a><span class="p">,</span>
+    <span class="n">cells0</span><span class="p">,</span>
+    <a class="sphinx-codeautolink-a" href="../generated/dolfinx.fem.html#dolfinx.fem.CoordinateElement" title="dolfinx.fem.element.CoordinateElement"><span class="n">cmap</span></a><span class="p">,</span>
+    <span class="n">x</span><span class="p">,</span>
+    <span class="n">reorder_fn</span><span class="o">=</span><span class="n">identity_cell_ordering</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
