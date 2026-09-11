@@ -618,29 +618,39 @@ $(function() {
 <div class="line"><a id="l00738" name="l00738"></a><span class="lineno">  738</span>  assert(x.size() % shape1 == 0);</div>
 <div class="line"><a id="l00739" name="l00739"></a><span class="lineno">  739</span>  <span class="keyword">const</span> std::int64_t shape0_local = x.size() / shape1;</div>
 <div class="line"><a id="l00740" name="l00740"></a><span class="lineno">  740</span> </div>
-<div class="line"><a id="l00741" name="l00741"></a><span class="lineno">  741</span>  std::int64_t shape0 = 0;</div>
-<div class="line"><a id="l00742" name="l00742"></a><span class="lineno">  742</span>  <span class="keywordtype">int</span> err</div>
-<div class="line"><a id="l00743" name="l00743"></a><span class="lineno">  743</span>      = MPI_Allreduce(&amp;shape0_local, &amp;shape0, 1, MPI_INT64_T, MPI_SUM, comm0);</div>
-<div class="line"><a id="l00744" name="l00744"></a><span class="lineno">  744</span>  <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e">dolfinx::MPI::check_error</a>(comm0, err);</div>
-<div class="line"><a id="l00745" name="l00745"></a><span class="lineno">  745</span> </div>
-<div class="line"><a id="l00746" name="l00746"></a><span class="lineno">  746</span>  std::int64_t rank_offset = -1;</div>
-<div class="line"><a id="l00747" name="l00747"></a><span class="lineno">  747</span>  <span class="keywordflow">if</span> (comm1 != MPI_COMM_NULL)</div>
-<div class="line"><a id="l00748" name="l00748"></a><span class="lineno">  748</span>  {</div>
-<div class="line"><a id="l00749" name="l00749"></a><span class="lineno">  749</span>    rank_offset = 0;</div>
-<div class="line"><a id="l00750" name="l00750"></a><span class="lineno">  750</span>    err = MPI_Exscan(&amp;shape0_local, &amp;rank_offset, 1,</div>
-<div class="line"><a id="l00751" name="l00751"></a><span class="lineno">  751</span>                     <a class="code hl_variable" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a027e82c7c17f22c8d77a87f7d55b7f24">dolfinx::MPI::mpi_t&lt;std::int64_t&gt;</a>, MPI_SUM, comm1);</div>
-<div class="line"><a id="l00752" name="l00752"></a><span class="lineno">  752</span>    <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e">dolfinx::MPI::check_error</a>(comm1, err);</div>
-<div class="line"><a id="l00753" name="l00753"></a><span class="lineno">  753</span>  }</div>
-<div class="line"><a id="l00754" name="l00754"></a><span class="lineno">  754</span>  <span class="keywordflow">else</span> <span class="keywordflow">if</span> (!x.empty())</div>
-<div class="line"><a id="l00755" name="l00755"></a><span class="lineno">  755</span>    <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Non-empty data on null MPI communicator&quot;</span>);</div>
-<div class="line"><a id="l00756" name="l00756"></a><span class="lineno">  756</span> </div>
-<div class="line"><a id="l00757" name="l00757"></a><span class="lineno">  757</span>  <span class="keywordflow">return</span> <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a394cabc5de3b0959b77fc8e8e3f463e4">distribute_from_postoffice</a>(comm0, indices, x, {shape0, shape1},</div>
-<div class="line"><a id="l00758" name="l00758"></a><span class="lineno">  758</span>                                    rank_offset);</div>
-<div class="line"><a id="l00759" name="l00759"></a><span class="lineno">  759</span>}</div>
+<div class="line"><a id="l00741" name="l00741"></a><span class="lineno">  741</span>  <span class="comment">// A rank outside comm1 must hold no data. Check this collectively before</span></div>
+<div class="line"><a id="l00742" name="l00742"></a><span class="lineno">  742</span>  <span class="comment">// the later comm0/comm1 collectives to avoid leaving other ranks blocked.</span></div>
+<div class="line"><a id="l00743" name="l00743"></a><span class="lineno">  743</span>  {</div>
+<div class="line"><a id="l00744" name="l00744"></a><span class="lineno">  744</span>    <span class="keywordtype">int</span> invalid_local = (comm1 == MPI_COMM_NULL and !x.empty()) ? 1 : 0;</div>
+<div class="line"><a id="l00745" name="l00745"></a><span class="lineno">  745</span>    <span class="keywordtype">int</span> invalid = 0;</div>
+<div class="line"><a id="l00746" name="l00746"></a><span class="lineno">  746</span>    <span class="keywordtype">int</span> err</div>
+<div class="line"><a id="l00747" name="l00747"></a><span class="lineno">  747</span>        = MPI_Allreduce(&amp;invalid_local, &amp;invalid, 1, MPI_INT, MPI_MAX, comm0);</div>
+<div class="line"><a id="l00748" name="l00748"></a><span class="lineno">  748</span>    <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e">dolfinx::MPI::check_error</a>(comm0, err);</div>
+<div class="line"><a id="l00749" name="l00749"></a><span class="lineno">  749</span>    <span class="keywordflow">if</span> (invalid)</div>
+<div class="line"><a id="l00750" name="l00750"></a><span class="lineno">  750</span>      <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Non-empty data on null MPI communicator&quot;</span>);</div>
+<div class="line"><a id="l00751" name="l00751"></a><span class="lineno">  751</span>  }</div>
+<div class="line"><a id="l00752" name="l00752"></a><span class="lineno">  752</span> </div>
+<div class="line"><a id="l00753" name="l00753"></a><span class="lineno">  753</span>  std::int64_t shape0 = 0;</div>
+<div class="line"><a id="l00754" name="l00754"></a><span class="lineno">  754</span>  <span class="keywordtype">int</span> err</div>
+<div class="line"><a id="l00755" name="l00755"></a><span class="lineno">  755</span>      = MPI_Allreduce(&amp;shape0_local, &amp;shape0, 1, MPI_INT64_T, MPI_SUM, comm0);</div>
+<div class="line"><a id="l00756" name="l00756"></a><span class="lineno">  756</span>  <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e">dolfinx::MPI::check_error</a>(comm0, err);</div>
+<div class="line"><a id="l00757" name="l00757"></a><span class="lineno">  757</span> </div>
+<div class="line"><a id="l00758" name="l00758"></a><span class="lineno">  758</span>  std::int64_t rank_offset = -1;</div>
+<div class="line"><a id="l00759" name="l00759"></a><span class="lineno">  759</span>  <span class="keywordflow">if</span> (comm1 != MPI_COMM_NULL)</div>
+<div class="line"><a id="l00760" name="l00760"></a><span class="lineno">  760</span>  {</div>
+<div class="line"><a id="l00761" name="l00761"></a><span class="lineno">  761</span>    rank_offset = 0;</div>
+<div class="line"><a id="l00762" name="l00762"></a><span class="lineno">  762</span>    err = MPI_Exscan(&amp;shape0_local, &amp;rank_offset, 1,</div>
+<div class="line"><a id="l00763" name="l00763"></a><span class="lineno">  763</span>                     <a class="code hl_variable" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a027e82c7c17f22c8d77a87f7d55b7f24">dolfinx::MPI::mpi_t&lt;std::int64_t&gt;</a>, MPI_SUM, comm1);</div>
+<div class="line"><a id="l00764" name="l00764"></a><span class="lineno">  764</span>    <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a9cc32591cea34ccd303e379a6d694c6e">dolfinx::MPI::check_error</a>(comm1, err);</div>
+<div class="line"><a id="l00765" name="l00765"></a><span class="lineno">  765</span>  }</div>
+<div class="line"><a id="l00766" name="l00766"></a><span class="lineno">  766</span> </div>
+<div class="line"><a id="l00767" name="l00767"></a><span class="lineno">  767</span>  <span class="keywordflow">return</span> <a class="code hl_function" href="../../da/dfe/namespacedolfinx_1_1MPI.html#a394cabc5de3b0959b77fc8e8e3f463e4">distribute_from_postoffice</a>(comm0, indices, x, {shape0, shape1},</div>
+<div class="line"><a id="l00768" name="l00768"></a><span class="lineno">  768</span>                                    rank_offset);</div>
+<div class="line"><a id="l00769" name="l00769"></a><span class="lineno">  769</span>}</div>
 </div>
-<div class="line"><a id="l00760" name="l00760"></a><span class="lineno">  760</span><span class="comment">//---------------------------------------------------------------------------</span></div>
-<div class="line"><a id="l00761" name="l00761"></a><span class="lineno">  761</span> </div>
-<div class="line"><a id="l00762" name="l00762"></a><span class="lineno">  762</span>} <span class="comment">// namespace dolfinx::MPI</span></div>
+<div class="line"><a id="l00770" name="l00770"></a><span class="lineno">  770</span><span class="comment">//---------------------------------------------------------------------------</span></div>
+<div class="line"><a id="l00771" name="l00771"></a><span class="lineno">  771</span> </div>
+<div class="line"><a id="l00772" name="l00772"></a><span class="lineno">  772</span>} <span class="comment">// namespace dolfinx::MPI</span></div>
 </div>
 <div class="ttc" id="aclassdolfinx_1_1MPI_1_1Comm_html_a8fba45b10c8d916a9fdd554e34b7c630"><div class="ttname"><a href="../../dd/d1d/classdolfinx_1_1MPI_1_1Comm.html#a8fba45b10c8d916a9fdd554e34b7c630">dolfinx::MPI::Comm::Comm</a></div><div class="ttdeci">Comm(MPI_Comm comm, bool duplicate=true)</div><div class="ttdoc">Duplicate communicator and wrap duplicate.</div><div class="ttdef"><b>Definition</b> MPI.cpp:21</div></div>
 <div class="ttc" id="aclassdolfinx_1_1MPI_1_1Comm_html_ae855e86466bf4f452ffba4bb060e1f54"><div class="ttname"><a href="../../dd/d1d/classdolfinx_1_1MPI_1_1Comm.html#ae855e86466bf4f452ffba4bb060e1f54">dolfinx::MPI::Comm::~Comm</a></div><div class="ttdeci">~Comm()</div><div class="ttdoc">Destructor (frees wrapped communicator).</div><div class="ttdef"><b>Definition</b> MPI.cpp:45</div></div>

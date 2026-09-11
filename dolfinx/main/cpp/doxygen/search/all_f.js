@@ -18,11 +18,16 @@ var searchData=
   ['register_5ftiming_15',['register_timing',['../db/df3/classdolfinx_1_1common_1_1TimeLogger.html#a60b7b0ee951d2017ebc1e88f42bf45d0',1,'dolfinx::common::TimeLogger']]],
   ['regular_5fadjacency_5flist_16',['regular_adjacency_list',['../d9/d69/namespacedolfinx_1_1graph.html#aa6ef0c61627f8b2f8f0c68fce2d4163d',1,'dolfinx::graph']]],
   ['remote_5findices_17',['remote_indices',['../de/d43/classdolfinx_1_1common_1_1Scatterer.html#a61e39d73a4761cfa31d6ffadc1d552c2',1,'dolfinx::common::Scatterer']]],
-  ['reorder_5fcells_18',['reorder_cells',['../d0/d47/mesh_2utils_8h.html#a9c2935c5a48ee0f715bca7a668742c25',1,'dolfinx::mesh::impl']]],
-  ['reorder_5flist_19',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
-  ['reorder_5frcm_20',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
-  ['resume_21',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['ridge_22',['ridge',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a56c97903eddc9534396c7249d2e5aa1f',1,'dolfinx::fem']]],
-  ['row_5fptr_23',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
-  ['rowptr_5fcontainer_5ftype_24',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]]
+  ['reorder_18',['Reorder',['../d9/d69/namespacedolfinx_1_1graph.html#a4d028265f4965b4617e99921c1c419da',1,'dolfinx::graph']]],
+  ['reorder_5fcells_19',['reorder_cells',['../d0/d47/mesh_2utils_8h.html#a47c483b9a264f2cbf799df90e3d9c4b6',1,'dolfinx::mesh::impl']]],
+  ['reorder_5fgeom_5ffn_20',['reorder_geom_fn',['../d9/d69/namespacedolfinx_1_1graph.html#af9659b0b179164413240b43b1597977c',1,'dolfinx::graph']]],
+  ['reorder_5fgraph_5ffn_21',['reorder_graph_fn',['../d9/d69/namespacedolfinx_1_1graph.html#a9d59fac68a3a2bd9fdd9273684f1008c',1,'dolfinx::graph']]],
+  ['reorder_5flist_22',['reorder_list',['../d0/d47/mesh_2utils_8h.html#a27837f44f6ff45f6809893315743cb38',1,'dolfinx::mesh::impl']]],
+  ['reorder_5frcm_23',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
+  ['reorder_5fsfc_5fhilbert_24',['reorder_sfc_hilbert',['../d9/d69/namespacedolfinx_1_1graph.html#ac014886e521637bd69a6cbae82be8c80',1,'dolfinx::graph']]],
+  ['reorder_5fsfc_5fmorton_25',['reorder_sfc_morton',['../d9/d69/namespacedolfinx_1_1graph.html#af1a7bb1cc3f1762ad92904368e330614',1,'dolfinx::graph']]],
+  ['resume_26',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['ridge_27',['ridge',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a56c97903eddc9534396c7249d2e5aa1f',1,'dolfinx::fem']]],
+  ['row_5fptr_28',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
+  ['rowptr_5fcontainer_5ftype_29',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]]
 ];

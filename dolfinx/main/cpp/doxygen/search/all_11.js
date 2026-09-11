@@ -28,9 +28,10 @@ var searchData=
   ['transfer_5fmeshtags_5fto_5fsubmesh_25',['transfer_meshtags_to_submesh',['../dd/d7d/namespacedolfinx_1_1mesh.html#a47e22728cf034c7efa02e62ff25b9e22',1,'dolfinx::mesh']]],
   ['transpose_26',['transpose',['../df/dcf/namespacedolfinx_1_1io_1_1cells.html#aab23f42f403e856a22080310440af205',1,'dolfinx::io::cells::transpose()'],['../d6/dfa/namespacedolfinx_1_1la.html#ae2dd6f3927bd3519d2efad75da803f15',1,'dolfinx::la::transpose()'],['../d8/dbf/namespacedolfinx_1_1fem.html#a86418c4371281a95280155a7e717c5eba382eb179a7d78f25d89c085988b37e95',1,'dolfinx::fem::transpose']]],
   ['transpose_5fdofmap_27',['transpose_dofmap',['../d8/dbf/namespacedolfinx_1_1fem.html#a24db86d7fd4cf42ce3bd41f9c6585618',1,'dolfinx::fem']]],
-  ['tt_5fapply_28',['Tt_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac2c4ae2b7844245eaca60bfad5644609',1,'dolfinx::fem::FiniteElement']]],
-  ['tt_5fapply_5fright_29',['Tt_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acff5768975f264f0eeaa521af586ea9c',1,'dolfinx::fem::FiniteElement']]],
-  ['tt_5finv_5fapply_30',['Tt_inv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4583796c0195c7ee0eb8e3dbdc270522',1,'dolfinx::fem::FiniteElement']]],
-  ['tt_5finv_5fapply_5fright_31',['Tt_inv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a39ace9c41b11d8a3293ab4b8c28a02b2',1,'dolfinx::fem::FiniteElement']]],
-  ['types_2eh_32',['types.h',['../d5/d99/mesh_2types_8h.html',1,'']]]
+  ['try_5flocally_28',['try_locally',['../d0/d47/mesh_2utils_8h.html#ab8698df431755258999dd81254a1e357',1,'dolfinx::mesh::impl']]],
+  ['tt_5fapply_29',['Tt_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ac2c4ae2b7844245eaca60bfad5644609',1,'dolfinx::fem::FiniteElement']]],
+  ['tt_5fapply_5fright_30',['Tt_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#acff5768975f264f0eeaa521af586ea9c',1,'dolfinx::fem::FiniteElement']]],
+  ['tt_5finv_5fapply_31',['Tt_inv_apply',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4583796c0195c7ee0eb8e3dbdc270522',1,'dolfinx::fem::FiniteElement']]],
+  ['tt_5finv_5fapply_5fright_32',['Tt_inv_apply_right',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a39ace9c41b11d8a3293ab4b8c28a02b2',1,'dolfinx::fem::FiniteElement']]],
+  ['types_2eh_33',['types.h',['../d5/d99/mesh_2types_8h.html',1,'']]]
 ];
