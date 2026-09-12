@@ -5,7 +5,7 @@ var searchData=
   ['map_5fident_2',['map_ident',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#affcae09c2dd151ee8690bbaf72c9501d',1,'dolfinx::fem::FiniteElement']]],
   ['map_5ftype_3',['map_type',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1ea0e3c46b6922df927b7a7f9e282543',1,'dolfinx::fem::FiniteElement']]],
   ['mark_5fdofs_4',['mark_dofs',['../db/d9f/classdolfinx_1_1fem_1_1DirichletBC.html#ae566db907232be8a0a2bc0527c4c7ebd',1,'dolfinx::fem::DirichletBC']]],
-  ['mark_5fmaximum_5',['mark_maximum',['../d9/dd6/namespacedolfinx_1_1refinement.html#a72968b2176b76386dd1bc446c70be8d5',1,'dolfinx::refinement']]],
+  ['mark_5fmaximum_5',['mark_maximum',['../d9/dd6/namespacedolfinx_1_1refinement.html#a5071b2bd7d398ca34e710b1dd85cb9ae',1,'dolfinx::refinement']]],
   ['mat_6',['mat',['../de/d18/classdolfinx_1_1la_1_1petsc_1_1Matrix.html#ade528b2122a5736900370592a773aba9',1,'dolfinx::la::petsc::Matrix']]],
   ['mat_5fadd_5fvalues_7',['mat_add_values',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a29f31ac7eced3e98248e4537b570f1c1',1,'dolfinx::la::MatrixCSR']]],
   ['mat_5fset_5fvalues_8',['mat_set_values',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#af82b24e20208984766017747768330d1',1,'dolfinx::la::MatrixCSR']]],
