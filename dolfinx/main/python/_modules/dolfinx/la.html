@@ -374,7 +374,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for dolfinx.la</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2017-2025 Garth N. Wells, Jack S. Hale</span>
+<span></span><span class="c1"># Copyright (C) 2017-2026 Garth N. Wells, Jack S. Hale</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -383,6 +383,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">TypeVar</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -390,6 +391,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scatterer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">BlockMode</span><span class="p">,</span> <span class="n">InsertMode</span><span class="p">,</span> <span class="n">Norm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scalar</span>
@@ -429,7 +431,6 @@
         <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_int32</span>
         <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">Vector_int64</span>
     <span class="p">)</span>
-    <span class="n">_petsc_x</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span> <span class="o">|</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -453,12 +454,11 @@
 <span class="sd">            User code should call :func:`vector` to create a vector object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">x</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Delete the PETSc vector if it was created.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">petsc_x</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;petsc_vec&quot;</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">petsc_x</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IndexMap</span><span class="p">:</span>
@@ -470,18 +470,28 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Block size for the vector.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">bs</span>
 
+<div class="viewcode-block" id="Vector.scatterer">
+<a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.Vector.scatterer">[docs]</a>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">scatterer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Scatterer</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Scatterer used for ghost communication.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Scatterer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">scatterer</span><span class="p">)</span></div>
+
+
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">array</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">_T</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Local representation of the vector.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">array</span>  <span class="c1"># type: ignore[return-value]</span>
 
-    <span class="nd">@property</span>
+<div class="viewcode-block" id="Vector.petsc_vec">
+<a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.Vector.petsc_vec">[docs]</a>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">cached_property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">petsc_vec</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;PETSc vector holding the entries of the vector.</span>
 
-<span class="sd">        Upon first call, this function creates a PETSc ``Vec`` object</span>
-<span class="sd">        that wraps the degree-of-freedom data. The ``Vec`` object is</span>
-<span class="sd">        cached and the cached ``Vec`` is returned upon subsequent calls.</span>
+<span class="sd">        Upon first access, this creates a PETSc ``Vec`` object that</span>
+<span class="sd">        wraps the degree-of-freedom data. The ``Vec`` object is cached</span>
+<span class="sd">        and the cached ``Vec`` is returned on subsequent accesses.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">          When the object is destroyed it will destroy the underlying</span>
@@ -492,9 +502,8 @@
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_vector_wrap</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span> <span class="o">=</span> <span class="n">create_vector_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_petsc_x</span>
+        <span class="k">return</span> <span class="n">create_vector_wrap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
 
 <div class="viewcode-block" id="Vector.scatter_forward">
 <a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.Vector.scatter_forward">[docs]</a>
@@ -811,13 +820,21 @@
 
 <div class="viewcode-block" id="vector">
 <a class="viewcode-back" href="../../generated/dolfinx.la.html#dolfinx.la.vector">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">vector</span><span class="p">(</span><span class="nb">map</span><span class="p">:</span> <span class="n">IndexMap</span><span class="p">,</span> <span class="n">bs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Vector</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">vector</span><span class="p">(</span>
+    <span class="nb">map</span><span class="p">:</span> <span class="n">IndexMap</span><span class="p">,</span>
+    <span class="n">bs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">scatterer</span><span class="p">:</span> <span class="n">Scatterer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Vector</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a distributed vector.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        map: Index map the describes the size and distribution of the</span>
 <span class="sd">            vector.</span>
 <span class="sd">        bs: Block size.</span>
+<span class="sd">        scatterer: Scatterer compatible with ``map``. If ``None``, a</span>
+<span class="sd">            new scatterer is created.</span>
 <span class="sd">        dtype: The scalar type.</span>
 
 <span class="sd">    Returns:</span>
@@ -849,7 +866,10 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> not supported.&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">vtype</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">))</span></div>
+    <span class="k">if</span> <span class="n">scatterer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">vtype</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">vtype</span><span class="p">(</span><span class="nb">map</span><span class="p">,</span> <span class="n">bs</span><span class="p">,</span> <span class="n">scatterer</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
 
 
 

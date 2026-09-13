@@ -433,10 +433,13 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#dolfinx.common.list_timings" title="dolfinx.common.list_timings"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_timings</span></code></a>(comm[, reduction])</p></td>
 <td><p>Print out a summary of all Timer measurements.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#dolfinx.common.timed" title="dolfinx.common.timed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timed</span></code></a>(task)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#dolfinx.common.scatterer" title="dolfinx.common.scatterer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scatterer</span></code></a>(index_map)</p></td>
+<td><p>Create a scatterer for data with a layout described by an index map.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dolfinx.common.timed" title="dolfinx.common.timed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timed</span></code></a>(task)</p></td>
 <td><p>Decorator for timing functions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#dolfinx.common.timing" title="dolfinx.common.timing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timing</span></code></a>(task)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#dolfinx.common.timing" title="dolfinx.common.timing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timing</span></code></a>(task)</p></td>
 <td><p>Return the logged elapsed time.</p></td>
 </tr>
 </tbody>
@@ -451,7 +454,10 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#dolfinx.common.Reduction" title="dolfinx.common.Reduction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Reduction</span></code></a>(*values)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#dolfinx.common.Timer" title="dolfinx.common.Timer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Timer</span></code></a>([name])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dolfinx.common.Scatterer" title="dolfinx.common.Scatterer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Scatterer</span></code></a>(s)</p></td>
+<td><p>Scatter and gather data with a layout described by an <code class="docutils literal notranslate"><span class="pre">IndexMap</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dolfinx.common.Timer" title="dolfinx.common.Timer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Timer</span></code></a>([name])</p></td>
 <td><p>A timer for timing section of code.</p></td>
 </tr>
 </tbody>
@@ -542,6 +548,184 @@
 <dt class="sig sig-object py" id="dolfinx.common.Reduction.min">
 <span class="sig-name descname"><span class="pre">min</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></span><a class="headerlink" href="#dolfinx.common.Reduction.min" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dolfinx.common.</span></span><span class="sig-name descname"><span class="pre">Scatterer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="dolfinx.cpp.common.html#dolfinx.cpp.common.Scatterer" title="dolfinx.cpp.common.Scatterer"><span class="pre">Scatterer</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dolfinx/common.html#Scatterer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.Scatterer" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Scatter and gather data with a layout described by an <code class="docutils literal notranslate"><span class="pre">IndexMap</span></code>.</p>
+<p>A scatterer is stateless: it holds only the communication pattern
+derived from an <a class="reference internal" href="#dolfinx.common.IndexMap" title="dolfinx.common.IndexMap"><code class="xref py py-class docutils literal notranslate"><span class="pre">IndexMap</span></code></a>, and does not track buffers or
+the status of in-flight MPI requests. Callers of <code class="docutils literal notranslate"><span class="pre">scatter_fwd_begin</span></code>/
+<code class="docutils literal notranslate"><span class="pre">scatter_rev_begin</span></code> are responsible for managing the send/receive
+buffers and the returned request, and can share one scatterer
+between multiple objects (e.g. <a class="reference internal" href="dolfinx.la.html#dolfinx.la.Vector" title="dolfinx.la.Vector"><code class="xref py py-class docutils literal notranslate"><span class="pre">dolfinx.la.Vector</span></code></a>) that use
+the same index map.</p>
+<p>A forward scatter sends data associated with owned/local indices
+to the ranks that ghost them; a reverse scatter sends ghost data
+back to the owning ranks, to be accumulated into the owned data.
+Both use the same two-step begin/end pattern, splitting the
+non-blocking exchange from its completion so that unrelated work
+can be done while communication is in flight. A round trip for a
+forward scatter with block size 1, where <code class="docutils literal notranslate"><span class="pre">x</span></code> holds the owned
+data and <code class="docutils literal notranslate"><span class="pre">x_ghost</span></code> the ghost data:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">local_idx</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">local_indices_block</span>
+<span class="n">remote_idx</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">remote_indices_block</span>
+
+<span class="n">send_buffer</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">local_idx</span><span class="p">]</span>
+<span class="n">recv_buffer</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">remote_idx</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+<span class="n">request</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">scatter_fwd_begin</span><span class="p">(</span><span class="n">send_buffer</span><span class="p">,</span> <span class="n">recv_buffer</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="c1"># ... unrelated work can be done here while communication is</span>
+<span class="c1"># in flight, but send_buffer/recv_buffer must not be touched ...</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">scatter_fwd_end</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+<span class="n">x_ghost</span><span class="p">[</span><span class="n">remote_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">recv_buffer</span>
+</pre></div>
+</div>
+<p>A reverse scatter follows the same pattern with the roles of
+<code class="docutils literal notranslate"><span class="pre">local_indices_block</span></code>/<code class="docutils literal notranslate"><span class="pre">remote_indices_block</span></code> and of
+<code class="docutils literal notranslate"><span class="pre">send_buffer</span></code>/<code class="docutils literal notranslate"><span class="pre">recv_buffer</span></code> swapped, and accumulating (rather
+than assigning) into the destination array; see
+<a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_begin" title="dolfinx.common.Scatterer.scatter_rev_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_begin()</span></code></a> and <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_end" title="dolfinx.common.Scatterer.scatter_rev_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_end()</span></code></a>.</p>
+<p>Create a scatterer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This initialiser is intended for internal library use only.
+User code should call <a class="reference internal" href="#dolfinx.common.scatterer" title="dolfinx.common.scatterer"><code class="xref py py-func docutils literal notranslate"><span class="pre">scatterer()</span></code></a> to create a
+scatterer object.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>s</strong> – C++ Scatterer object.</p>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.local_indices_block">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">local_indices_block</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#dolfinx.common.Scatterer.local_indices_block" title="Link to this definition">#</a></dt>
+<dd><p>Indices for packing/unpacking owned data in a send/recv buffer.</p>
+<p>For a forward scatter, used to copy owned entries into a send
+buffer. For a reverse scatter, used to accumulate received
+values into the owned entries. Blocked: for block size <code class="docutils literal notranslate"><span class="pre">bs</span></code>
+a buffer holds <code class="docutils literal notranslate"><span class="pre">bs</span></code> values per index and must be
+<code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span> <span class="pre">local_indices_block.size</span></code> long.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.remote_indices_block">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">remote_indices_block</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int32</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#dolfinx.common.Scatterer.remote_indices_block" title="Link to this definition">#</a></dt>
+<dd><p>Indices for packing/unpacking ghost data in a send/recv buffer.</p>
+<p>For a forward scatter, used to unpack received values into
+ghost entries. For a reverse scatter, used to pack ghost
+entries into a send buffer. Blocked: for block size <code class="docutils literal notranslate"><span class="pre">bs</span></code> a
+buffer holds <code class="docutils literal notranslate"><span class="pre">bs</span></code> values per index and must be
+<code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span> <span class="pre">remote_indices_block.size</span></code> long.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.scatter_fwd_begin">
+<span class="sig-name descname"><span class="pre">scatter_fwd_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">send_buffer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float32</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex128</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recv_buffer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float32</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex128</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.Request.html#mpi4py.MPI.Request" title="(in MPI for Python v4.1)"><span class="pre">Request</span></a></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#Scatterer.scatter_fwd_begin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.Scatterer.scatter_fwd_begin" title="Link to this definition">#</a></dt>
+<dd><p>Start a non-blocking exchange of owned data with ghosting ranks.</p>
+<p>The communication is completed by calling
+<a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_end" title="dolfinx.common.Scatterer.scatter_fwd_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_end()</span></code></a>. See <a class="reference internal" href="#dolfinx.common.Scatterer.local_indices_block" title="dolfinx.common.Scatterer.local_indices_block"><code class="xref py py-attr docutils literal notranslate"><span class="pre">local_indices_block</span></code></a> for
+how to pack <code class="docutils literal notranslate"><span class="pre">send_buffer</span></code> and <a class="reference internal" href="#dolfinx.common.Scatterer.remote_indices_block" title="dolfinx.common.Scatterer.remote_indices_block"><code class="xref py py-attr docutils literal notranslate"><span class="pre">remote_indices_block</span></code></a>
+for how to unpack <code class="docutils literal notranslate"><span class="pre">recv_buffer</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Collective. Every rank in the communicator must call this,
+including ranks without neighbours.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">send_buffer</span></code>/<code class="docutils literal notranslate"><span class="pre">recv_buffer</span></code> must not be changed or
+accessed until after a call to <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_end" title="dolfinx.common.Scatterer.scatter_fwd_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_end()</span></code></a>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>send_buffer</strong> – Packed owned data, blocked by <code class="docutils literal notranslate"><span class="pre">bs</span></code>, sized
+<code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span> <span class="pre">local_indices_block.size</span></code>.</p></li>
+<li><p><strong>recv_buffer</strong> – Buffer for storing received data, blocked by
+<code class="docutils literal notranslate"><span class="pre">bs</span></code>, sized <code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span> <span class="pre">remote_indices_block.size</span></code>.</p></li>
+<li><p><strong>bs</strong> – Number of values per index map index.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Request to pass to <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_end" title="dolfinx.common.Scatterer.scatter_fwd_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_end()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.scatter_fwd_end">
+<span class="sig-name descname"><span class="pre">scatter_fwd_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.Request.html#mpi4py.MPI.Request" title="(in MPI for Python v4.1)"><span class="pre">Request</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#Scatterer.scatter_fwd_end"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.Scatterer.scatter_fwd_end" title="Link to this definition">#</a></dt>
+<dd><p>Complete the exchange started by <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_begin" title="dolfinx.common.Scatterer.scatter_fwd_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_begin()</span></code></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Local completion of the caller’s own request, not itself
+collective. Every rank that called
+<a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_begin" title="dolfinx.common.Scatterer.scatter_fwd_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_begin()</span></code></a> must still call this before
+reusing the buffers.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>request</strong> – Request returned by <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_fwd_begin" title="dolfinx.common.Scatterer.scatter_fwd_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_fwd_begin()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.scatter_rev_begin">
+<span class="sig-name descname"><span class="pre">scatter_rev_begin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">send_buffer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float32</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex128</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recv_buffer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.3)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.interpolation.html#basix.interpolation.Any" title="(in Basix v0.12.0.dev0)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/2.3/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.3)"><span class="pre">dtype</span></a><span class="p"><span class="pre">[</span></span><span class="pre">int64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float32</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex64</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">complex128</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.Request.html#mpi4py.MPI.Request" title="(in MPI for Python v4.1)"><span class="pre">Request</span></a></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#Scatterer.scatter_rev_begin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.Scatterer.scatter_rev_begin" title="Link to this definition">#</a></dt>
+<dd><p>Start a non-blocking exchange of ghost data with owning ranks.</p>
+<p>The communication is completed by calling
+<a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_end" title="dolfinx.common.Scatterer.scatter_rev_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_end()</span></code></a>. See <a class="reference internal" href="#dolfinx.common.Scatterer.remote_indices_block" title="dolfinx.common.Scatterer.remote_indices_block"><code class="xref py py-attr docutils literal notranslate"><span class="pre">remote_indices_block</span></code></a> for
+how to pack <code class="docutils literal notranslate"><span class="pre">send_buffer</span></code> and <a class="reference internal" href="#dolfinx.common.Scatterer.local_indices_block" title="dolfinx.common.Scatterer.local_indices_block"><code class="xref py py-attr docutils literal notranslate"><span class="pre">local_indices_block</span></code></a>
+for how to unpack (accumulate into) <code class="docutils literal notranslate"><span class="pre">recv_buffer</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Collective. Every rank in the communicator must call this,
+including ranks without neighbours.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">send_buffer</span></code>/<code class="docutils literal notranslate"><span class="pre">recv_buffer</span></code> must not be changed or
+accessed until after a call to <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_end" title="dolfinx.common.Scatterer.scatter_rev_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_end()</span></code></a>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>send_buffer</strong> – Data associated with each ghost index,
+blocked by <code class="docutils literal notranslate"><span class="pre">bs</span></code>, sized <code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span>
+<span class="pre">remote_indices_block.size</span></code>.</p></li>
+<li><p><strong>recv_buffer</strong> – Buffer for storing received data, blocked by
+<code class="docutils literal notranslate"><span class="pre">bs</span></code>, sized <code class="docutils literal notranslate"><span class="pre">bs</span> <span class="pre">*</span> <span class="pre">local_indices_block.size</span></code>.</p></li>
+<li><p><strong>bs</strong> – Number of values per index map index.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Request to pass to <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_end" title="dolfinx.common.Scatterer.scatter_rev_end"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_end()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dolfinx.common.Scatterer.scatter_rev_end">
+<span class="sig-name descname"><span class="pre">scatter_rev_end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mpi4py.readthedocs.io/en/4.1.1/reference/mpi4py.MPI.Request.html#mpi4py.MPI.Request" title="(in MPI for Python v4.1)"><span class="pre">Request</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#Scatterer.scatter_rev_end"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.Scatterer.scatter_rev_end" title="Link to this definition">#</a></dt>
+<dd><p>Complete the exchange started by <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_begin" title="dolfinx.common.Scatterer.scatter_rev_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_begin()</span></code></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Local completion of the caller’s own request, not itself
+collective. Every rank that called
+<a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_begin" title="dolfinx.common.Scatterer.scatter_rev_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_begin()</span></code></a> must still call this before
+reusing the buffers.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>request</strong> – Request returned by <a class="reference internal" href="#dolfinx.common.Scatterer.scatter_rev_begin" title="dolfinx.common.Scatterer.scatter_rev_begin"><code class="xref py py-meth docutils literal notranslate"><span class="pre">scatter_rev_begin()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -655,6 +839,21 @@ By default, the maximum time is shown.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="dolfinx.common.scatterer">
+<span class="sig-prename descclassname"><span class="pre">dolfinx.common.</span></span><span class="sig-name descname"><span class="pre">scatterer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="dolfinx.cpp.common.html#dolfinx.cpp.common.IndexMap" title="dolfinx.cpp.common.IndexMap"><span class="pre">IndexMap</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#dolfinx.common.Scatterer" title="dolfinx.common.Scatterer"><span class="pre">Scatterer</span></a></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#scatterer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.scatterer" title="Link to this definition">#</a></dt>
+<dd><p>Create a scatterer for data with a layout described by an index map.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>index_map</strong> – Index map that describes the parallel layout of
+the data.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A new scatterer.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="dolfinx.common.timed">
 <span class="sig-prename descclassname"><span class="pre">dolfinx.common.</span></span><span class="sig-name descname"><span class="pre">timed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="reference internal" href="../_modules/dolfinx/common.html#timed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dolfinx.common.timed" title="Link to this definition">#</a></dt>
 <dd><p>Decorator for timing functions.</p>
@@ -743,6 +942,15 @@ By default, the maximum time is shown.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Reduction.min"><code class="docutils literal notranslate"><span class="pre">Reduction.min</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer"><code class="docutils literal notranslate"><span class="pre">Scatterer</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.local_indices_block"><code class="docutils literal notranslate"><span class="pre">Scatterer.local_indices_block</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.remote_indices_block"><code class="docutils literal notranslate"><span class="pre">Scatterer.remote_indices_block</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.scatter_fwd_begin"><code class="docutils literal notranslate"><span class="pre">Scatterer.scatter_fwd_begin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.scatter_fwd_end"><code class="docutils literal notranslate"><span class="pre">Scatterer.scatter_fwd_end()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.scatter_rev_begin"><code class="docutils literal notranslate"><span class="pre">Scatterer.scatter_rev_begin()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Scatterer.scatter_rev_end"><code class="docutils literal notranslate"><span class="pre">Scatterer.scatter_rev_end()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Timer"><code class="docutils literal notranslate"><span class="pre">Timer</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Timer.elapsed"><code class="docutils literal notranslate"><span class="pre">Timer.elapsed()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.Timer.flush"><code class="docutils literal notranslate"><span class="pre">Timer.flush()</span></code></a></li>
@@ -752,6 +960,7 @@ By default, the maximum time is shown.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.list_timings"><code class="docutils literal notranslate"><span class="pre">list_timings()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.scatterer"><code class="docutils literal notranslate"><span class="pre">scatterer()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.timed"><code class="docutils literal notranslate"><span class="pre">timed()</span></code></a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dolfinx.common.timing"><code class="docutils literal notranslate"><span class="pre">timing()</span></code></a></li>
 </ul>
