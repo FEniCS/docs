@@ -381,6 +381,7 @@
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 <span class="sd">&quot;&quot;&quot;Degree-of-freedom maps.&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 
@@ -390,9 +391,11 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">DofMap</span> <span class="k">as</span> <span class="n">_DofMap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_dofmaps</span> <span class="k">as</span> <span class="n">_create_dofmaps</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.element</span><span class="w"> </span><span class="kn">import</span> <span class="n">FiniteElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.element</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElementDofLayout</span><span class="p">,</span> <span class="n">FiniteElement</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdjacencyList</span>
 
 <span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx.mesh</span>
@@ -412,6 +415,16 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">:</span> <span class="n">_DofMap</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise a degree-of-freedom map.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">dofmap</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two wrappers hold the same dofmap.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">DofMap</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of the wrapped dofmap.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DofMap.cell_dofs">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.DofMap.cell_dofs">[docs]</a>
@@ -433,15 +446,31 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Block size of the dofmap.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">bs</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">dof_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">ElementDofLayout</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Layout of dofs on an element.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dof_layout</span>
+<div class="viewcode-block" id="DofMap.dof_layout">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.DofMap.dof_layout">[docs]</a>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dof_layout</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ElementDofLayout</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Layout of dofs on an element.</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index map describing parallel distribution of the dofmap.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span>
+<span class="sd">        Note:</span>
+<span class="sd">            This is a cached property. The wrapper is built on first</span>
+<span class="sd">            access and the same object is returned thereafter.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ElementDofLayout</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">dof_layout</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DofMap.index_map">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.DofMap.index_map">[docs]</a>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IndexMap</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index map describing parallel distribution of the dofmap.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is a cached property. The wrapper is built on first</span>
+<span class="sd">            access and the same object is returned thereafter.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">IndexMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">)</span></div>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">index_map_bs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -474,6 +503,25 @@
     <span class="n">elements_cpp</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">]</span>
     <span class="n">cpp_dofmaps</span> <span class="o">=</span> <span class="n">_create_dofmaps</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">topology</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">elements_cpp</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
     <span class="k">return</span> <span class="p">[</span><span class="n">DofMap</span><span class="p">(</span><span class="n">cpp_object</span><span class="p">)</span> <span class="k">for</span> <span class="n">cpp_object</span> <span class="ow">in</span> <span class="n">cpp_dofmaps</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="transpose_dofmap">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.transpose_dofmap">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">transpose_dofmap</span><span class="p">(</span><span class="n">dofmap</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the index to ``(cell, local index)`` map from a dofmap.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dofmap: Dofmap ``(cell, local index) -&gt; index``, with shape</span>
+<span class="sd">            ``(num_cells, dofs_per_cell)``.</span>
+<span class="sd">        num_cells: Number of cells in ``dofmap`` to consider. Cells</span>
+<span class="sd">            beyond ``num_cells`` are ignored.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Adjacency list where node ``i`` holds the positions in the</span>
+<span class="sd">        flattened ``dofmap`` at which index ``i`` appears.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">AdjacencyList</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">transpose_dofmap</span><span class="p">(</span><span class="n">dofmap</span><span class="p">,</span> <span class="n">num_cells</span><span class="p">))</span></div>
 
 </pre></div>
 

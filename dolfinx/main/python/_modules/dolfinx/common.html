@@ -384,7 +384,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
 
@@ -393,7 +393,6 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">IndexMap</span><span class="p">,</span>
     <span class="n">git_commit_hash</span><span class="p">,</span>
     <span class="n">hardware_concurrency</span><span class="p">,</span>
     <span class="n">has_adios2</span><span class="p">,</span>
@@ -415,6 +414,7 @@
     <span class="s2">&quot;Reduction&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Scatterer&quot;</span><span class="p">,</span>
     <span class="s2">&quot;Timer&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_sub_index_map&quot;</span><span class="p">,</span>
     <span class="s2">&quot;git_commit_hash&quot;</span><span class="p">,</span>
     <span class="s2">&quot;hardware_concurrency&quot;</span><span class="p">,</span>
     <span class="s2">&quot;has_adios2&quot;</span><span class="p">,</span>
@@ -427,6 +427,7 @@
     <span class="s2">&quot;has_ptscotch&quot;</span><span class="p">,</span>
     <span class="s2">&quot;has_slepc&quot;</span><span class="p">,</span>
     <span class="s2">&quot;has_superlu_dist&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;index_map&quot;</span><span class="p">,</span>
     <span class="s2">&quot;list_timings&quot;</span><span class="p">,</span>
     <span class="s2">&quot;local_range&quot;</span><span class="p">,</span>
     <span class="s2">&quot;scatterer&quot;</span><span class="p">,</span>
@@ -437,9 +438,147 @@
 
 <span class="n">Reduction</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Reduction</span>
 
+<span class="c1"># Default MPI tag of the consensus exchange used when building a ghosted</span>
+<span class="c1"># index map (dolfinx::MPI::tag::consensus_nbx).</span>
+<span class="n">_CONSENSUS_NBX_TAG</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">consensus_nbx_tag</span>
+
 <span class="n">_ScatterArray</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span>
     <span class="n">np</span><span class="o">.</span><span class="n">int64</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">complex128</span>
 <span class="p">]</span>
+
+
+<div class="viewcode-block" id="IndexMap">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.IndexMap">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IndexMap</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map indices across processes.</span>
+
+<span class="sd">    An index map describes the parallel distribution of a range of</span>
+<span class="sd">    indices. Each index is owned by exactly one process. A process holds</span>
+<span class="sd">    the indices it owns, numbered ``[0, size_local)`` locally, followed</span>
+<span class="sd">    by the &#39;ghost&#39; indices it holds but does not own, numbered</span>
+<span class="sd">    ``[size_local, size_local + num_ghosts)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_cpp_object</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imap</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create an index map.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This initialiser is intended for internal library use only.</span>
+<span class="sd">            User code should call :func:`index_map` to create an index</span>
+<span class="sd">            map.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            imap: C++ IndexMap object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">imap</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two wrappers hold the same underlying C++ index map.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is identity of the wrapped object, not equivalence of</span>
+<span class="sd">            the distribution it describes. Two separately constructed</span>
+<span class="sd">            index maps do not compare equal, even if identical.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">IndexMap</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of the wrapped index map.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;MPI communicator that the index map is distributed over.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">comm</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size_local</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of indices owned by the calling process.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">size_local</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size_global</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of indices across all processes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">size_global</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_ghosts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of ghost indices on the calling process.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_ghosts</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">local_range</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Range of global indices owned by the calling process.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">local_range</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ghosts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Global index of each ghost index.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The returned array is a read-only view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">ghosts</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">owners</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Owning rank of each ghost index.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The returned array is a read-only view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">owners</span>
+
+<div class="viewcode-block" id="IndexMap.index_to_dest_ranks">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.IndexMap.index_to_dest_ranks">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_to_dest_ranks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ranks that ghost each owned index, as an adjacency list.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tag: MPI tag used by the consensus exchange. Must be the</span>
+<span class="sd">                same on all ranks, and must not clash with another</span>
+<span class="sd">                in-flight exchange.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Ghosting ranks of each owned index, as a (data, offsets)</span>
+<span class="sd">            pair.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_to_dest_ranks</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IndexMap.local_to_global">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.IndexMap.local_to_global">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">local_to_global</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map local indices to global indices.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            local: Local indices.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Global index of each entry of ``local``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">local_to_global</span><span class="p">(</span><span class="n">local</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="IndexMap.global_to_local">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.IndexMap.global_to_local">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">global_to_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">global_index</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Map global indices to local indices.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            global_index: Global indices.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Local index of each entry of ``global_index``, with ``-1``</span>
+<span class="sd">            for indices that are not owned or ghosted by the caller.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">global_to_local</span><span class="p">(</span><span class="n">global_index</span><span class="p">)</span></div>
+</div>
+
 
 
 <div class="viewcode-block" id="Scatterer">
@@ -496,6 +635,16 @@
 <span class="sd">            s: C++ Scatterer object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">s</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two wrappers hold the same scatterer.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Scatterer</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of the wrapped scatterer.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">local_indices_block</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
@@ -632,6 +781,97 @@
 
 
 
+<div class="viewcode-block" id="index_map">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.index_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">local_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">ghosts</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">dest_src</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_CONSENSUS_NBX_TAG</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IndexMap</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an index map.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Collective. ``ghosts`` must be ``None`` on every process or</span>
+<span class="sd">        given on every process, and likewise for ``dest_src``. This is</span>
+<span class="sd">        a precondition and is not checked, since checking it would</span>
+<span class="sd">        require communication on every call.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator to distribute the indices over.</span>
+<span class="sd">        local_size: Number of indices owned by the calling process.</span>
+<span class="sd">        ghosts: Tuple ``(ghost_indices, owners)`` of global ghost</span>
+<span class="sd">            indices and their owning ranks. If ``None``, the index map</span>
+<span class="sd">            is non-overlapping and ``ghosts`` must be ``None`` on every</span>
+<span class="sd">            process. For an overlapping map, a process with no ghosts</span>
+<span class="sd">            must pass empty arrays.</span>
+<span class="sd">        dest_src: Pair ``(dest, src)`` of destination and source rank</span>
+<span class="sd">            arrays. ``dest`` lists ranks that ghost caller-owned</span>
+<span class="sd">            indices; ``src`` lists ranks that own the caller&#39;s ghosts</span>
+<span class="sd">            and must equal the unique values in ``owners``. Both arrays</span>
+<span class="sd">            must be sorted, unique, and contain valid ranks. Supplying</span>
+<span class="sd">            them avoids the consensus exchange that otherwise discovers</span>
+<span class="sd">            which ranks ghost the caller&#39;s owned indices.</span>
+<span class="sd">        tag: MPI tag for the consensus exchange. Ignored if ``dest_src``</span>
+<span class="sd">            is given. Must be the same on all ranks, and must not clash</span>
+<span class="sd">            with another in-flight exchange.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A new index map.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">ghosts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dest_src</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;dest_src&#39; given without &#39;ghosts&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">IndexMap</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">local_size</span><span class="p">))</span>
+
+    <span class="n">ghost_indices</span><span class="p">,</span> <span class="n">owners</span> <span class="o">=</span> <span class="n">ghosts</span>
+    <span class="k">if</span> <span class="n">dest_src</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">IndexMap</span><span class="p">(</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">local_size</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">dest_src</span><span class="p">),</span> <span class="n">ghost_indices</span><span class="p">,</span> <span class="n">owners</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">IndexMap</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">local_size</span><span class="p">,</span> <span class="n">ghost_indices</span><span class="p">,</span> <span class="n">owners</span><span class="p">,</span> <span class="n">tag</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="create_sub_index_map">
+<a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.create_sub_index_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_sub_index_map</span><span class="p">(</span>
+    <span class="n">imap</span><span class="p">:</span> <span class="n">IndexMap</span><span class="p">,</span>
+    <span class="n">indices</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">IndexMap</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create an index map for a subset of the indices of an index map.</span>
+
+<span class="sd">    An index that is included by a process that ghosts it, but not by</span>
+<span class="sd">    its owner, is re-assigned to one of the including processes.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Collective.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        imap: Index map to build a sub-map of.</span>
+<span class="sd">        indices: Local indices of ``imap``, unique and in range, to</span>
+<span class="sd">            include in the sub-map.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The sub-map, the index in ``imap`` of each of its indices, and</span>
+<span class="sd">        whether any index acquired a new owner.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The owner-change flag is rank-local and is not reduced, so it</span>
+<span class="sd">        can differ across ranks. Reduce it (e.g. ``comm.allreduce(...,</span>
+<span class="sd">        op=MPI.LOR)``) before using it in a collective decision;</span>
+<span class="sd">        branching on the unreduced value can leave some ranks in a</span>
+<span class="sd">        collective that others have skipped.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">submap</span><span class="p">,</span> <span class="n">submap_to_map</span><span class="p">,</span> <span class="n">owners_changed</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">create_sub_index_map</span><span class="p">(</span>
+        <span class="n">imap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">indices</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">IndexMap</span><span class="p">(</span><span class="n">submap</span><span class="p">),</span> <span class="n">submap_to_map</span><span class="p">,</span> <span class="n">owners_changed</span></div>
+
+
+
 <div class="viewcode-block" id="scatterer">
 <a class="viewcode-back" href="../../generated/dolfinx.common.html#dolfinx.common.scatterer">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">scatterer</span><span class="p">(</span><span class="n">index_map</span><span class="p">:</span> <span class="n">IndexMap</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Scatterer</span><span class="p">:</span>
@@ -644,7 +884,7 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        A new scatterer.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">Scatterer</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Scatterer</span><span class="p">(</span><span class="n">index_map</span><span class="p">))</span></div>
+    <span class="k">return</span> <span class="n">Scatterer</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">Scatterer</span><span class="p">(</span><span class="n">index_map</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">))</span></div>
 
 
 

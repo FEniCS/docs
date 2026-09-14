@@ -387,6 +387,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
 
@@ -399,12 +400,13 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_real_type</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span> <span class="k">as</span> <span class="n">_IndexMap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">index_map</span> <span class="k">as</span> <span class="n">_index_map</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CellType</span><span class="p">,</span>
     <span class="n">DiagonalType</span><span class="p">,</span>
     <span class="n">GhostMode</span><span class="p">,</span>
-    <span class="n">build_dual_graph</span><span class="p">,</span>
     <span class="n">cell_dim</span><span class="p">,</span>
+    <span class="n">cell_num_entities</span><span class="p">,</span>
     <span class="n">to_string</span><span class="p">,</span>
     <span class="n">to_type</span><span class="p">,</span>
 <span class="p">)</span>
@@ -433,6 +435,7 @@
     <span class="s2">&quot;Topology&quot;</span><span class="p">,</span>
     <span class="s2">&quot;build_dual_graph&quot;</span><span class="p">,</span>
     <span class="s2">&quot;cell_dim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cell_num_entities&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_cell_centroids&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_incident_entities&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_midpoints&quot;</span><span class="p">,</span>
@@ -496,6 +499,10 @@
     <span class="p">],</span>
     <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span>
 <span class="p">]</span>
+
+<span class="c1"># A cell reordering function receives the local cell dual graph and</span>
+<span class="c1"># returns the new index of each cell.</span>
+<span class="n">CellReorderFunc</span> <span class="o">=</span> <span class="n">typing</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[</span><span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]]</span>
 
 
 <div class="viewcode-block" id="create_geometric_cell_partitioner">
@@ -573,6 +580,56 @@
 
 
 
+<div class="viewcode-block" id="build_dual_graph">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.build_dual_graph">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_dual_graph</span><span class="p">(</span>
+    <span class="n">comm</span><span class="p">:</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">,</span>
+    <span class="n">cell_types</span><span class="p">:</span> <span class="n">CellType</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">CellType</span><span class="p">],</span>
+    <span class="n">cells</span><span class="p">:</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]],</span>
+    <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">num_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the dual graph of a mesh, i.e. the cell-to-cell graph.</span>
+
+<span class="sd">    Two cells are connected in the dual graph if they share a facet.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        comm: MPI communicator that ``cells`` is distributed over.</span>
+<span class="sd">        cell_types: Cell type, or the cell types of a mixed-topology</span>
+<span class="sd">            mesh.</span>
+<span class="sd">        cells: Cells, using global vertex indices. For a single cell</span>
+<span class="sd">            type, an adjacency list of the cell vertices; for a</span>
+<span class="sd">            mixed-topology mesh, one array of cell vertices per cell</span>
+<span class="sd">            type.</span>
+<span class="sd">        max_facet_to_cell_links: Maximum number of cells that a facet</span>
+<span class="sd">            may connect. If ``None``, no limit is applied.</span>
+<span class="sd">        num_threads: Number of CPU threads to use. Must be &gt;= 1.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The dual graph, with the local cells as nodes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># The C++ function is overloaded on the single/mixed cell-type</span>
+    <span class="c1"># forms, so dispatch on &#39;cell_types&#39; rather than passing a union.</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cell_types</span><span class="p">,</span> <span class="n">CellType</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">AdjacencyList</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;&#39;cells&#39; must be an AdjacencyList for a single cell type.&quot;</span><span class="p">)</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">build_dual_graph</span><span class="p">(</span>
+            <span class="n">comm</span><span class="p">,</span>
+            <span class="n">cell_types</span><span class="p">,</span>
+            <span class="n">cells</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">max_facet_to_cell_links</span><span class="p">,</span>
+            <span class="n">num_threads</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">AdjacencyList</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;&#39;cells&#39; must be one array per cell type for a mixed-topology mesh.&quot;</span><span class="p">)</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">build_dual_graph</span><span class="p">(</span>
+            <span class="n">comm</span><span class="p">,</span> <span class="n">cell_types</span><span class="p">,</span> <span class="n">cells</span><span class="p">,</span> <span class="n">max_facet_to_cell_links</span><span class="p">,</span> <span class="n">num_threads</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">AdjacencyList</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span></div>
+
+
+
 <div class="viewcode-block" id="compute_cell_centroids">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.compute_cell_centroids">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_cell_centroids</span><span class="p">(</span>
@@ -629,6 +686,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">topology</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two wrappers hold the same topology.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Topology</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of the wrapped topology.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+
 <div class="viewcode-block" id="Topology.cell_name">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.cell_name">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">cell_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -638,18 +705,35 @@
 
 <div class="viewcode-block" id="Topology.connectivity">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.connectivity">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">connectivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">connectivity</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">d0</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">d1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return connectivity.</span>
 
 <span class="sd">        Connectivity from entities of dimension ``d0`` to entities of</span>
-<span class="sd">        dimension ``d1``.</span>
+<span class="sd">        dimension ``d1``. For a mixed-topology mesh, a dimension is</span>
+<span class="sd">        given as a ``(dimension, entity type index)`` pair.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            d0: Dimension of entity one is mapping from.</span>
 <span class="sd">            d1: Dimension of entity one is mapping to.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">conn</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">conn</span>
+        <span class="c1"># The C++ method is overloaded on the single/mixed-topology</span>
+        <span class="c1"># forms. The two calls below are identical at runtime, but the</span>
+        <span class="c1"># isinstance test narrows the argument types so that each picks</span>
+        <span class="c1"># the matching overload of the generated stub. Test for a pair</span>
+        <span class="c1"># rather than for an int, so that a dimension given as e.g. a</span>
+        <span class="c1"># NumPy integer is still treated as a dimension.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;&#39;d0&#39; and &#39;d1&#39; must both be a dimension or both be a pair.&quot;</span><span class="p">)</span>
+            <span class="n">conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d1</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;&#39;d0&#39; and &#39;d1&#39; must both be a dimension or both be a pair.&quot;</span><span class="p">)</span>
+            <span class="n">conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">connectivity</span><span class="p">(</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conn</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">AdjacencyList</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Connectivity between dimension </span><span class="si">{</span><span class="n">d0</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">d1</span><span class="si">}</span><span class="s2"> has not been computed.&quot;</span><span class="p">,</span>
@@ -744,7 +828,7 @@
 
 <div class="viewcode-block" id="Topology.index_map">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.index_map">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_IndexMap</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Index map for the parallel distribution of the mesh entities.</span>
 
 <span class="sd">        Args:</span>
@@ -753,12 +837,12 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            Index map for the entities of dimension ``dim``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">_IndexMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="Topology.index_maps">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Topology.index_maps">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">index_maps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_maps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_IndexMap</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Index maps for parallel distribution of the mesh entities.</span>
 
 <span class="sd">        Args:</span>
@@ -768,7 +852,7 @@
 <span class="sd">            Index maps for the entities of dimension ``dim``. May be</span>
 <span class="sd">            empty if not yet computed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_maps</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="p">[</span><span class="n">_IndexMap</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_maps</span><span class="p">(</span><span class="n">dim</span><span class="p">)]</span></div>
 
 
 <div class="viewcode-block" id="Topology.interprocess_facets">
@@ -814,10 +898,23 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">geometry</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">cmaps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">_CoordinateElement</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The coordinate maps.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">_CoordinateElement</span><span class="p">(</span><span class="n">cm</span><span class="p">)</span> <span class="k">for</span> <span class="n">cm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cmaps</span><span class="p">]</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that two wrappers hold the same geometry.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Geometry</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">_cpp_object</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Hash of the wrapped geometry.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Geometry.cmaps">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Geometry.cmaps">[docs]</a>
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cmaps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_CoordinateElement</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The coordinate maps, one per cell type.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_CoordinateElement</span><span class="p">(</span><span class="n">cm</span><span class="p">)</span> <span class="k">for</span> <span class="n">cm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">cmaps</span><span class="p">)</span></div>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">cmap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_CoordinateElement</span><span class="p">:</span>
@@ -856,7 +953,7 @@
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.Geometry.index_map">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">index_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_IndexMap</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Index map for the geometry points (nodes) distribution.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">()</span></div>
+        <span class="k">return</span> <span class="n">_IndexMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">index_map</span><span class="p">())</span></div>
 
 
     <span class="nd">@property</span>
@@ -906,7 +1003,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span> <span class="o">=</span> <span class="n">Geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">geometry</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">=</span> <span class="n">domain</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span>
+            <span class="c1"># Attach this (Python) Mesh, rather than the C++ mesh, to</span>
+            <span class="c1"># the UFL domain so that ufl.Mesh.ufl_cargo returns the</span>
+            <span class="c1"># Python object. Callers (e.g. dolfinx.fem.form) rely on</span>
+            <span class="c1"># getting back this exact Mesh, so the link must keep the</span>
+            <span class="c1"># Mesh alive and cannot be a weak reference. It therefore</span>
+            <span class="c1"># forms a Mesh &lt;-&gt; ufl.Mesh reference cycle, which is</span>
+            <span class="c1"># reclaimed by the cyclic garbage collector rather than by</span>
+            <span class="c1"># reference counting. Call gc.collect() where a mesh (and</span>
+            <span class="c1"># the MPI communicator it holds) must be released at a</span>
+            <span class="c1"># known point, e.g. in the same order on all ranks.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="bp">self</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">:</span>
@@ -1018,6 +1125,7 @@
 <span class="sd">            mesh.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="o">=</span> <span class="n">meshtags</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span> <span class="o">=</span> <span class="n">Topology</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span><span class="p">)</span>
 
 <div class="viewcode-block" id="MeshTags.ufl_id">
 <a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.MeshTags.ufl_id">[docs]</a>
@@ -1027,9 +1135,9 @@
 
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">topology</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Topology</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh topology with which the tags are associated.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">topology</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_topology</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -1451,7 +1559,7 @@
 <span class="sd">        Local indices, ascending and including ghosts, of the entries</span>
 <span class="sd">        satisfying :math:`v_i &gt; \theta \max_j v_j`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_mark_maximum</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">index_map</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_mark_maximum</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">index_map</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span></div>
 
 
 
@@ -1496,8 +1604,28 @@
 <span class="sd">        Local indices, ascending and including ghosts, of the entries</span>
 <span class="sd">        satisfying :math:`v_i &gt; \frac{\theta^2}{N} \sum_j v_j`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_mark_equidistribution</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">index_map</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_mark_equidistribution</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">index_map</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_wrap_cell_reorder</span><span class="p">(</span>
+    <span class="n">reorder_fn</span><span class="p">:</span> <span class="n">CellReorderFunc</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricReorderer</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricReorderer</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adapt a cell reordering callable to the C++ calling convention.</span>
+
+<span class="sd">    C++ calls the reordering function with a C++ adjacency list, so a</span>
+<span class="sd">    Python callable is wrapped to receive an</span>
+<span class="sd">    :class:`~dolfinx.graph.AdjacencyList`. A geometric reorderer is an</span>
+<span class="sd">    opaque C++ handle that is called with cell centroids rather than the</span>
+<span class="sd">    dual graph, and is passed through unchanged.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">reorder_fn</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">reorder_fn</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricReorderer</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">reorder_fn</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reorder</span><span class="p">(</span><span class="n">dual_graph</span><span class="p">:</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">reorder_fn</span><span class="p">(</span><span class="n">AdjacencyList</span><span class="p">(</span><span class="n">dual_graph</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">reorder</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_mesh_coordinate_element</span><span class="p">(</span>
@@ -1535,7 +1663,7 @@
     <span class="n">ghost_mode</span><span class="p">:</span> <span class="n">GhostMode</span> <span class="o">=</span> <span class="n">GhostMode</span><span class="o">.</span><span class="n">none</span><span class="p">,</span>
     <span class="n">max_facet_to_cell_links</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">num_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">reorder_fn</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">reorder_fn</span><span class="p">:</span> <span class="n">CellReorderFunc</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricReorderer</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a mesh from topology and geometry arrays.</span>
 
@@ -1557,7 +1685,8 @@
 <span class="sd">        num_threads: Number of threads to use to build mesh. Must be</span>
 <span class="sd">            greater than 0.</span>
 <span class="sd">        reorder_fn: A graph reordering callable receives the local cell</span>
-<span class="sd">            dual graph. The built-in ``graph.reorder_morton`` and</span>
+<span class="sd">            dual graph as an :class:`~dolfinx.graph.AdjacencyList`. The</span>
+<span class="sd">            built-in ``graph.reorder_morton`` and</span>
 <span class="sd">            ``graph.reorder_hilbert`` receive local cell centroids. Both</span>
 <span class="sd">            return an array mapping each cell index to its new index. If</span>
 <span class="sd">            ``None`` (default), reverse Cuthill-McKee ordering is used.</span>
@@ -1593,7 +1722,7 @@
         <span class="n">max_facet_to_cell_links</span><span class="o">=</span><span class="n">max_facet_to_cell_links</span><span class="p">,</span>
         <span class="n">num_threads</span><span class="o">=</span><span class="n">num_threads</span><span class="p">,</span>
         <span class="n">cell_weights</span><span class="o">=</span><span class="n">cell_weights</span><span class="p">,</span>
-        <span class="n">reorder_fn</span><span class="o">=</span><span class="n">reorder_fn</span><span class="p">,</span>
+        <span class="n">reorder_fn</span><span class="o">=</span><span class="n">_wrap_cell_reorder</span><span class="p">(</span><span class="n">reorder_fn</span><span class="p">),</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span></div>
@@ -2116,11 +2245,15 @@
     <span class="n">cpp_element</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">_cpp_object</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cpp_element</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float64</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Geometry</span><span class="p">(</span>
-            <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span><span class="p">)</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float64</span><span class="p">(</span>
+                <span class="n">index_map</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span>
+            <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cpp_element</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">CoordinateElement_float32</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Geometry</span><span class="p">(</span>
-            <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float32</span><span class="p">(</span><span class="n">index_map</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span><span class="p">)</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Geometry_float32</span><span class="p">(</span>
+                <span class="n">index_map</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dofmap</span><span class="p">,</span> <span class="n">cpp_element</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">input_global_indices</span>
+            <span class="p">)</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown floating type for coordinate element, got: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
@@ -2195,13 +2328,13 @@
     <span class="c1"># Create topology which only has a 0-&gt;0 connectivity and dim 0 entities</span>
     <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">num_nodes_local</span> <span class="o">=</span> <span class="n">cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">imap</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">common</span><span class="o">.</span><span class="n">IndexMap</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">num_nodes_local</span><span class="p">)</span>
+    <span class="n">imap</span> <span class="o">=</span> <span class="n">_index_map</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">num_nodes_local</span><span class="p">)</span>
     <span class="n">local_range</span> <span class="o">=</span> <span class="n">imap</span><span class="o">.</span><span class="n">local_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">igi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_nodes_local</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span> <span class="o">+</span> <span class="n">local_range</span>
     <span class="n">topology</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Topology</span><span class="p">(</span>
         <span class="n">cell_type</span><span class="o">=</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">CellType</span><span class="o">.</span><span class="n">point</span><span class="p">,</span>
-        <span class="n">vertex_map</span><span class="o">=</span><span class="n">imap</span><span class="p">,</span>
-        <span class="n">cell_map</span><span class="o">=</span><span class="n">imap</span><span class="p">,</span>
+        <span class="n">vertex_map</span><span class="o">=</span><span class="n">imap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
+        <span class="n">cell_map</span><span class="o">=</span><span class="n">imap</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>
         <span class="n">cells</span><span class="o">=</span><span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">(</span><span class="n">cells</span><span class="p">),</span>
         <span class="n">original_index</span><span class="o">=</span><span class="n">igi</span><span class="p">,</span>
     <span class="p">)</span>
