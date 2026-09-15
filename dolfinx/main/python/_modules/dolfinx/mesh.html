@@ -387,7 +387,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span><span class="p">,</span> <span class="n">wraps</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span> <span class="k">as</span> <span class="n">_MPI</span>
 
@@ -406,7 +406,10 @@
     <span class="n">DiagonalType</span><span class="p">,</span>
     <span class="n">GhostMode</span><span class="p">,</span>
     <span class="n">cell_dim</span><span class="p">,</span>
+    <span class="n">cell_entity_type</span><span class="p">,</span>
     <span class="n">cell_num_entities</span><span class="p">,</span>
+    <span class="n">cell_num_vertices</span><span class="p">,</span>
+    <span class="n">is_simplex</span><span class="p">,</span>
     <span class="n">to_string</span><span class="p">,</span>
     <span class="n">to_type</span><span class="p">,</span>
 <span class="p">)</span>
@@ -435,7 +438,10 @@
     <span class="s2">&quot;Topology&quot;</span><span class="p">,</span>
     <span class="s2">&quot;build_dual_graph&quot;</span><span class="p">,</span>
     <span class="s2">&quot;cell_dim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cell_entity_type&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cell_normals&quot;</span><span class="p">,</span>
     <span class="s2">&quot;cell_num_entities&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cell_num_vertices&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_cell_centroids&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_incident_entities&quot;</span><span class="p">,</span>
     <span class="s2">&quot;compute_midpoints&quot;</span><span class="p">,</span>
@@ -453,6 +459,7 @@
     <span class="s2">&quot;create_unit_square&quot;</span><span class="p">,</span>
     <span class="s2">&quot;entities_to_geometry&quot;</span><span class="p">,</span>
     <span class="s2">&quot;exterior_facet_indices&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;is_simplex&quot;</span><span class="p">,</span>
     <span class="s2">&quot;locate_entities&quot;</span><span class="p">,</span>
     <span class="s2">&quot;locate_entities_boundary&quot;</span><span class="p">,</span>
     <span class="s2">&quot;mark_equidistribution&quot;</span><span class="p">,</span>
@@ -476,7 +483,7 @@
         <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="nb">bool</span><span class="p">,</span>
     <span class="p">],</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span> <span class="o">|</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
 <span class="p">]</span>
 
 <span class="c1"># float64 to match the C++ span&lt;double&gt; interface. Unlike</span>
@@ -497,7 +504,7 @@
         <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="nb">bool</span><span class="p">,</span>
     <span class="p">],</span>
-    <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span><span class="p">,</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">AdjacencyList_int32</span> <span class="o">|</span> <span class="n">AdjacencyList</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
 <span class="p">]</span>
 
 <span class="c1"># A cell reordering function receives the local cell dual graph and</span>
@@ -576,7 +583,7 @@
 <span class="sd">        Partitioning function, for use as :func:`create_mesh`&#39;s</span>
 <span class="sd">        ``partitioner`` argument.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">create_hybrid_cell_partitioner</span><span class="p">(</span><span class="n">part</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">create_hybrid_cell_partitioner</span><span class="p">(</span><span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">part</span><span class="p">))</span></div>
 
 
 
@@ -1440,10 +1447,12 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        The refined mesh.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">)</span>
+    <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">),</span> <span class="n">ghost_mode</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
-    <span class="c1"># Create a new UFL domain to associate with the refined mesh.</span>
+        <span class="c1"># A mixed-topology mesh has no UFL domain to carry over.</span>
+        <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">_cpp_mesh</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
+    <span class="c1"># in the ufl_cargo</span>
     <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">())</span>
     <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">_cpp_mesh</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">)</span></div>
 
@@ -1491,7 +1500,7 @@
 <span class="sd">       Refined mesh, (optional) parent cells, (optional) parent facets</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mesh1</span><span class="p">,</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">refinement</span><span class="o">.</span><span class="n">refine</span><span class="p">(</span>
-        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">option</span><span class="p">,</span> <span class="n">ghost_mode</span>
+        <span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">),</span> <span class="n">option</span><span class="p">,</span> <span class="n">ghost_mode</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
@@ -1502,6 +1511,48 @@
 
 
 <span class="n">_MeshPartitioner</span> <span class="o">=</span> <span class="n">Callable</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+
+
+<span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_wrap_partitioner</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_wrap_partitioner</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_wrap_partitioner</span><span class="p">(</span><span class="n">fn</span><span class="p">:</span> <span class="n">IdentityPartitionerPlaceholder</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IdentityPartitionerPlaceholder</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_wrap_partitioner</span><span class="p">(</span>
+    <span class="n">fn</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">IdentityPartitionerPlaceholder</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">IdentityPartitionerPlaceholder</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Adapt a partitioner so it may return a graph.AdjacencyList.</span>
+
+<span class="sd">    Opaque C++ partitioner handles (e.g. as returned by</span>
+<span class="sd">    ``graph.partitioner_scotch()``) are passed through unchanged:</span>
+<span class="sd">    ``create_mesh``&#39;s nanobind binding recognises them specifically, and</span>
+<span class="sd">    wrapping one in a Python closure would silently demote it to the</span>
+<span class="sd">    slower raw-callable code path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">fn</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">fn</span><span class="p">,</span>
+        <span class="p">(</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GraphPartitioner</span><span class="p">,</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">GeometricPartitioner</span><span class="p">,</span>
+            <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">HybridPartitioner</span><span class="p">,</span>
+            <span class="n">IdentityPartitionerPlaceholder</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">fn</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="n">dest</span> <span class="o">=</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dest</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">AdjacencyList</span><span class="p">)</span> <span class="k">else</span> <span class="n">dest</span>
+
+    <span class="k">return</span> <span class="n">_wrapped</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_mesh_partitioner</span><span class="p">(</span>
@@ -1518,8 +1569,8 @@
         <span class="n">partitioner_fn</span><span class="p">,</span> <span class="n">cell_weights</span> <span class="o">=</span> <span class="n">partitioner</span>
         <span class="k">if</span> <span class="n">partitioner_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The partitioner in the tuple must not be None.&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">partitioner_fn</span><span class="p">,</span> <span class="n">cell_weights</span>
-    <span class="k">return</span> <span class="n">partitioner</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner_fn</span><span class="p">),</span> <span class="n">cell_weights</span>
+    <span class="k">return</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">),</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="mark_maximum">
@@ -1893,6 +1944,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
+    <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">)</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -1984,6 +2036,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
+    <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">)</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -2102,6 +2155,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">partitioner</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">partitioner</span><span class="p">()</span>
+    <span class="n">partitioner</span> <span class="o">=</span> <span class="n">_wrap_partitioner</span><span class="p">(</span><span class="n">partitioner</span><span class="p">)</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span>
         <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">element</span><span class="p">(</span>
             <span class="s2">&quot;Lagrange&quot;</span><span class="p">,</span>
@@ -2186,6 +2240,23 @@
 <span class="sd">        in `entities`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">entities_to_geometry</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">,</span> <span class="n">permute</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="cell_normals">
+<a class="viewcode-back" href="../../generated/dolfinx.mesh.html#dolfinx.mesh.cell_normals">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cell_normals</span><span class="p">(</span><span class="n">msh</span><span class="p">:</span> <span class="n">Mesh</span><span class="p">[</span><span class="n">Real</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">entities</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">Real</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the normal to a set of mesh entities.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        msh: The mesh.</span>
+<span class="sd">        dim: Topological dimension of the entities.</span>
+<span class="sd">        entities: Entity indices (local to the process).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Normal vectors, ``shape=(len(entities), 3)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_normals</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">entities</span><span class="p">)</span>  <span class="c1"># type: ignore[return-value]</span></div>
 
 
 
