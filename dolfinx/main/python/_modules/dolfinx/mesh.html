@@ -374,7 +374,7 @@
                 <article class="bd-article">
                   
   <h1>Source code for dolfinx.mesh</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (C) 2017-2024 Chris N. Richardson, Garth N. Wells, Jørgen S.</span>
+<span></span><span class="c1"># Copyright (C) 2017-2026 Chris N. Richardson, Garth N. Wells, Jørgen S.</span>
 <span class="c1"># Dokken, Paul T. Kühner and Jack S. Hale</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
@@ -1003,17 +1003,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span> <span class="o">=</span> <span class="n">Geometry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">geometry</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="o">=</span> <span class="n">domain</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Attach this (Python) Mesh, rather than the C++ mesh, to</span>
-            <span class="c1"># the UFL domain so that ufl.Mesh.ufl_cargo returns the</span>
-            <span class="c1"># Python object. Callers (e.g. dolfinx.fem.form) rely on</span>
-            <span class="c1"># getting back this exact Mesh, so the link must keep the</span>
-            <span class="c1"># Mesh alive and cannot be a weak reference. It therefore</span>
-            <span class="c1"># forms a Mesh &lt;-&gt; ufl.Mesh reference cycle, which is</span>
-            <span class="c1"># reclaimed by the cyclic garbage collector rather than by</span>
-            <span class="c1"># reference counting. Call gc.collect() where a mesh (and</span>
-            <span class="c1"># the MPI communicator it holds) must be released at a</span>
-            <span class="c1"># known point, e.g. in the same order on all ranks.</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="bp">self</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">_ufl_cargo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">comm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_MPI</span><span class="o">.</span><span class="n">Comm</span><span class="p">:</span>
@@ -1088,6 +1078,16 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh geometry.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometry</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_mesh_from_ufl_domain</span><span class="p">(</span><span class="n">domain</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mesh</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the Python mesh associated with a UFL domain.&quot;&quot;&quot;</span>
+    <span class="n">cargo</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">ufl_cargo</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cargo</span><span class="p">,</span> <span class="n">Mesh</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">cargo</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cargo</span><span class="p">,</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float32</span> <span class="o">|</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">Mesh_float64</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">cargo</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Expecting to find a Mesh in the UFL domain.&quot;</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="MeshTags">
@@ -1443,8 +1443,7 @@
     <span class="n">_cpp_mesh</span> <span class="o">=</span> <span class="n">_uniform_refine</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">partitioner</span><span class="p">,</span> <span class="n">ghost_mode</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
-    <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
-    <span class="c1"># in the ufl_cargo</span>
+    <span class="c1"># Create a new UFL domain to associate with the refined mesh.</span>
     <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">())</span>
     <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">_cpp_mesh</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">)</span></div>
 
@@ -1496,8 +1495,7 @@
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot refine a mesh without a UFL domain.&quot;</span><span class="p">)</span>
-    <span class="c1"># Create new ufl domain as it will carry a reference to the C++ mesh</span>
-    <span class="c1"># in the ufl_cargo</span>
+    <span class="c1"># Create a new UFL domain to associate with the refined mesh.</span>
     <span class="n">ufl_domain</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Mesh</span><span class="p">(</span><span class="n">msh</span><span class="o">.</span><span class="n">_ufl_domain</span><span class="o">.</span><span class="n">ufl_coordinate_element</span><span class="p">())</span>
     <span class="k">return</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">mesh1</span><span class="p">,</span> <span class="n">ufl_domain</span><span class="p">),</span> <span class="n">parent_cell</span><span class="p">,</span> <span class="n">parent_facet</span></div>
 
