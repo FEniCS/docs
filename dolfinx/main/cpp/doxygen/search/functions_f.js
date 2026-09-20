@@ -21,6 +21,7 @@ var searchData=
   ['reorder_5frcm_18',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fhilbert_19',['reorder_sfc_hilbert',['../d9/d69/namespacedolfinx_1_1graph.html#ac014886e521637bd69a6cbae82be8c80',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fmorton_20',['reorder_sfc_morton',['../d9/d69/namespacedolfinx_1_1graph.html#af1a7bb1cc3f1762ad92904368e330614',1,'dolfinx::graph']]],
-  ['resume_21',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['row_5fptr_22',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
+  ['reserve_21',['reserve',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#af29388ad9d1df56b43aba9b9f4f3743b',1,'dolfinx::la::SparsityPattern']]],
+  ['resume_22',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['row_5fptr_23',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
 ];
