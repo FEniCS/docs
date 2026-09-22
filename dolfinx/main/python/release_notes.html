@@ -249,6 +249,43 @@
 <h1>Release notes<a class="headerlink" href="#release-notes" title="Link to this heading">#</a></h1>
 <section id="v0-12-0-draft">
 <h2>v0.12.0 (draft)<a class="headerlink" href="#v0-12-0-draft" title="Link to this heading">#</a></h2>
+<section id="entity-permutations-are-computed-per-dimension">
+<h3>Entity permutations are computed per dimension<a class="headerlink" href="#entity-permutations-are-computed-per-dimension" title="Link to this heading">#</a></h3>
+<p><strong>Authors</strong>: <a class="reference external" href="https://github.com/jorgensd">Jørgen S. Dokken</a></p>
+<p>Permutations of a cell’s sub-entities are now computed for one entity
+dimension at a time, rather than for every dimension at once.</p>
+<p>The single <code class="docutils literal notranslate"><span class="pre">create_entity_permutations()</span></code> call has been split in two, along
+the line of what the two kinds of permutation data are for:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entity_permutations" title="dolfinx.mesh.Topology.create_entity_permutations"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Topology.create_entity_permutations</span></code></a> now takes a <code class="docutils literal notranslate"><span class="pre">dim</span></code>
+argument, matching <a class="reference internal" href="generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_entities" title="dolfinx.mesh.Topology.create_entities"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Topology.create_entities</span></code></a>, and computes only that dimension.
+These permutations are passed to FFCx kernels as <code class="docutils literal notranslate"><span class="pre">quadrature_permutation</span></code>,
+so that cells sharing an entity agree on the order of the quadrature points
+on it. Which dimension is needed follows from the integral, not from the
+element: an interior facet integral needs <code class="docutils literal notranslate"><span class="pre">tdim</span> <span class="pre">-</span> <span class="pre">1</span></code>, a ridge integral
+<code class="docutils literal notranslate"><span class="pre">tdim</span> <span class="pre">-</span> <span class="pre">2</span></code>. Vertices have no orientation, so <code class="docutils literal notranslate"><span class="pre">dim</span></code> 0 gives an empty array.</p></li>
+<li><p><a class="reference internal" href="generated/dolfinx.mesh.html#dolfinx.mesh.Topology.create_cell_permutations" title="dolfinx.mesh.Topology.create_cell_permutations"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Topology.create_cell_permutations</span></code></a> computes the packed
+per-cell permutation info, previously a side effect of
+<code class="docutils literal notranslate"><span class="pre">create_entity_permutations()</span></code>. It describes the orientation of all of a
+cell’s sub-entities at once, and is required by elements whose DOF
+transformations are not the identity: applied once to the dofmap when it is
+built where those transformations are permutations (higher-order Lagrange),
+and to the element tensor on each cell at assembly time where they are not
+(N1curl, Raviart-Thomas).</p></li>
+</ul>
+<p>Code that called <code class="docutils literal notranslate"><span class="pre">create_entity_permutations()</span></code> in order to use
+<a class="reference internal" href="generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_cell_permutation_info" title="dolfinx.mesh.Topology.get_cell_permutation_info"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Topology.get_cell_permutation_info</span></code></a> should now call
+<code class="docutils literal notranslate"><span class="pre">create_cell_permutations()</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Topology.get_facet_permutations</span></code> has been removed. Use the new
+<a class="reference internal" href="generated/dolfinx.mesh.html#dolfinx.mesh.Topology.get_entity_permutations" title="dolfinx.mesh.Topology.get_entity_permutations"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Topology.get_entity_permutations</span></code></a>, which takes the entity
+dimension, after calling <code class="docutils literal notranslate"><span class="pre">create_entity_permutations(dim)</span></code> for it:
+<code class="docutils literal notranslate"><span class="pre">get_facet_permutations()</span></code> becomes <code class="docutils literal notranslate"><span class="pre">get_entity_permutations(tdim</span> <span class="pre">-</span> <span class="pre">1)</span></code>.</p>
+<p>In C++, <code class="docutils literal notranslate"><span class="pre">mesh::compute_entity_permutations</span></code> now takes an entity dimension and
+returns only that dimension’s permutations, the cell permutation info is
+returned by the new <code class="docutils literal notranslate"><span class="pre">mesh::compute_cell_permutations</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">Topology::get_facet_permutations</span></code> has been removed in favour of
+<code class="docutils literal notranslate"><span class="pre">Topology::get_entity_permutations(dim)</span></code>.</p>
+</section>
 <section id="a-first-class-snes-interface-for-c">
 <h3>A first-class SNES interface for C++<a class="headerlink" href="#a-first-class-snes-interface-for-c" title="Link to this heading">#</a></h3>
 <p><strong>Authors</strong>: <a class="reference external" href="https://github.com/jhale">Jack Hale</a></p>
@@ -718,6 +755,7 @@ in Paraview, we have decided to remove it from DOLFINx.</p>
 <nav aria-labelledby="pst-page-navigation-heading-2" class="page-toc" id="pst-page-toc-nav">
 <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-12-0-draft">v0.12.0 (draft)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#entity-permutations-are-computed-per-dimension">Entity permutations are computed per dimension</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#a-first-class-snes-interface-for-c">A first-class SNES interface for C++</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#transfer-meshtags-to-submesh-argument-order-change"><code class="docutils literal notranslate"><span class="pre">transfer_meshtags_to_submesh</span></code> argument order change</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#removal-of-the-deprecated-newton-solver">Removal of the deprecated Newton solver</a></li>
