@@ -14,8 +14,9 @@ var searchData=
   ['permute_11',['permute',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a869e13ef5cde67c6d3debf3c51131473',1,'dolfinx::fem::CoordinateElement::permute()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ae34c915742f462093322bb19661dbb54',1,'dolfinx::fem::FiniteElement::permute()']]],
   ['permute_5finv_12',['permute_inv',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a2ba9d88fbf8b00777582579b20d19d84',1,'dolfinx::fem::CoordinateElement::permute_inv()'],['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a4985b37878a81d18f5dc5feba22d786b',1,'dolfinx::fem::FiniteElement::permute_inv()']]],
   ['permute_5fsubentity_5fclosure_13',['permute_subentity_closure',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a0a14c89ecee95b8cdb0e2822bdec14d1',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5faffine_14',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#af3d479cdc0fc95c8db96a96825132582',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fnonaffine_15',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a66ea4607fea2b2ae8ea7a63a009b7a7c',1,'dolfinx::fem::CoordinateElement']]],
-  ['pull_5fback_5fworking_5fsize_16',['pull_back_working_size',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a3b2b55e85dae527fd2b6db0395edebbb',1,'dolfinx::fem::CoordinateElement']]],
-  ['push_5fforward_17',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
+  ['physical_5fbase_5fvalue_5fsize_14',['physical_base_value_size',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#ab2d4c51448dc56377f39c5075b0592e7',1,'dolfinx::fem::FiniteElement']]],
+  ['pull_5fback_5faffine_15',['pull_back_affine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#af3d479cdc0fc95c8db96a96825132582',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fnonaffine_16',['pull_back_nonaffine',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a66ea4607fea2b2ae8ea7a63a009b7a7c',1,'dolfinx::fem::CoordinateElement']]],
+  ['pull_5fback_5fworking_5fsize_17',['pull_back_working_size',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a3b2b55e85dae527fd2b6db0395edebbb',1,'dolfinx::fem::CoordinateElement']]],
+  ['push_5fforward_18',['push_forward',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#acea350a22b3a1aebf682bf04f1aea279',1,'dolfinx::fem::CoordinateElement']]]
 ];
