@@ -382,6 +382,7 @@
 <span class="c1"># SPDX-License-Identifier:    LGPL-3.0-or-later</span>
 <span class="sd">&quot;&quot;&quot;Just-in-time (JIT) compilation using FFCx.&quot;&quot;&quot;</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">builtins</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">functools</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -447,7 +448,7 @@
         <span class="c1"># Remove possibility of unbound variables</span>
         <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">status</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># assume failure</span>
-        <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">error</span><span class="p">:</span> <span class="ne">Exception</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Compile on rank 0</span>
         <span class="n">is_root</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
@@ -456,17 +457,22 @@
                 <span class="n">output</span> <span class="o">=</span> <span class="n">local_jit</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
                 <span class="n">status</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">error_msg</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">error</span> <span class="o">=</span> <span class="n">e</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">status</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># placeholder for bcast</span>
 
         <span class="n">status</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">status</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Only root includes the detailed message.</span>
+            <span class="c1"># Broadcast type name and message, not the exception (may</span>
+            <span class="c1"># not be picklable), so every rank raises the same type.</span>
+            <span class="n">error_type_name</span><span class="p">,</span> <span class="n">error_str</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
+                <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">))</span> <span class="k">if</span> <span class="n">is_root</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+            <span class="n">error_type</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">builtins</span><span class="p">,</span> <span class="n">error_type_name</span><span class="p">,</span> <span class="ne">RuntimeError</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">is_root</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed JIT compilation of form: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">error_type</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed JIT compilation of form: </span><span class="si">{</span><span class="n">error_str</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;JIT compilation failed on rank 0.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">error_type</span><span class="p">(</span><span class="s2">&quot;JIT compilation failed on rank 0.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Load cache on all other ranks</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_root</span><span class="p">:</span>
