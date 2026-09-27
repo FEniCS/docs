@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['cellrange_0',['CellRange',['../d6/de7/conceptdolfinx_1_1mesh_1_1CellRange.html',1,'dolfinx::mesh']]]
+  ['assemblyvector_0',['AssemblyVector',['../de/d11/conceptdolfinx_1_1fem_1_1AssemblyVector.html',1,'dolfinx::fem']]]
 ];

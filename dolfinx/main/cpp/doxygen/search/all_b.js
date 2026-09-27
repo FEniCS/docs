@@ -1,7 +1,7 @@
 var searchData=
 [
   ['make_5fcoefficients_5fspan_0',['make_coefficients_span',['../d8/dbf/namespacedolfinx_1_1fem.html#a6d25266cbd72792f519fc92c9b9d3989',1,'dolfinx::fem']]],
-  ['map_1',['map',['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#abb5de95edeb7506151053fd6a6ecb815',1,'dolfinx::fem::DofMap']]],
+  ['map_1',['map',['../dc/d27/structdolfinx_1_1fem_1_1DofMapPack.html#afe52a700aa5ccc97008be26ee2e9ad66',1,'dolfinx::fem::DofMapPack::map'],['../d2/d3c/classdolfinx_1_1fem_1_1DofMap.html#abb5de95edeb7506151053fd6a6ecb815',1,'dolfinx::fem::DofMap::map()']]],
   ['map_5fident_2',['map_ident',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#affcae09c2dd151ee8690bbaf72c9501d',1,'dolfinx::fem::FiniteElement']]],
   ['map_5ft_3',['map_t',['../d6/dfa/namespacedolfinx_1_1la.html#af720d2afa1e0c5a4baded7998fa63211',1,'dolfinx::la']]],
   ['map_5ftype_4',['map_type',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a1ea0e3c46b6922df927b7a7f9e282543',1,'dolfinx::fem::FiniteElement']]],

@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['scalar_0',['scalar',['../da/d5d/conceptdolfinx_1_1scalar.html',1,'dolfinx']]],
-  ['sparsityimplementation_1',['SparsityImplementation',['../d8/dc0/conceptSparsityImplementation.html',1,'']]]
+  ['indexlist_0',['IndexList',['../db/d7d/conceptdolfinx_1_1fem_1_1IndexList.html',1,'dolfinx::fem']]]
 ];
