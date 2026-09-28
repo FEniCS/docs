@@ -426,8 +426,13 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">discrete_gradient</span> <span class="k">as</span> <span class="n">_discrete_gradient</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.cpp.fem.petsc</span><span class="w"> </span><span class="kn">import</span> <span class="n">interpolation_matrix</span> <span class="k">as</span> <span class="n">_interpolation_matrix</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack_coefficients</span><span class="p">,</span> <span class="n">pack_constants</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">_assemble_vector_array</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_lifting</span> <span class="k">as</span> <span class="n">_apply_lifting</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_apply_lifting_markers</span><span class="p">,</span>
+    <span class="n">_assemble_vector_array</span><span class="p">,</span>
+    <span class="n">_bc_dof_markers</span><span class="p">,</span>
+    <span class="n">_bc_lifting_data</span><span class="p">,</span>
+    <span class="n">_owned_marked_rows</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">DirichletBC</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.bcs</span><span class="w"> </span><span class="kn">import</span> <span class="n">bcs_by_block</span> <span class="k">as</span> <span class="n">_bcs_by_block</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.forms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span><span class="p">,</span> <span class="n">derivative_block</span>
@@ -455,6 +460,7 @@
     <span class="s2">&quot;interpolation_matrix&quot;</span><span class="p">,</span>
     <span class="s2">&quot;numba_utils&quot;</span><span class="p">,</span>
     <span class="s2">&quot;set_bc&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;set_diagonal&quot;</span><span class="p">,</span>
 <span class="p">]</span>
 
 
@@ -881,9 +887,14 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Matrix representing the bilinear form.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Convenience function for callers that have boundary conditions.</span>
+<span class="sd">        It rebuilds the constrained dof markers on every call, and</span>
+<span class="sd">        should not be called internally by the library.</span>
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: D301</span>
     <span class="n">A</span> <span class="o">=</span> <span class="n">create_matrix</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-    <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
+    <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="n">diag</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">A</span></div>
 
 
@@ -909,6 +920,62 @@
 
 <span class="sd">    The returned matrix is not finalised, i.e. ghost values are not</span>
 <span class="sd">    accumulated.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Convenience function for callers that have boundary conditions.</span>
+<span class="sd">        It rebuilds the constrained dof markers on every call, and</span>
+<span class="sd">        should not be called internally by the library.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span>
+        <span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="n">diag</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_matrix_bc_markers</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span> <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+    <span class="nb">tuple</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]]</span>
+    <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]]]</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constrained dof markers on the test and trial spaces of ``a``.</span>
+
+<span class="sd">    For a single form, returns the markers for its test and trial</span>
+<span class="sd">    spaces. For a 2D array of forms, returns a list of markers for the</span>
+<span class="sd">    test space of each row and a list for the trial space of each</span>
+<span class="sd">    column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">markers</span><span class="p">(</span><span class="n">V</span><span class="p">:</span> <span class="n">_FunctionSpace</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span> <span class="k">if</span> <span class="n">V</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_bc_dof_markers</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">bcs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
+        <span class="n">V0</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">V1</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">markers</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="k">for</span> <span class="n">V</span> <span class="ow">in</span> <span class="n">V0</span><span class="p">],</span> <span class="p">[</span><span class="n">markers</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="k">for</span> <span class="n">V</span> <span class="ow">in</span> <span class="n">V1</span><span class="p">]</span>
+    <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span>
+    <span class="k">return</span> <span class="n">markers</span><span class="p">(</span><span class="n">V0</span><span class="p">),</span> <span class="n">markers</span><span class="p">(</span><span class="n">V1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_assemble_matrix_petsc_markers</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span>
+    <span class="n">dof_marker0</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]],</span>
+    <span class="n">dof_marker1</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]],</span>
+    <span class="n">diag</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble bilinear form(s) into a matrix, given constrained dofs.</span>
+
+<span class="sd">    As :func:`_assemble_matrix_petsc`, with the constrained dofs given</span>
+<span class="sd">    as markers (see :func:`_matrix_bc_markers`) instead of boundary</span>
+<span class="sd">    conditions. For a 2D array of forms, ``dof_marker0[i]`` marks the</span>
+<span class="sd">    test space of row ``i`` and ``dof_marker1[j]`` the trial space of</span>
+<span class="sd">    column ``j``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">A</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
@@ -927,18 +994,15 @@
             <span class="p">):</span>
                 <span class="k">if</span> <span class="n">a_block</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getNestSubMatrix</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
-                    <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="ow">and</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-                        <span class="n">row_forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">row_form</span> <span class="k">for</span> <span class="n">row_form</span> <span class="ow">in</span> <span class="n">a_row</span> <span class="k">if</span> <span class="n">row_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
-                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_forms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Row </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> of forms is entirely &#39;None&#39;.&quot;</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="n">row_forms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">bc</span><span class="o">.</span><span class="n">function_space</span><span class="p">):</span>
-                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39;&quot;</span>
-                                <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
-                                <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
-                            <span class="p">)</span>
+                    <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span>
+                        <span class="n">Asub</span><span class="p">,</span> <span class="n">a_block</span><span class="p">,</span> <span class="n">dof_marker0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dof_marker1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">diag</span><span class="p">,</span> <span class="n">const</span><span class="p">,</span> <span class="n">coeff</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="ow">and</span> <span class="n">dof_marker0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39;&quot;</span>
+                        <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
+                        <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
+                    <span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>  <span class="c1"># Blocked</span>
         <span class="n">consts</span> <span class="o">=</span> <span class="p">[</span><span class="n">pack_constants</span><span class="p">(</span><span class="n">forms</span><span class="p">)</span> <span class="k">for</span> <span class="n">forms</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span> <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">constants</span>
         <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -966,7 +1030,6 @@
             <span class="p">]</span>
         <span class="p">)</span>
 
-        <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -976,48 +1039,85 @@
                         <span class="n">a_sub</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
                         <span class="n">consts</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span>
                         <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span>  <span class="c1"># type: ignore[index]</span>
-                        <span class="n">_bcs</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                        <span class="n">dof_marker0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                        <span class="n">dof_marker1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
                         <span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
+                    <span class="c1"># Assembly zeroed the constrained rows, so adding</span>
+                    <span class="c1"># sets the diagonal (and needs no flush)</span>
+                    <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span>
+                    <span class="k">if</span> <span class="n">V0</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="ow">is</span> <span class="n">V1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span>
+                        <span class="n">set_diagonal</span><span class="p">(</span>
+                            <span class="n">Asub</span><span class="p">,</span>
+                            <span class="n">_owned_marked_rows</span><span class="p">(</span><span class="n">V0</span><span class="p">,</span> <span class="n">dof_marker0</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+                            <span class="n">diag</span><span class="p">,</span>
+                            <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                        <span class="p">)</span>
                     <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="ow">and</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">:</span>
-                        <span class="n">row_forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">row_form</span> <span class="k">for</span> <span class="n">row_form</span> <span class="ow">in</span> <span class="n">a_row</span> <span class="k">if</span> <span class="n">row_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
-                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">row_forms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Row </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> of forms is entirely &#39;None&#39;.&quot;</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="n">row_forms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">bc</span><span class="o">.</span><span class="n">function_space</span><span class="p">):</span>
-                            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                                <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39; &quot;</span>
-                                <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
-                                <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
-                            <span class="p">)</span>
-
-        <span class="c1"># Flush to enable switch from add to set in the matrix</span>
-        <span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-
-        <span class="c1"># Set diagonal</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">a_sub</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">a_row</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">a_sub</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">Asub</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">getLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
-                    <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">V</span> <span class="ow">in</span> <span class="n">a_sub</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">V0</span> <span class="ow">is</span> <span class="n">V1</span><span class="p">:</span>
-                        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">Asub</span><span class="p">,</span> <span class="n">V0</span><span class="p">,</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-                    <span class="n">A</span><span class="o">.</span><span class="n">restoreLocalSubMatrix</span><span class="p">(</span><span class="n">is0</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">is1</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">Asub</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span> <span class="ow">and</span> <span class="n">dof_marker0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Diagonal sub-block (</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">) cannot be &#39;None&#39; &quot;</span>
+                        <span class="s2">&quot; and have DirichletBC applied.&quot;</span>
+                        <span class="s2">&quot; Consider assembling a zero block.&quot;</span>
+                    <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>  <span class="c1"># Non-blocked</span>
         <span class="k">if</span> <span class="n">constants</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">constants</span> <span class="o">=</span> <span class="n">pack_constants</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">coeffs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">coeffs</span> <span class="o">=</span> <span class="n">pack_coefficients</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-        <span class="n">_bcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">bc</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="n">bcs</span><span class="p">]</span> <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
-        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">,</span> <span class="n">_bcs</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
-        <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="k">for</span> <span class="n">V</span> <span class="ow">in</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">V0</span> <span class="ow">is</span> <span class="n">V1</span><span class="p">:</span>
-            <span class="n">A</span><span class="o">.</span><span class="n">assemblyBegin</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-            <span class="n">A</span><span class="o">.</span><span class="n">assemblyEnd</span><span class="p">(</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="o">.</span><span class="n">AssemblyType</span><span class="o">.</span><span class="n">FLUSH</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-            <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">insert_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">V0</span><span class="p">,</span> <span class="n">_bcs</span><span class="p">,</span> <span class="n">diag</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span>
+        <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span>
+            <span class="n">A</span><span class="p">,</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">constants</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">coeffs</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">dof_marker0</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">dof_marker1</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Assembly zeroed the constrained rows, so adding sets the</span>
+        <span class="c1"># diagonal (and needs no flush)</span>
+        <span class="k">if</span> <span class="n">V0</span><span class="o">.</span><span class="n">_cpp_object</span> <span class="ow">is</span> <span class="n">V1</span><span class="o">.</span><span class="n">_cpp_object</span><span class="p">:</span>
+            <span class="n">set_diagonal</span><span class="p">(</span>
+                <span class="n">A</span><span class="p">,</span>
+                <span class="n">_owned_marked_rows</span><span class="p">(</span><span class="n">V0</span><span class="p">,</span> <span class="n">dof_marker0</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+                <span class="n">diag</span><span class="p">,</span>
+                <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">A</span>
+
+
+<div class="viewcode-block" id="set_diagonal">
+<a class="viewcode-back" href="../../../generated/dolfinx.fem.petsc.html#dolfinx.fem.petsc.set_diagonal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_diagonal</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+    <span class="n">rows</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">complex</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">insert_mode</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set or add values on the diagonal for given rows of a PETSc matrix.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        A: Matrix to modify.</span>
+<span class="sd">        rows: Rows, in local indices, to set the diagonal value for.</span>
+<span class="sd">        diagonal: Value to set on the diagonal, either a single value</span>
+<span class="sd">            for all rows or an array with ``diagonal[i]`` the value for</span>
+<span class="sd">            ``rows[i]``. An array must have the same length as</span>
+<span class="sd">            ``rows``.</span>
+<span class="sd">        insert_mode: ``PETSc.InsertMode.INSERT`` to overwrite the</span>
+<span class="sd">            diagonal entry, or ``PETSc.InsertMode.ADD`` to add to it.</span>
+<span class="sd">            The two agree on rows that assembly has already zeroed, and</span>
+<span class="sd">            ``ADD`` avoids the flush needed to take the matrix out of</span>
+<span class="sd">            add mode.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The matrix is not assembled.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">diagonal</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">diagonal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">diagonal</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">set_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">insert_mode</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
+
 
 
 <span class="c1"># -- Modifiers for Dirichlet conditions -----------------------------------</span>
@@ -1090,6 +1190,77 @@
 <span class="sd">        Boundary condition values are *not* set in ``b`` by this</span>
 <span class="sd">        function. Use :func:`dolfinx.fem.DirichletBC.set` to set values</span>
 <span class="sd">        in ``b``.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Convenience function for callers that have boundary conditions.</span>
+<span class="sd">        It rebuilds the constrained dof markers and values on every</span>
+<span class="sd">        call, and should not be called internally by the library.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span>
+        <span class="n">b</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">_lifting_bc_data</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+        <span class="n">x0</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="p">,</span>
+        <span class="n">constants</span><span class="p">,</span>
+        <span class="n">coeffs</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_lifting_bc_data</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span>
+    <span class="n">bcs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">DirichletBC</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constrained dof markers and bc values for lifting, per column.</span>
+
+<span class="sd">    Builds the ``bc_markers1`` and ``bc_values1`` arguments of</span>
+<span class="sd">    :func:`_apply_lifting_petsc_markers`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        a: Bilinear forms: a 1D sequence with one form per column, or a</span>
+<span class="sd">            2D array of forms. The space of column ``j`` is the trial</span>
+<span class="sd">            space of ``a[j]`` (1D) or the common trial space of column</span>
+<span class="sd">            ``j`` (2D).</span>
+<span class="sd">        bcs: Boundary conditions on the space of each column, with</span>
+<span class="sd">            ``bcs[j]`` those for column ``j``. Must have one entry per</span>
+<span class="sd">            column. ``None`` means no boundary conditions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Markers and values, one array each per column. Markers are</span>
+<span class="sd">        ``int8``, ``1`` for constrained dofs (owned and ghost,</span>
+<span class="sd">        unrolled). Values hold the boundary condition values, as</span>
+<span class="sd">        ``PETSc.ScalarType``, where marked. Both arrays are empty for a</span>
+<span class="sd">        column with no space or no boundary conditions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Sequence</span><span class="p">):</span>
+        <span class="n">spaces</span> <span class="o">=</span> <span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">spaces</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span> <span class="k">if</span> <span class="n">form</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">form</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">form</span> <span class="ow">in</span> <span class="n">a</span><span class="p">]</span>  <span class="c1"># type: ignore[union-attr]</span>
+    <span class="k">if</span> <span class="n">bcs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bcs</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">spaces</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">_bc_lifting_data</span><span class="p">(</span><span class="n">spaces</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_lifting_petsc_markers</span><span class="p">(</span>
+    <span class="n">b</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span>
+    <span class="n">bc_markers1</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">]],</span>
+    <span class="n">bc_values1</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">],</span>
+    <span class="n">x0</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">coeffs</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">dolfinx</span><span class="o">.</span><span class="n">fem</span><span class="o">.</span><span class="n">IntegralType</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">]]]</span>
+        <span class="o">|</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Lifting (see :func:`apply_lifting`), given constrained dofs.</span>
+
+<span class="sd">    ``bc_markers1[j]`` and ``bc_values1[j]`` are the constrained dof</span>
+<span class="sd">    markers and boundary condition values on the trial space of column</span>
+<span class="sd">    ``j``, as returned by :func:`_lifting_bc_data`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getType</span><span class="p">()</span> <span class="o">==</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Vec</span><span class="o">.</span><span class="n">Type</span><span class="o">.</span><span class="n">NEST</span><span class="p">:</span>
         <span class="n">x0</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x0</span><span class="o">.</span><span class="n">getNestSubVecs</span><span class="p">()</span>  <span class="c1"># type: ignore[attr-defined]</span>
@@ -1111,7 +1282,16 @@
             <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">):</span>
             <span class="n">const_</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">const</span><span class="p">]</span>
-            <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b_sub</span><span class="p">,</span> <span class="n">a_sub</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">const_</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span>
+                <span class="n">b_sub</span><span class="p">,</span>
+                <span class="n">a_sub</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                <span class="n">bc_markers1</span><span class="p">,</span>
+                <span class="n">bc_values1</span><span class="p">,</span>
+                <span class="n">x0</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                <span class="n">alpha</span><span class="p">,</span>
+                <span class="n">const_</span><span class="p">,</span>
+                <span class="n">coeff</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">stack</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">b</span><span class="o">.</span><span class="n">getAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1153,7 +1333,16 @@
                         <span class="p">]</span>
                         <span class="n">b_l_r</span> <span class="o">=</span> <span class="n">b_l</span><span class="o">.</span><span class="n">array_r</span>
                         <span class="n">bx_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">b_l_r</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">],</span> <span class="n">b_l_r</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]))</span>
-                        <span class="n">_apply_lifting</span><span class="p">(</span><span class="n">bx_</span><span class="p">,</span> <span class="n">a_</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">xlocal</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span> <span class="n">const_</span><span class="p">,</span> <span class="n">coeff</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+                        <span class="n">_apply_lifting_markers</span><span class="p">(</span>
+                            <span class="n">bx_</span><span class="p">,</span>
+                            <span class="n">a_</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                            <span class="n">bc_markers1</span><span class="p">,</span>
+                            <span class="n">bc_values1</span><span class="p">,</span>
+                            <span class="n">xlocal</span><span class="p">,</span>
+                            <span class="nb">float</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span>
+                            <span class="n">const_</span><span class="p">,</span>
+                            <span class="n">coeff</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                        <span class="p">)</span>
                         <span class="n">size</span> <span class="o">=</span> <span class="n">off1</span> <span class="o">-</span> <span class="n">off0</span>
                         <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">off0</span><span class="p">:</span><span class="n">off1</span><span class="p">]</span> <span class="o">=</span> <span class="n">bx_</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
                         <span class="n">b_l</span><span class="o">.</span><span class="n">array_w</span><span class="p">[</span><span class="n">offg0</span><span class="p">:</span><span class="n">offg1</span><span class="p">]</span> <span class="o">=</span> <span class="n">bx_</span><span class="p">[</span><span class="n">size</span><span class="p">:]</span>
@@ -1163,8 +1352,16 @@
                 <span class="n">x0</span> <span class="o">=</span> <span class="p">[</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
                 <span class="n">x0_r</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">array_r</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x0</span><span class="p">]</span>
                 <span class="n">b_local</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">localForm</span><span class="p">())</span>
-                <span class="n">_apply_lifting</span><span class="p">(</span><span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0_r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">constants</span><span class="p">,</span> <span class="n">coeffs</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
-
+                <span class="n">_apply_lifting_markers</span><span class="p">(</span>
+                    <span class="n">b_local</span><span class="o">.</span><span class="n">array_w</span><span class="p">,</span>
+                    <span class="n">a</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                    <span class="n">bc_markers1</span><span class="p">,</span>
+                    <span class="n">bc_values1</span><span class="p">,</span>
+                    <span class="n">x0_r</span><span class="p">,</span>
+                    <span class="n">alpha</span><span class="p">,</span>
+                    <span class="n">constants</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                    <span class="n">coeffs</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+                <span class="p">)</span>
 
 
 <div class="viewcode-block" id="set_bc">
@@ -1245,7 +1442,7 @@
 <span class="sd">        ``.destroy()`` on returned PETSc objects.</span>
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: D301</span>
 
-    <span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+    <span class="nd">@overload</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">LinearProblem</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span>
         <span class="n">a</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
@@ -1261,7 +1458,7 @@
         <span class="n">jit_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">entity_maps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-    <span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+    <span class="nd">@overload</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">LinearProblem</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
         <span class="n">a</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]],</span>
@@ -1481,14 +1678,18 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Assemble lhs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-        <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+        <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
 
         <span class="c1"># Assemble preconditioner</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-            <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+            <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span><span class="p">,</span>
+                <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preconditioner</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">P_mat</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
 
         <span class="c1"># Assemble rhs</span>
@@ -1502,7 +1703,7 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected a sequence of forms for a block/nest problem.&quot;</span><span class="p">)</span>
                 <span class="n">bcs1</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
-                <span class="n">apply_lifting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs1</span><span class="p">)</span>
+                <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">_lifting_bc_data</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">))</span>  <span class="c1"># type: ignore[arg-type]</span>
                 <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_ghost_update</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>
                     <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
@@ -1514,7 +1715,7 @@
                 <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span>
                 <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected a single form for a non-block/nest problem.&quot;</span><span class="p">)</span>
-                <span class="n">apply_lifting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">])</span>
+                <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="o">*</span><span class="n">_lifting_bc_data</span><span class="p">([</span><span class="n">a</span><span class="p">],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">]))</span>
                 <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_ghost_update</span><span class="p">(</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span>
                     <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
@@ -1662,13 +1863,21 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">residual</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expected a sequence of forms for a block/nest residual.&quot;</span><span class="p">)</span>
         <span class="n">bcs1</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="n">bcs1</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span>
+            <span class="n">b</span><span class="p">,</span>
+            <span class="n">jacobian</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">_lifting_bc_data</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs1</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+            <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_ghost_update</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
         <span class="n">bcs0</span> <span class="o">=</span> <span class="n">_bcs_by_block</span><span class="p">(</span><span class="n">_extract_function_spaces</span><span class="p">(</span><span class="n">residual</span><span class="p">),</span> <span class="n">bcs</span><span class="p">)</span>
         <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># Single form lifting</span>
-        <span class="n">apply_lifting</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">jacobian</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="n">bcs</span><span class="p">],</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">_apply_lifting_petsc_markers</span><span class="p">(</span>
+            <span class="n">b</span><span class="p">,</span> <span class="p">[</span><span class="n">jacobian</span><span class="p">],</span> <span class="o">*</span><span class="n">_lifting_bc_data</span><span class="p">([</span><span class="n">jacobian</span><span class="p">],</span> <span class="p">[</span><span class="n">bcs</span><span class="p">]),</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span>
+        <span class="p">)</span>
         <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_ghost_update</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">ADD</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">REVERSE</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
         <span class="n">set_bc</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">)</span>
     <span class="n">dolfinx</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">_ghost_update</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">ScatterMode</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
@@ -1727,11 +1936,13 @@
 
     <span class="c1"># Assemble Jacobian</span>
     <span class="n">J</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-    <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="n">jacobian</span><span class="p">,</span> <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
     <span class="n">J</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">preconditioner</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">P_mat</span><span class="o">.</span><span class="n">zeroEntries</span><span class="p">()</span>
-        <span class="n">_assemble_matrix_petsc</span><span class="p">(</span><span class="n">P_mat</span><span class="p">,</span> <span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="p">,</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">_assemble_matrix_petsc_markers</span><span class="p">(</span>
+            <span class="n">P_mat</span><span class="p">,</span> <span class="n">preconditioner</span><span class="p">,</span> <span class="o">*</span><span class="n">_matrix_bc_markers</span><span class="p">(</span><span class="n">preconditioner</span><span class="p">,</span> <span class="n">bcs</span><span class="p">),</span> <span class="n">diag</span><span class="o">=</span><span class="mf">1.0</span>
+        <span class="p">)</span>
         <span class="n">P_mat</span><span class="o">.</span><span class="n">assemble</span><span class="p">()</span></div>
 
 
@@ -1755,7 +1966,7 @@
     <span class="n">_P_mat</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_preconditioner</span><span class="p">:</span> <span class="n">Form</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Form</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
 
-    <span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+    <span class="nd">@overload</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">NonlinearProblem</span><span class="p">[</span><span class="n">_Function</span><span class="p">],</span>
         <span class="n">F</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">,</span>
@@ -1771,7 +1982,7 @@
         <span class="n">jit_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">entity_maps</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">_EntityMap</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-    <span class="nd">@typing</span><span class="o">.</span><span class="n">overload</span>
+    <span class="nd">@overload</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">NonlinearProblem</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">_Function</span><span class="p">]],</span>
         <span class="n">F</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">Form</span><span class="p">],</span>

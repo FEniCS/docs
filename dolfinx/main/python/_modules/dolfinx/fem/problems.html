@@ -395,12 +395,17 @@
     <span class="n">DirichletBC</span><span class="p">,</span>
     <span class="n">Form</span><span class="p">,</span>
     <span class="n">Function</span><span class="p">,</span>
-    <span class="n">apply_lifting</span><span class="p">,</span>
     <span class="n">create_matrix</span><span class="p">,</span>
     <span class="n">create_vector</span><span class="p">,</span>
     <span class="n">form</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">_assemble_matrix_csr</span><span class="p">,</span> <span class="n">_assemble_vector_array</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.fem.assemble</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_apply_lifting_markers</span><span class="p">,</span>
+    <span class="n">_assemble_matrix_csr_markers</span><span class="p">,</span>
+    <span class="n">_assemble_vector_array</span><span class="p">,</span>
+    <span class="n">_bc_dof_markers</span><span class="p">,</span>
+    <span class="n">_bc_lifting_data</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">InsertMode</span><span class="p">,</span> <span class="n">MatrixCSR</span><span class="p">,</span> <span class="n">Vector</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la.superlu_dist</span><span class="w"> </span><span class="kn">import</span> <span class="n">superlu_dist_matrix</span><span class="p">,</span> <span class="n">superlu_dist_solver</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.mesh</span><span class="w"> </span><span class="kn">import</span> <span class="n">EntityMap</span> <span class="k">as</span> <span class="n">EntityMap</span>
@@ -521,7 +526,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Assemble lhs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">set_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mf">0.0</span><span class="p">))</span>
-        <span class="n">_assemble_matrix_csr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+        <span class="n">V0</span><span class="p">,</span> <span class="n">V1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span>
+        <span class="n">_assemble_matrix_csr_markers</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="n">_bc_dof_markers</span><span class="p">(</span><span class="n">V0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">),</span> <span class="n">_bc_dof_markers</span><span class="p">(</span><span class="n">V1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">scatter_reverse</span><span class="p">()</span>
 
         <span class="c1"># SuperLU_DIST solves in-place, so a deep copy of A is required.</span>
@@ -537,7 +545,10 @@
 
         <span class="c1"># Apply boundary conditions to the rhs</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">:</span>
-            <span class="n">apply_lifting</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">],</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">])</span>
+            <span class="n">bc_markers1</span><span class="p">,</span> <span class="n">bc_values1</span> <span class="o">=</span> <span class="n">_bc_lifting_data</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">function_spaces</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">dtype</span>
+            <span class="p">)</span>
+            <span class="n">_apply_lifting_markers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">],</span> <span class="n">bc_markers1</span><span class="p">,</span> <span class="n">bc_values1</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">scatter_reverse</span><span class="p">(</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">add</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">bc</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bcs</span><span class="p">:</span>
                 <span class="n">bc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">array</span><span class="p">)</span>
