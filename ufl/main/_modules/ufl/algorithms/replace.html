@@ -355,21 +355,26 @@
 <span class="c1">#</span>
 <span class="c1"># Modified by Anders Logg, 2009-2010</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatchmethod</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">ufl.classes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">has_exact_type</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrand_dags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrands</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">CoefficientDerivative</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">as_ufl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.external_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalOperator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.interpolate</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interpolate</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.multifunction</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.dag_traverser</span><span class="w"> </span><span class="kn">import</span> <span class="n">DAGTraverser</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Replacer</span><span class="p">(</span><span class="n">MultiFunction</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Replacer</span><span class="p">(</span><span class="n">DAGTraverser</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Replacer."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Initialize."""</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="c1"># Preserve the identity of mapped objects; compression may substitute</span>
+        <span class="c1"># an equal but different expression.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">compress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span> <span class="o">=</span> <span class="n">mapping</span>
 
         <span class="c1"># One can replace Coarguments by 1-Forms</span>
@@ -384,14 +389,25 @@
                 <span class="s2">"Replacement expressions must have the same shape as what they replace."</span>
             <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">ufl_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="nd">@singledispatchmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">:</span> <span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Expr</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">BaseForm</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Process ``o``."""</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Expr</span><span class="p">)</span>
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">BaseForm</span><span class="p">)</span>
+    <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Replace a ufl_type."""</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reuse_if_untouched</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">new</span> <span class="ow">is</span> <span class="n">old</span> <span class="k">for</span> <span class="n">new</span><span class="p">,</span> <span class="n">old</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="n">o</span>
+            <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">external_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">ExternalOperator</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Replace an external_operator."""</span>
         <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="ow">or</span> <span class="n">o</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">ExternalOperator</span><span class="p">):</span>
@@ -400,7 +416,8 @@
             <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">new_ops</span><span class="p">,</span> <span class="n">argument_slots</span><span class="o">=</span><span class="n">new_args</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">o</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">interpolate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Replace an interpolate."""</span>
         <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="ow">or</span> <span class="n">o</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">Interpolate</span><span class="p">):</span>
@@ -408,7 +425,8 @@
             <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="nb">reversed</span><span class="p">(</span><span class="n">new_args</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">o</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">coefficient_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">CoefficientDerivative</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Replace a coefficient derivative."""</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Derivatives should be applied before executing replace."</span><span class="p">)</span>
 
@@ -442,7 +460,7 @@
 
         <span class="n">e</span> <span class="o">=</span> <span class="n">expand_derivatives</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">map_integrand_dags</span><span class="p">(</span><span class="n">Replacer</span><span class="p">(</span><span class="n">mapping2</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">map_integrands</span><span class="p">(</span><span class="k">lambda</span> <span class="n">expr</span><span class="p">:</span> <span class="n">Replacer</span><span class="p">(</span><span class="n">mapping2</span><span class="p">)(</span><span class="n">expr</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div>
 
 </pre></div>
 
