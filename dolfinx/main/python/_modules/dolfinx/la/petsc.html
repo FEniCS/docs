@@ -403,13 +403,14 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">npt</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dolfinx</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx</span><span class="w"> </span><span class="kn">import</span> <span class="n">cpp</span> <span class="k">as</span> <span class="n">_cpp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">IndexMap</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dolfinx.la</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vector</span>
 
 <span class="k">if</span> <span class="ow">not</span> <span class="n">dolfinx</span><span class="o">.</span><span class="n">has_petsc4py</span><span class="p">:</span>
     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DOLFINx has not been built with petsc4py support.&quot;</span><span class="p">)</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;assign&quot;</span><span class="p">,</span> <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span> <span class="s2">&quot;create_vector_wrap&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;assign&quot;</span><span class="p">,</span> <span class="s2">&quot;create_vector&quot;</span><span class="p">,</span> <span class="s2">&quot;create_vector_wrap&quot;</span><span class="p">,</span> <span class="s2">&quot;set_diagonal&quot;</span><span class="p">]</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_ghost_update</span><span class="p">(</span>
@@ -663,6 +664,44 @@
         <span class="p">)</span>
     <span class="p">)</span>
     <span class="n">vec</span><span class="o">.</span><span class="n">setAttr</span><span class="p">(</span><span class="s2">&quot;_blocks&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">off_owned</span><span class="p">,</span> <span class="n">off_ghost</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="set_diagonal">
+<a class="viewcode-back" href="../../../generated/dolfinx.la.petsc.html#dolfinx.la.petsc.set_diagonal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_diagonal</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">Mat</span><span class="p">,</span>
+    <span class="n">rows</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">],</span>
+    <span class="n">diagonal</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">complex</span> <span class="o">|</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">insert_mode</span><span class="p">:</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span> <span class="o">=</span> <span class="n">PETSc</span><span class="o">.</span><span class="n">InsertMode</span><span class="o">.</span><span class="n">INSERT</span><span class="p">,</span>  <span class="c1"># type: ignore[arg-type]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set or add values on the diagonal for given rows of a PETSc matrix.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        A: Matrix to modify.</span>
+<span class="sd">        rows: Rows, in local indices, to set the diagonal value for.</span>
+<span class="sd">        diagonal: Value to set on the diagonal, either a single value</span>
+<span class="sd">            for all rows or an array with ``diagonal[i]`` the value for</span>
+<span class="sd">            ``rows[i]``. An array must have the same length as</span>
+<span class="sd">            ``rows``.</span>
+<span class="sd">        insert_mode: ``PETSc.InsertMode.INSERT`` to overwrite the</span>
+<span class="sd">            diagonal entry, or ``PETSc.InsertMode.ADD`` to add to it.</span>
+<span class="sd">            The two agree on rows that assembly has already zeroed, and</span>
+<span class="sd">            ``ADD`` avoids the flush needed to take the matrix out of</span>
+<span class="sd">            add mode.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        A row that the calling rank does not own is accumulated into</span>
+<span class="sd">        the owner&#39;s entry when the matrix is assembled, so pass owned</span>
+<span class="sd">        rows unless that accumulation is intended. A row repeated in</span>
+<span class="sd">        ``rows`` is likewise written once per occurrence.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The matrix is not assembled.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">ndim</span><span class="p">(</span><span class="n">diagonal</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">diagonal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">diagonal</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">PETSc</span><span class="o">.</span><span class="n">ScalarType</span><span class="p">)</span>
+    <span class="n">_cpp</span><span class="o">.</span><span class="n">la</span><span class="o">.</span><span class="n">petsc</span><span class="o">.</span><span class="n">set_diagonal</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">diagonal</span><span class="p">,</span> <span class="n">insert_mode</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span></div>
+
 </pre></div>
 
                 </article>
