@@ -375,7 +375,7 @@
                   
   <h1>Source code for dolfinx.io.gmsh</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (C) 2022-2026 Jørgen S. Dokken, Henrik N. T. Finsberg and</span>
-<span class="c1"># Paul T. Kühner</span>
+<span class="c1"># Paul T. Kühner and Garth N. Wells</span>
 <span class="c1">#</span>
 <span class="c1"># This file is part of DOLFINx (https://www.fenicsproject.org)</span>
 <span class="c1">#</span>
@@ -466,7 +466,9 @@
     <span class="mi">26</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
     <span class="mi">29</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;tetrahedron&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
     <span class="mi">36</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;quadrilateral&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+    <span class="mi">90</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;prism&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
     <span class="mi">92</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;hexahedron&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+    <span class="mi">118</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;pyramid&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
 <span class="p">}</span>
 
 
@@ -612,16 +614,17 @@
             <span class="k">for</span> <span class="n">entity_type</span><span class="p">,</span> <span class="n">entity_tag</span><span class="p">,</span> <span class="n">entity_topology</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
                 <span class="n">entity_types</span><span class="p">,</span> <span class="n">entity_tags</span><span class="p">,</span> <span class="n">entity_topologies</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">):</span>
-                <span class="c1"># Determine number of local nodes per element to create the</span>
-                <span class="c1"># topology of the elements</span>
-                <span class="n">properties</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">getElementProperties</span><span class="p">(</span><span class="n">entity_type</span><span class="p">)</span>
-                <span class="n">name</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">properties</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entity_tag</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
 
-                <span class="c1"># Array of shape (num_elements,num_nodes_per_element)</span>
+                <span class="c1"># Array of shape (num_elements, num_nodes_per_element)</span>
                 <span class="c1"># containing the topology of the elements on this entity.</span>
-                <span class="c1"># NOTE: Gmsh indexing starts with one, we therefore</span>
-                <span class="c1"># subtract 1 from each node to use zero-based numbering</span>
-                <span class="n">topology</span> <span class="o">=</span> <span class="n">entity_topology</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+                <span class="c1"># The node count is taken from the data rather than from</span>
+                <span class="c1"># Gmsh: getElementProperties has no reference element for</span>
+                <span class="c1"># some higher-degree types, the cubic prism among them.</span>
+                <span class="c1"># NOTE: Gmsh indexing starts at one, so subtract 1 from</span>
+                <span class="c1"># each node to get zero-based numbering</span>
+                <span class="n">topology</span> <span class="o">=</span> <span class="n">entity_topology</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">entity_tag</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
                 <span class="c1"># Create marker array of length of number of tagged cells</span>
                 <span class="n">marker</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">entity_tag</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
@@ -751,11 +754,15 @@
         <span class="n">element_ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_unique_entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
         <span class="n">entity_tdim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_unique_entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
         <span class="n">num_nodes_per_element</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_unique_entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">element</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">topologies</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">getElementProperties</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">element_data</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">topologies</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">_gmsh_to_cells</span><span class="p">:</span>
+                <span class="n">shape</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_gmsh_to_cells</span><span class="p">[</span><span class="n">element</span><span class="p">]</span>
+                <span class="n">dim</span> <span class="o">=</span> <span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">cell_dim</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">to_type</span><span class="p">(</span><span class="n">shape</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">getElementProperties</span><span class="p">(</span><span class="n">element</span><span class="p">)</span>
             <span class="n">element_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">element</span>
             <span class="n">entity_tdim</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dim</span>
-            <span class="n">num_nodes_per_element</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_nodes</span>
+            <span class="n">num_nodes_per_element</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">element_data</span><span class="p">[</span><span class="s2">&quot;topology&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
         <span class="c1"># Broadcast information to all other ranks</span>
         <span class="n">entity_tdim</span><span class="p">,</span> <span class="n">element_ids</span><span class="p">,</span> <span class="n">num_nodes_per_element</span> <span class="o">=</span> <span class="n">comm</span><span class="o">.</span><span class="n">bcast</span><span class="p">(</span>
@@ -824,7 +831,7 @@
 
         <span class="c1"># Get cell-&gt;node connectivity and  permute to FEniCS ordering</span>
         <span class="n">gmsh_cell_perm</span> <span class="o">=</span> <span class="n">cell_perm_array</span><span class="p">(</span><span class="n">_cpp</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">to_type</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ufl_domain</span><span class="o">.</span><span class="n">ufl_cell</span><span class="p">())),</span> <span class="n">num_nodes</span><span class="p">)</span>
-        <span class="n">cell_connectivity</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="p">[:,</span> <span class="n">gmsh_cell_perm</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="n">cell_connectivity</span> <span class="o">=</span> <span class="n">cell_tags</span><span class="p">[:,</span> <span class="n">gmsh_cell_perm</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">cell_connectivities</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cell_connectivity</span><span class="p">)</span>
         <span class="n">ufl_domains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ufl_domain</span><span class="p">)</span>
 
@@ -886,9 +893,7 @@
             <span class="n">dolfinx_meshtags</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">continue</span>
 
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span> <span class="o">==</span> <span class="n">CellType</span><span class="o">.</span><span class="n">prism</span>
-        <span class="p">)</span> <span class="ow">or</span> <span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span> <span class="o">==</span> <span class="n">CellType</span><span class="o">.</span><span class="n">pyramid</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">codim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">CellType</span><span class="o">.</span><span class="n">prism</span><span class="p">,</span> <span class="n">CellType</span><span class="o">.</span><span class="n">pyramid</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported facet tag for type </span><span class="si">{</span><span class="n">topology</span><span class="o">.</span><span class="n">cell_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># Distribute entity data [[e0_v0, e0_v1, ...], [e1_v0, e1_v1, ...],</span>
