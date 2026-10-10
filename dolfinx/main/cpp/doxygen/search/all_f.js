@@ -26,9 +26,11 @@ var searchData=
   ['reorder_5frcm_23',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fhilbert_24',['reorder_sfc_hilbert',['../d9/d69/namespacedolfinx_1_1graph.html#ac014886e521637bd69a6cbae82be8c80',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fmorton_25',['reorder_sfc_morton',['../d9/d69/namespacedolfinx_1_1graph.html#af1a7bb1cc3f1762ad92904368e330614',1,'dolfinx::graph']]],
-  ['reserve_5fblocks_26',['reserve_blocks',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a073f977f464eeb8412bb6a314a1caaae',1,'dolfinx::la::SparsityPattern']]],
-  ['resume_27',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['ridge_28',['ridge',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a56c97903eddc9534396c7249d2e5aa1f',1,'dolfinx::fem']]],
-  ['row_5fptr_29',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
-  ['rowptr_5fcontainer_5ftype_30',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]]
+  ['request_26',['Request',['../da/d71/classdolfinx_1_1MPI_1_1Request.html',1,'Request'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#a1b1dcdca6145fe726a6eeebae3a037aa',1,'dolfinx::MPI::Request::Request()=default'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aaef2763191501bf5a8270f440e9b40e1',1,'dolfinx::MPI::Request::Request(const Request &amp;) noexcept'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aa2238caaeb7519bf0fbc46389266d5d3',1,'dolfinx::MPI::Request::Request(Request &amp;&amp;request) noexcept']]],
+  ['request_27',['request',['../da/d71/classdolfinx_1_1MPI_1_1Request.html#a860aec8c27bd64d44c827b55ccfe08ed',1,'dolfinx::MPI::Request::request() noexcept'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aed0e0a715bad5636c92990afcef6b987',1,'dolfinx::MPI::Request::request() const noexcept']]],
+  ['reserve_5fblocks_28',['reserve_blocks',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a073f977f464eeb8412bb6a314a1caaae',1,'dolfinx::la::SparsityPattern']]],
+  ['resume_29',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['ridge_30',['ridge',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962a56c97903eddc9534396c7249d2e5aa1f',1,'dolfinx::fem']]],
+  ['row_5fptr_31',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]],
+  ['rowptr_5fcontainer_5ftype_32',['rowptr_container_type',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#a199aedf0b3d25f4550fdf6e3cdf9baa0',1,'dolfinx::la::MatrixCSR']]]
 ];

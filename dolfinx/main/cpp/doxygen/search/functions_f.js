@@ -21,7 +21,9 @@ var searchData=
   ['reorder_5frcm_18',['reorder_rcm',['../d9/d69/namespacedolfinx_1_1graph.html#a8320d82921113dfc63f0a4d451a99c7e',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fhilbert_19',['reorder_sfc_hilbert',['../d9/d69/namespacedolfinx_1_1graph.html#ac014886e521637bd69a6cbae82be8c80',1,'dolfinx::graph']]],
   ['reorder_5fsfc_5fmorton_20',['reorder_sfc_morton',['../d9/d69/namespacedolfinx_1_1graph.html#af1a7bb1cc3f1762ad92904368e330614',1,'dolfinx::graph']]],
-  ['reserve_5fblocks_21',['reserve_blocks',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a073f977f464eeb8412bb6a314a1caaae',1,'dolfinx::la::SparsityPattern']]],
-  ['resume_22',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
-  ['row_5fptr_23',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
+  ['request_21',['Request',['../da/d71/classdolfinx_1_1MPI_1_1Request.html#a1b1dcdca6145fe726a6eeebae3a037aa',1,'dolfinx::MPI::Request::Request()=default'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aaef2763191501bf5a8270f440e9b40e1',1,'dolfinx::MPI::Request::Request(const Request &amp;) noexcept'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aa2238caaeb7519bf0fbc46389266d5d3',1,'dolfinx::MPI::Request::Request(Request &amp;&amp;request) noexcept']]],
+  ['request_22',['request',['../da/d71/classdolfinx_1_1MPI_1_1Request.html#a860aec8c27bd64d44c827b55ccfe08ed',1,'dolfinx::MPI::Request::request() noexcept'],['../da/d71/classdolfinx_1_1MPI_1_1Request.html#aed0e0a715bad5636c92990afcef6b987',1,'dolfinx::MPI::Request::request() const noexcept']]],
+  ['reserve_5fblocks_23',['reserve_blocks',['../d5/df9/classdolfinx_1_1la_1_1SparsityPattern.html#a073f977f464eeb8412bb6a314a1caaae',1,'dolfinx::la::SparsityPattern']]],
+  ['resume_24',['resume',['../d4/d40/classdolfinx_1_1common_1_1Timer.html#a41de8150eff044a237990c271d57ea27',1,'dolfinx::common::Timer']]],
+  ['row_5fptr_25',['row_ptr',['../dc/dfa/classdolfinx_1_1la_1_1MatrixCSR.html#ad0f87c20451b1fe7ec61010d6ae1bddf',1,'dolfinx::la::MatrixCSR']]]
 ];
