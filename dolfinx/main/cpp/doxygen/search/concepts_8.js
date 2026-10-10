@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['scalar_0',['scalar',['../da/d5d/conceptdolfinx_1_1scalar.html',1,'dolfinx']]],
-  ['scratchbuffer_1',['ScratchBuffer',['../db/d55/conceptdolfinx_1_1fem_1_1ScratchBuffer.html',1,'dolfinx::fem']]],
-  ['sparsityimplementation_2',['SparsityImplementation',['../d8/dc0/conceptSparsityImplementation.html',1,'']]]
+  ['native_5fscalar_0',['native_scalar',['../d1/df8/conceptdolfinx_1_1io_1_1hdf5_1_1native__scalar.html',1,'dolfinx::io::hdf5']]]
 ];
