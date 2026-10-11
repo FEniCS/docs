@@ -28,7 +28,7 @@ var searchData=
   ['expression_5ffactory_2eh_25',['expression_factory.h',['../d0/dc9/expression__factory_8h.html',1,'']]],
   ['exterior_5ffacet_26',['exterior_facet',['../d8/dbf/namespacedolfinx_1_1fem.html#ac00c421a0f3a4e925538ebc7a05f2962ab8e8c532206d46c91883de739daed213',1,'dolfinx::fem']]],
   ['exterior_5ffacet_5findices_27',['exterior_facet_indices',['../dd/d7d/namespacedolfinx_1_1mesh.html#a7f25ea9250efb80e92fa44d379f3afa4',1,'dolfinx::mesh::exterior_facet_indices(const Topology &amp;topology, int facet_type_idx)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#abcd805c0f4a1ee1533a6b05417ddcaa1',1,'dolfinx::mesh::exterior_facet_indices(const Topology &amp;topology)']]],
-  ['extract_5fcoefficient_5fcells_5ffrom_5fentities_28',['extract_coefficient_cells_from_entities',['../d8/dbf/namespacedolfinx_1_1fem.html#abeb01aaf6cdbb31b9fc9de1e68412525',1,'dolfinx::fem']]],
+  ['extract_5fcells_5ffrom_5fentities_28',['extract_cells_from_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#a9cbf451443c6ad3aba601edce73279a2',1,'dolfinx::mesh']]],
   ['extract_5fcommon_5fmesh_29',['extract_common_mesh',['../df/d34/ADIOS2Writers_8h.html#a1f53408cd5a8c4baa563a7509c1d0c4e',1,'dolfinx::io::impl_adios2']]],
   ['extract_5ffunction_5fnames_30',['extract_function_names',['../df/d34/ADIOS2Writers_8h.html#abb24c628833f04e938d4c08645d502ca',1,'dolfinx::io::impl_vtx']]],
   ['extract_5ffunction_5fspaces_31',['extract_function_spaces',['../d8/dbf/namespacedolfinx_1_1fem.html#a5c0589b9e21481958b76c8862dd29903',1,'dolfinx::fem']]],
