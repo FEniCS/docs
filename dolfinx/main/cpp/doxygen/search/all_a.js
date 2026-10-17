@@ -14,5 +14,6 @@ var searchData=
   ['locate_5fdofs_5ftopological_11',['locate_dofs_topological',['../d8/dbf/namespacedolfinx_1_1fem.html#a84cd6568b465fbe013715ad3d70190cb',1,'dolfinx::fem::locate_dofs_topological(const mesh::Topology &amp;topology, const DofMap &amp;dofmap, int dim, std::span&lt; const std::int32_t &gt; entities, bool remote=true)'],['../d8/dbf/namespacedolfinx_1_1fem.html#a3900051aa0e3357e04060065bf868149',1,'dolfinx::fem::locate_dofs_topological(const mesh::Topology &amp;topology, std::array&lt; std::reference_wrapper&lt; const DofMap &gt;, 2 &gt; dofmaps, int dim, std::span&lt; const std::int32_t &gt; entities, bool remote=true)']]],
   ['locate_5fentities_12',['locate_entities',['../dd/d7d/namespacedolfinx_1_1mesh.html#ac50e2b6669877ea08fd2743981d3b907',1,'dolfinx::mesh::locate_entities(const Mesh&lt; T &gt; &amp;mesh, int dim, U marker, int entity_type_idx)'],['../dd/d7d/namespacedolfinx_1_1mesh.html#ab344919e038891a57c7a943cc5a420ee',1,'dolfinx::mesh::locate_entities(const Mesh&lt; T &gt; &amp;mesh, int dim, U marker)']]],
   ['locate_5fentities_5fboundary_13',['locate_entities_boundary',['../dd/d7d/namespacedolfinx_1_1mesh.html#a7f4773c26421814d452b07150df4ece8',1,'dolfinx::mesh']]],
-  ['lustructdeleter_14',['LUStructDeleter',['../d5/d5c/structdolfinx_1_1la_1_1LUStructDeleter.html',1,'dolfinx::la']]]
+  ['logger_14',['logger',['../d2/dc7/namespacedolfinx.html#aaec57459fb895f0961f28d3b6eb58fcc',1,'dolfinx']]],
+  ['lustructdeleter_15',['LUStructDeleter',['../d5/d5c/structdolfinx_1_1la_1_1LUStructDeleter.html',1,'dolfinx::la']]]
 ];
