@@ -4,7 +4,7 @@ var searchData=
   ['define_5fattribute_1',['define_attribute',['../df/d34/ADIOS2Writers_8h.html#a59b6cf3a8302f51c07bbdba5caded68e',1,'dolfinx::io::impl_adios2']]],
   ['define_5fvariable_2',['define_variable',['../df/d34/ADIOS2Writers_8h.html#a352ac5684e7f8363fc414e8f09886be8',1,'dolfinx::io::impl_adios2']]],
   ['degree_3',['degree',['../d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html#a777ab64a78d6207443b1b48099a90946',1,'dolfinx::fem::CoordinateElement']]],
-  ['depends_5fon_5fcell_5forientation_4',['depends_on_cell_orientation',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#a456636dada6de78634f2315bb69bebca',1,'dolfinx::fem::FiniteElement']]],
+  ['depends_5fon_5ffacet_5forientations_4',['depends_on_facet_orientations',['../df/d27/classdolfinx_1_1fem_1_1FiniteElement.html#aafa06c3d09de31c2595120dc0bb69281',1,'dolfinx::fem::FiniteElement']]],
   ['deprecated_20list_5',['Deprecated List',['../da/d58/deprecated.html',1,'']]],
   ['dest_6',['dest',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a41bc0b350e01d55645f06fccb4aacda9',1,'dolfinx::common::IndexMap']]],
   ['dest_5fcells_7',['dest_cells',['../dd/da5/structdolfinx_1_1geometry_1_1PointOwnershipData.html#a3fad8fd962b1748b40379fdb84b95c00',1,'dolfinx::geometry::PointOwnershipData']]],

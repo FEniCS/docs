@@ -13,7 +13,8 @@ var searchData=
   ['option_10',['Option',['../d9/dd6/namespacedolfinx_1_1refinement.html#a6c691bb389aec7339fcaba9d1d36f409',1,'dolfinx::refinement']]],
   ['option_5fparent_5fcell_11',['option_parent_cell',['../d9/dd6/namespacedolfinx_1_1refinement.html#a47c33edb7c32f008df5acf88566c3658',1,'dolfinx::refinement']]],
   ['option_5fparent_5ffacet_12',['option_parent_facet',['../d9/dd6/namespacedolfinx_1_1refinement.html#a78a98580896f45de9e5bc70791e90417',1,'dolfinx::refinement']]],
-  ['original_5fcell_5findex_13',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a30b4770c597eeddabd420ddf4cff9f46',1,'dolfinx::mesh::Topology']]],
-  ['orthonormalize_14',['orthonormalize',['../d6/dfa/namespacedolfinx_1_1la.html#a099c016d9a283690d5c49dfc49794c45',1,'dolfinx::la']]],
-  ['owners_15',['owners',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a6fe47c34b02f0825fd3aeb47693f3f6d',1,'dolfinx::common::IndexMap']]]
+  ['orientation_5fmask_13',['orientation_mask',['../dd/d7d/namespacedolfinx_1_1mesh.html#a94f38883d7d63a38aa112ea349d2b649',1,'dolfinx::mesh']]],
+  ['original_5fcell_5findex_14',['original_cell_index',['../da/d02/classdolfinx_1_1mesh_1_1Topology.html#a30b4770c597eeddabd420ddf4cff9f46',1,'dolfinx::mesh::Topology']]],
+  ['orthonormalize_15',['orthonormalize',['../d6/dfa/namespacedolfinx_1_1la.html#a099c016d9a283690d5c49dfc49794c45',1,'dolfinx::la']]],
+  ['owners_16',['owners',['../d2/d30/classdolfinx_1_1common_1_1IndexMap.html#a6fe47c34b02f0825fd3aeb47693f3f6d',1,'dolfinx::common::IndexMap']]]
 ];
