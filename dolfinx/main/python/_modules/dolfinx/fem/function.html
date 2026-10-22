@@ -533,8 +533,11 @@
 
 <span class="sd">        Args:</span>
 <span class="sd">            e: UFL expression.</span>
-<span class="sd">            X: Array of points of shape ``(num_points, tdim)`` on the</span>
-<span class="sd">                reference element.</span>
+<span class="sd">            X: Array of points on the reference cell of the entities</span>
+<span class="sd">                the Expression is evaluated on, of shape</span>
+<span class="sd">                ``(num_points, entity_dim)``: ``tdim`` for cells,</span>
+<span class="sd">                ``tdim - 1`` for facets, ``tdim - 2`` for ridges and</span>
+<span class="sd">                ``tdim - 3`` for peaks.</span>
 <span class="sd">            comm: Communicator that the Expression is defined on.</span>
 <span class="sd">            form_compiler_options: Options used in FFCx compilation of</span>
 <span class="sd">                this Expression. Run ``ffcx --help`` in the commandline</span>
@@ -644,8 +647,9 @@
 <span class="sd">        Args:</span>
 <span class="sd">            mesh: Mesh to evaluate Expression on.</span>
 <span class="sd">            entities: Entities to evaluate the Expression over. For</span>
-<span class="sd">                cells, it is a list of cell indices. For facets, it is a</span>
-<span class="sd">                2D array of (cell index, local facet index).</span>
+<span class="sd">                cells, it is a list of cell indices. For facets, ridges</span>
+<span class="sd">                and peaks, it is a 2D array of (cell index, local entity</span>
+<span class="sd">                index).</span>
 <span class="sd">            values: Array to fill with evaluated values. If ``None``,</span>
 <span class="sd">                storage will be allocated. Otherwise it must have shape</span>
 <span class="sd">                ``(entities.shape[0], num_points, *value_shape)`` if</span>
@@ -661,21 +665,15 @@
 <span class="sd">            num_points, *value_shape, argument_space_dim)`` if the</span>
 <span class="sd">            Expression does have an argument function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Packing the coefficients checks that the Expression can be</span>
+        <span class="c1"># evaluated over `entities`</span>
         <span class="n">_entities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">entities</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">tdim</span> <span class="o">:=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">expr_dim</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="k">if</span> <span class="n">expr_dim</span> <span class="o">!=</span> <span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expression must be defined on the mesh or its facets.&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">entities</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;entities list should have two dimensions for expression evaluation on facets.&quot;</span>
-                <span class="p">)</span>
-
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_space</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">)</span>
+            <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">values_shape</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">_entities</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">num_points</span><span class="p">,</span>
                 <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">value_shape</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">argument_space</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">space_dimension</span><span class="p">,</span>
             <span class="p">)</span>
@@ -709,9 +707,24 @@
 <div class="viewcode-block" id="Expression.X">
 <a class="viewcode-back" href="../../../generated/dolfinx.fem.html#dolfinx.fem.Expression.X">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">X</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npt</span><span class="o">.</span><span class="n">NDArray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluation points on the reference cell.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluation points on the reference entity.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">X</span><span class="p">()</span></div>
 
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of evaluation points.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">num_points</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">entity_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Topological dimension of the entities evaluated on.</span>
+
+<span class="sd">        The evaluation points are given on the reference entity, e.g. on a</span>
+<span class="sd">        tetrahedral mesh this is 3 for cells, 2 for facets, 1 for ridges</span>
+<span class="sd">        and 0 for peaks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cpp_object</span><span class="o">.</span><span class="n">entity_dim</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufl_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ufl</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">:</span>
