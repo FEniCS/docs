@@ -70,14 +70,15 @@
 
   async function go(version) {
     const { urls, same } = candidates(version);
-    for (let i = 0; i < urls.length; i++) {
-      if (await exists(urls[i])) {
-        const keep = i < same ? location.search + location.hash : "";
-        location.href = urls[i].replace(/(^|\/)index\.html$/, "$1") + keep;
-        return;
-      }
+    // Check all candidates at once, then take the first that exists
+    const found = await Promise.all(urls.map(exists));
+    const i = found.indexOf(true);
+    if (i === -1) {
+      location.href = root + project + "/" + version + "/";
+      return;
     }
-    location.href = root + project + "/" + version + "/";
+    const keep = i < same ? location.search + location.hash : "";
+    location.href = urls[i].replace(/(^|\/)index\.html$/, "$1") + keep;
   }
 
   const css = `

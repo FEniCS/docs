@@ -16,6 +16,7 @@ import os
 from packaging.version import InvalidVersion, Version
 
 PROJECTS = ["dolfinx", "basix", "ffcx", "ufl"]
+BASE_URL = "https://docs.fenicsproject.org"
 
 
 def parse_version(name):
@@ -26,7 +27,18 @@ def parse_version(name):
         return None
 
 
-def project_versions(site, project, base_url):
+def landing_page(site, project, name):
+    """Return the front page of a version folder, relative to the folder.
+
+    Projects with Python and C++ documentation have no root index.
+    """
+    for sub in ("", "python/", "cpp/"):
+        if os.path.isfile(os.path.join(site, project, name, sub, "index.html")):
+            return sub
+    return ""
+
+
+def project_versions(site, project):
     """Return the switcher entries of one project, newest first."""
     path = os.path.join(site, project)
     tags = []
@@ -46,10 +58,15 @@ def project_versions(site, project, base_url):
     entries = []
     if has_main:
         entries.append(
-            {"name": "main (dev)", "version": "main", "url": f"{base_url}/{project}/main/"}
+            {
+                "name": "main (dev)",
+                "version": "main",
+                "url": f"{BASE_URL}/{project}/main/{landing_page(site, project, 'main')}",
+            }
         )
     for _, name in tags:
-        entry = {"name": name, "version": name, "url": f"{base_url}/{project}/{name}/"}
+        url = f"{BASE_URL}/{project}/{name}/{landing_page(site, project, name)}"
+        entry = {"name": name, "version": name, "url": url}
         if name == preferred:
             entry["name"] = f"{name} (stable)"
             entry["preferred"] = True
@@ -69,15 +86,13 @@ def write_new(path, data):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("site", help="Site root, e.g. _html")
-    parser.add_argument("--base-url", default="https://docs.fenicsproject.org")
     args = parser.parse_args()
 
-    base_url = args.base_url.rstrip("/")
     combined = {}
     for project in PROJECTS:
         if not os.path.isdir(os.path.join(args.site, project)):
             continue
-        combined[project] = project_versions(args.site, project, base_url)
+        combined[project] = project_versions(args.site, project)
         write_new(os.path.join(args.site, project, "versions.json"), combined[project])
         print(f"{project}: {len(combined[project])} versions")
     write_new(os.path.join(args.site, "versions.json"), combined)

@@ -14,21 +14,13 @@ import filecmp
 import os
 import sys
 
+from make_versions import PROJECTS
+
 MARKER = b"<!-- fenics-version-switcher -->"
 TAG = MARKER + b'<script src="/_fenics/version-switcher.js" defer></script>\n'
-PROJECTS = ["dolfinx", "basix", "ffcx", "ufl"]
 NEW_FILES = {"versions.json", "_fenics/version-switcher.js"} | {
     f"{p}/versions.json" for p in PROJECTS
 }
-
-
-def html_files(root):
-    """Yield the HTML pages of the projects, relative to root."""
-    for project in PROJECTS:
-        for dirpath, _, filenames in os.walk(os.path.join(root, project)):
-            for name in filenames:
-                if name.endswith(".html"):
-                    yield os.path.relpath(os.path.join(dirpath, name), root)
 
 
 def inject(content):
@@ -50,16 +42,21 @@ def all_files(root):
     return out
 
 
+def project_files(root):
+    """Return the files of the projects, relative to root."""
+    return {
+        os.path.join(project, p)
+        for project in PROJECTS
+        if os.path.isdir(os.path.join(root, project))
+        for p in all_files(os.path.join(root, project))
+    }
+
+
 def verify(site, original):
     """Return a list of differences that are not the injected switcher."""
     errors = []
     site_files = all_files(site) - NEW_FILES
-    original_files = set()
-    for project in PROJECTS:
-        if os.path.isdir(os.path.join(original, project)):
-            original_files |= {
-                os.path.join(project, p) for p in all_files(os.path.join(original, project))
-            }
+    original_files = project_files(original)
     for path in sorted(original_files - site_files):
         errors.append(f"missing: {path}")
     for path in sorted(site_files):
@@ -92,7 +89,7 @@ if __name__ == "__main__":
         sys.exit(1 if errors else 0)
 
     injected = skipped = 0
-    for path in html_files(args.site):
+    for path in sorted(p for p in project_files(args.site) if p.endswith(".html")):
         full = os.path.join(args.site, path)
         with open(full, "rb") as f:
             content = inject(f.read())
