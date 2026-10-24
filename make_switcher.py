@@ -62,6 +62,15 @@ def releases(library):
     return [folder for _, folder in sorted(newest.values(), reverse=True)]
 
 
+def release(folder):
+    """Release of a version folder, i.e. the folder name without .postN.
+
+    The switcher lists one entry per release, so all .postN builds of a
+    release share it.
+    """
+    return re.sub(r"\.post\d+$", "", folder)
+
+
 def latest(library):
     """Folder of the latest non-prerelease version."""
     return next(f for f in releases(library) if not Version(f).is_prerelease)
@@ -79,7 +88,7 @@ def redirect(path, target):
         )
 
 
-def add_switcher(path, json_url, folder, banner):
+def add_switcher(path, json_url, version, banner):
     """Show the version switcher on a page built without it.
 
     Only pydata-sphinx-theme pages are changed; the theme's own script
@@ -95,7 +104,7 @@ def add_switcher(path, json_url, folder, banner):
     options = (
         "<script>"
         f"DOCUMENTATION_OPTIONS.theme_switcher_json_url = '{json_url}';"
-        f"DOCUMENTATION_OPTIONS.theme_switcher_version_match = '{folder}';"
+        f"DOCUMENTATION_OPTIONS.theme_switcher_version_match = '{version}';"
         f"DOCUMENTATION_OPTIONS.show_version_warning_banner = {str(banner).lower()};"
         "</script>\n"
     )
@@ -152,8 +161,9 @@ for library, sub, switcher in doc_sets:
     for folder in releases(library):
         if not os.path.isdir(f"{library}/{folder}/{sub}"):
             continue
-        name = folder.removeprefix("v")
-        entry = {"name": name, "version": folder, "url": f"{url_base}/{library}/{folder}/{path}"}
+        version = release(folder)
+        name = version.removeprefix("v")
+        entry = {"name": name, "version": version, "url": f"{url_base}/{library}/{folder}/{path}"}
         if folder == stable:
             entry["name"] = f"{name} (stable)"
             entry["preferred"] = True
@@ -170,4 +180,9 @@ for library, sub, switcher in doc_sets:
         for dirpath, _, filenames in os.walk(root):
             for name in filenames:
                 if name.endswith(".html"):
-                    add_switcher(os.path.join(dirpath, name), json_url, folder, folder != stable)
+                    add_switcher(
+                        os.path.join(dirpath, name),
+                        json_url,
+                        release(folder),
+                        release(folder) != release(stable),
+                    )
