@@ -27,6 +27,9 @@ def inject(content):
     """Return the page with the switcher tag, or None if not applicable."""
     if MARKER in content:
         return None
+    # Pages with the pydata-sphinx-theme version switcher keep it
+    if b"version-switcher__container" in content:
+        return None
     i = content.lower().rfind(b"</body>")
     if i == -1:
         return None

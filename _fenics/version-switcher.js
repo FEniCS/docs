@@ -20,6 +20,8 @@
   if (parts.length < 3) return;
   const project = decodeURIComponent(parts[0]);
   const current = decodeURIComponent(parts[1]);
+  // .postN builds share their release's entry in versions.json
+  const release = current.replace(/\.post\d+$/, "");
   const rest = parts.slice(2);
 
   // dolfinx moved its Doxygen pages from cpp/ (v0.1-v0.3) to cpp/doxygen/
@@ -135,9 +137,9 @@
     const div = el("div", { class: "fenics-vs-banner", role: "note" });
     div.append(
       "You are viewing the documentation for an older release of " +
-        project + " (" + current + "). The latest release is "
+        project + " (" + release + "). The latest release is "
     );
-    div.append(link(preferred.version, preferred.version));
+    div.append(link(preferred.folder || preferred.version, preferred.version));
     div.append(".");
     const close = el("button", { type: "button", "aria-label": "Dismiss" }, "×");
     close.addEventListener("click", function () {
@@ -151,9 +153,9 @@
   }
 
   function render(versions) {
-    if (!versions.some((v) => v.version === current)) return;
+    if (!versions.some((v) => v.version === release)) return;
     const preferred = versions.find((v) => v.preferred);
-    const old = preferred && current !== "main" && current !== preferred.version;
+    const old = preferred && release !== "main" && release !== preferred.version;
 
     const style = el("style");
     style.textContent = css;
@@ -162,12 +164,12 @@
     const box = el("details", { class: "fenics-vs" });
     const summary = el("summary", { "aria-label": "Select documentation version" });
     summary.append(project + " ");
-    summary.append(el("span", old ? { class: "fenics-vs-old" } : {}, current));
+    summary.append(el("span", old ? { class: "fenics-vs-old" } : {}, release));
     box.append(summary);
     const list = el("ul");
     for (const v of versions) {
-      const li = el("li", v.version === current ? { class: "fenics-vs-current" } : {});
-      li.append(link(v.version, v.name));
+      const li = el("li", v.version === release ? { class: "fenics-vs-current" } : {});
+      li.append(link(v.folder || v.version, v.name));
       list.append(li);
     }
     box.append(list);

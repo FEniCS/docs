@@ -4,7 +4,8 @@ For each documentation set this writes a pydata-sphinx-theme version
 switcher JSON file listing the published versions, and redirect pages
 so that e.g. https://docs.fenicsproject.org/dolfinx/ always opens the
 latest release. Releases built with pydata-sphinx-theme before the
-switcher was configured are patched to show it.
+switcher was configured are patched to show it, in place of the switcher
+added by inject_switcher.py, so it must run after inject_switcher.py.
 
 Usage: python3 make_switcher.py <site>, where <site> is the folder being
 deployed. Only files below <site> are written.
@@ -93,7 +94,8 @@ def add_switcher(path, json_url, version, banner):
 
     Only pydata-sphinx-theme pages are changed; the theme's own script
     renders the switcher once it is configured and its markup is present.
-    The version is removed from the title, as the switcher shows it.
+    The version is removed from the title, as the switcher shows it, and
+    the switcher added by inject_switcher.py is removed.
     """
     with open(path, encoding="utf-8") as f:
         page = f.read()
@@ -131,9 +133,12 @@ def add_switcher(path, json_url, version, banner):
 
     # The title version can differ from the folder name, e.g. 0.11.0 in
     # v0.11.0.post0
-    version = r" v?\d+\.\d+(?:\.\d+)*(?:(?:a|b|rc|\.post|\.dev)\d+)*"
-    page = re.sub(rf"(<title>[^<]*?){version}", r"\1", page, count=1)
-    page = re.sub(rf'(logo__title">[^<]*?){version}', r"\1", page)
+    number = r" v?\d+\.\d+(?:\.\d+)*(?:(?:a|b|rc|\.post|\.dev)\d+)*"
+    page = re.sub(rf"(<title>[^<]*?){number}", r"\1", page, count=1)
+    page = re.sub(rf'(logo__title">[^<]*?){number}', r"\1", page)
+
+    # Remove the switcher added by inject_switcher.py, which this replaces
+    page = re.sub(r"<!-- fenics-version-switcher -->[^\n]*\n", "", page)
     with open(path, "w", encoding="utf-8") as f:
         f.write(page)
 

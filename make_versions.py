@@ -12,6 +12,7 @@ format, and ``<site>/versions.json`` with all projects keyed by name.
 import argparse
 import json
 import os
+import re
 
 from packaging.version import InvalidVersion, Version
 
@@ -52,6 +53,12 @@ def project_versions(site, project):
             tags.append((v, name))
     tags.sort(reverse=True)
 
+    # One entry per release: the newest .postN build, named without .postN
+    newest = {}
+    for v, name in tags:
+        newest.setdefault((v.release, v.pre), (v, name))
+    tags = sorted(newest.values(), reverse=True)
+
     releases = [name for v, name in tags if not v.is_prerelease]
     preferred = releases[0] if releases else None
 
@@ -65,10 +72,15 @@ def project_versions(site, project):
             }
         )
     for _, name in tags:
-        url = f"{BASE_URL}/{project}/{name}/{landing_page(site, project, name)}"
-        entry = {"name": name, "version": name, "url": url}
+        release = re.sub(r"\.post\d+$", "", name)
+        entry = {
+            "name": release,
+            "version": release,
+            "folder": name,
+            "url": f"{BASE_URL}/{project}/{name}/{landing_page(site, project, name)}",
+        }
         if name == preferred:
-            entry["name"] = f"{name} (stable)"
+            entry["name"] = f"{release} (stable)"
             entry["preferred"] = True
         entries.append(entry)
     return entries
