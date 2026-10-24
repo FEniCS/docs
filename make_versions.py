@@ -28,6 +28,14 @@ def parse_version(name):
         return None
 
 
+def release(name):
+    """Return the release of a version folder, i.e. its name without .postN.
+
+    All .postN builds of a release share one switcher entry.
+    """
+    return re.sub(r"\.post\d+$", "", name)
+
+
 def landing_page(site, project, name):
     """Return the front page of a version folder, relative to the folder.
 
@@ -72,15 +80,15 @@ def project_versions(site, project):
             }
         )
     for _, name in tags:
-        release = re.sub(r"\.post\d+$", "", name)
+        version = release(name)
         entry = {
-            "name": release,
-            "version": release,
+            "name": version,
+            "version": version,
             "folder": name,
             "url": f"{BASE_URL}/{project}/{name}/{landing_page(site, project, name)}",
         }
         if name == preferred:
-            entry["name"] = f"{release} (stable)"
+            entry["name"] = f"{version} (stable)"
             entry["preferred"] = True
         entries.append(entry)
     return entries

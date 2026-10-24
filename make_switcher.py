@@ -3,34 +3,35 @@
 For each documentation set this writes a pydata-sphinx-theme version
 switcher JSON file listing the published versions, and redirect pages
 so that e.g. https://docs.fenicsproject.org/dolfinx/ always opens the
-latest release. Releases built with pydata-sphinx-theme before the
-switcher was configured are patched to show it, in place of the switcher
-added by inject_switcher.py, so it must run after inject_switcher.py.
+latest release. The versions are read from the versions.json files
+written by make_versions.py. Releases built with pydata-sphinx-theme
+before the switcher was configured are patched to show it, in place of
+the switcher added by inject_switcher.py, so it must run after
+inject_switcher.py.
 
 Usage: python3 make_switcher.py <site>, where <site> is the folder being
 deployed. Only files below <site> are written.
 """
 
+import itertools
 import json
 import os
 import re
 import sys
 
-from packaging.version import InvalidVersion, Version
+from inject_switcher import TAG, all_files
+from make_versions import BASE_URL, release
 
-url_base = "https://docs.fenicsproject.org"
-
-# (library, documentation subfolder, switcher file). An empty subfolder
-# means the documentation is at the root of each version folder. The
-# first entry for each library is the target of the library redirect.
-doc_sets = [
-    ("dolfinx", "python", "switcher-python.json"),
-    ("dolfinx", "cpp", "switcher-cpp.json"),
-    ("basix", "python", "switcher-python.json"),
-    ("basix", "cpp", None),
-    ("ffcx", "", "switcher.json"),
-    ("ufl", "", "switcher.json"),
-]
+# Documentation subfolders of each library and their switcher lists (None:
+# no Sphinx documentation). An empty subfolder means the documentation is
+# at the root of each version folder. The library redirect opens the
+# first subfolder.
+doc_sets = {
+    "dolfinx": {"python": "switcher-python.json", "cpp": "switcher-cpp.json"},
+    "basix": {"python": "switcher-python.json", "cpp": None},
+    "ffcx": {"": "switcher.json"},
+    "ufl": {"": "switcher.json"},
+}
 
 # Version switcher markup, as rendered by pydata-sphinx-theme
 switcher_html = """<div class="navbar-item">
@@ -47,34 +48,6 @@ switcher_html = """<div class="navbar-item">
   </div>
 </div></div>
 """
-
-
-def releases(library):
-    """Published releases, newest first, keeping only the newest .postN of each."""
-    newest = {}
-    for folder in os.listdir(library):
-        try:
-            v = Version(folder)
-        except InvalidVersion:
-            continue
-        key = (v.release, v.pre)
-        if key not in newest or v > newest[key][0]:
-            newest[key] = (v, folder)
-    return [folder for _, folder in sorted(newest.values(), reverse=True)]
-
-
-def release(folder):
-    """Release of a version folder, i.e. the folder name without .postN.
-
-    The switcher lists one entry per release, so all .postN builds of a
-    release share it.
-    """
-    return re.sub(r"\.post\d+$", "", folder)
-
-
-def latest(library):
-    """Folder of the latest non-prerelease version."""
-    return next(f for f in releases(library) if not Version(f).is_prerelease)
 
 
 def redirect(path, target):
@@ -121,7 +94,7 @@ def add_switcher(path, json_url, version, banner):
 
     # Insert the switcher before the colour mode switcher (a dropdown or,
     # in older theme versions, a button), in the navbar and mobile sidebar
-    count = iter(range(1, 100))
+    count = itertools.count(1)
     page, n = re.subn(
         r'(<div class="navbar-item">\s*'
         r'<(?:div class="theme-switch-container|button [^>]*theme-switch-button))',
@@ -138,56 +111,52 @@ def add_switcher(path, json_url, version, banner):
     page = re.sub(rf'(logo__title">[^<]*?){number}', r"\1", page)
 
     # Remove the switcher added by inject_switcher.py, which this replaces
-    page = re.sub(r"<!-- fenics-version-switcher -->[^\n]*\n", "", page)
+    page = page.replace(TAG.decode(), "")
     with open(path, "w", encoding="utf-8") as f:
         f.write(page)
 
 
 os.chdir(sys.argv[1])
 
-redirected = set()
-for library, sub, switcher in doc_sets:
-    stable = latest(library)
-    path = f"{sub}/" if sub else ""
+for library, subs in doc_sets.items():
+    with open(f"{library}/versions.json") as f:
+        versions = json.load(f)
+    stable = next(v["folder"] for v in versions if v.get("preferred"))
 
-    if library not in redirected:
-        redirect(f"{library}/index.html", f"{url_base}/{library}/{stable}/{path}")
-        redirected.add(library)
-    if sub:
-        redirect(f"{library}/{sub}/index.html", f"{url_base}/{library}/{stable}/{path}")
-
-    if switcher is None:
-        continue
-    entries = []
-    if os.path.isdir(f"{library}/main/{sub}"):
-        entries.append(
-            {"name": "main (dev)", "version": "main", "url": f"{url_base}/{library}/main/{path}"}
-        )
-    for folder in releases(library):
-        if not os.path.isdir(f"{library}/{folder}/{sub}"):
+    for sub, switcher in subs.items():
+        path = f"{sub}/" if sub else ""
+        target = f"{BASE_URL}/{library}/{stable}/{path}"
+        if sub == next(iter(subs)):
+            redirect(f"{library}/index.html", target)
+        if sub:
+            redirect(f"{library}/{sub}/index.html", target)
+        if switcher is None:
             continue
-        version = release(folder)
-        name = version.removeprefix("v")
-        entry = {"name": name, "version": version, "url": f"{url_base}/{library}/{folder}/{path}"}
-        if folder == stable:
-            entry["name"] = f"{name} (stable)"
-            entry["preferred"] = True
-        entries.append(entry)
-    with open(f"{library}/{switcher}", "w") as f:
-        json.dump(entries, f, indent=2)
-        f.write("\n")
 
-    json_url = f"{url_base}/{library}/{switcher}"
-    for folder in os.listdir(library):
-        root = f"{library}/{folder}/{sub}"
-        if folder == "main" or not os.path.isdir(root):
-            continue
-        for dirpath, _, filenames in os.walk(root):
-            for name in filenames:
-                if name.endswith(".html"):
-                    add_switcher(
-                        os.path.join(dirpath, name),
-                        json_url,
-                        release(folder),
-                        release(folder) != release(stable),
-                    )
+        # The versions with this documentation set; main has no folder key
+        entries = []
+        for v in versions:
+            folder = v.get("folder", v["version"])
+            if os.path.isdir(f"{library}/{folder}/{sub}"):
+                entry = {
+                    "name": v["name"].removeprefix("v"),
+                    "version": v["version"],
+                    "url": f"{BASE_URL}/{library}/{folder}/{path}",
+                }
+                if v.get("preferred"):
+                    entry["preferred"] = True
+                entries.append(entry)
+        with open(f"{library}/{switcher}", "w") as f:
+            json.dump(entries, f, indent=2)
+            f.write("\n")
+
+        json_url = f"{BASE_URL}/{library}/{switcher}"
+        for folder in os.listdir(library):
+            root = f"{library}/{folder}/{sub}"
+            if folder == "main" or not os.path.isdir(root):
+                continue
+            version = release(folder)
+            banner = version != release(stable)
+            for page in all_files(root):
+                if page.endswith(".html"):
+                    add_switcher(os.path.join(root, page), json_url, version, banner)
