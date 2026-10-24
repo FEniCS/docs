@@ -79,7 +79,7 @@ def redirect(path, target):
         )
 
 
-def add_switcher(path, json_url, folder):
+def add_switcher(path, json_url, folder, banner):
     """Show the version switcher on a page built without it.
 
     Only pydata-sphinx-theme pages are changed; the theme's own script
@@ -90,11 +90,13 @@ def add_switcher(path, json_url, folder):
         page = f.read()
     if "pydata-sphinx-theme.js" not in page or "version-switcher__container" in page:
         return
+    # Older theme versions detect the stable version by comparing release
+    # numbers, which fails for .postN, so the caller decides on the banner
     options = (
         "<script>"
         f"DOCUMENTATION_OPTIONS.theme_switcher_json_url = '{json_url}';"
         f"DOCUMENTATION_OPTIONS.theme_switcher_version_match = '{folder}';"
-        "DOCUMENTATION_OPTIONS.show_version_warning_banner = true;"
+        f"DOCUMENTATION_OPTIONS.show_version_warning_banner = {str(banner).lower()};"
         "</script>\n"
     )
     page, n = re.subn(
@@ -168,4 +170,4 @@ for library, sub, switcher in doc_sets:
         for dirpath, _, filenames in os.walk(root):
             for name in filenames:
                 if name.endswith(".html"):
-                    add_switcher(os.path.join(dirpath, name), json_url, folder)
+                    add_switcher(os.path.join(dirpath, name), json_url, folder, folder != stable)
