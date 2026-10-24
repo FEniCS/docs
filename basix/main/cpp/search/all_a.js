@@ -9,5 +9,5 @@ var searchData=
   ['make_5ftangent_5fintegral_5fmoments_6',['make_tangent_integral_moments',['../namespacebasix_1_1moments.html#ae38b4d1d34f3e162fdc7c2f0d06c7e98',1,'basix::moments']]],
   ['map_5ffn_7',['map_fn',['../classbasix_1_1FiniteElement.html#afd662b84b8b982e25cbebdaf5f397eee',1,'basix::FiniteElement']]],
   ['map_5ftype_8',['map_type',['../classbasix_1_1FiniteElement.html#ade11e85f802d692a00c0368490fbf25d',1,'basix::FiniteElement']]],
-  ['mdspan_5ft_9',['mdspan_t',['../namespacebasix_1_1element.html#a67b15c0df9ab43c4b4a04ca1d01abda2',1,'basix::element']]]
+  ['mdspan_5ft_9',['mdspan_t',['../namespacebasix_1_1element.html#a02745f50db607129c0509aaf401aaf6d',1,'basix::element']]]
 ];
