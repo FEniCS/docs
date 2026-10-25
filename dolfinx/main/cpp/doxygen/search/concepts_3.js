@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['fekernel_0',['FEkernel',['../dc/da9/conceptdolfinx_1_1fem_1_1FEkernel.html',1,'dolfinx::fem']]],
-  ['formargumentcells_1',['FormArgumentCells',['../d3/da5/conceptdolfinx_1_1fem_1_1FormArgumentCells.html',1,'dolfinx::fem']]],
-  ['formargumententities_2',['FormArgumentEntities',['../d3/d73/conceptdolfinx_1_1fem_1_1FormArgumentEntities.html',1,'dolfinx::fem']]],
-  ['formargumentfacets_3',['FormArgumentFacets',['../d7/dc2/conceptdolfinx_1_1fem_1_1FormArgumentFacets.html',1,'dolfinx::fem']]]
+  ['dofmappackcells_0',['DofMapPackCells',['../dc/d86/conceptdolfinx_1_1fem_1_1DofMapPackCells.html',1,'dolfinx::fem']]],
+  ['dofmappackentities_1',['DofMapPackEntities',['../d5/db4/conceptdolfinx_1_1fem_1_1DofMapPackEntities.html',1,'dolfinx::fem']]],
+  ['dofmappackfacets_2',['DofMapPackFacets',['../d5/dc0/conceptdolfinx_1_1fem_1_1DofMapPackFacets.html',1,'dolfinx::fem']]],
+  ['doftransformkernel_3',['DofTransformKernel',['../df/dd9/conceptdolfinx_1_1fem_1_1DofTransformKernel.html',1,'dolfinx::fem']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['cellrange_0',['CellRange',['../d6/de7/conceptdolfinx_1_1mesh_1_1CellRange.html',1,'dolfinx::mesh']]]
+  ['blocksizearg_0',['BlockSizeArg',['../db/da3/conceptdolfinx_1_1la_1_1impl_1_1BlockSizeArg.html',1,'dolfinx::la::impl']]]
 ];

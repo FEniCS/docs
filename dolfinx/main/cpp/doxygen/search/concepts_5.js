@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['indexlist_0',['IndexList',['../db/d7d/conceptdolfinx_1_1fem_1_1IndexList.html',1,'dolfinx::fem']]]
+  ['getptrconcept_0',['GetPtrConcept',['../d7/df0/conceptdolfinx_1_1la_1_1GetPtrConcept.html',1,'dolfinx::la']]]
 ];
