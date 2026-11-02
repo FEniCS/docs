@@ -417,7 +417,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Operator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.ufl_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ufl_type</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.duals</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_dual</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.duals</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_primal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.functionspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractFunctionSpace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.counted</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counted</span>
@@ -425,11 +425,52 @@
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"BaseFormOperator"</span><span class="p">]</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">dual_arg</span><span class="p">,</span> <span class="n">slot_args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Return the contracted argument and the free arguments of a dual slot.</span>
+
+<span class="sd">    An operator whose primal slots use number 0 numbers its output last, so it is</span>
+<span class="sd">    the left operand of an Action and contracts the lowest-numbered primal argument</span>
+<span class="sd">    of the slot. Otherwise the slot is the left operand and contracts its highest.</span>
+<span class="sd">    The other arguments stay free.</span>
+<span class="sd">    """</span>
+    <span class="n">arguments</span> <span class="o">=</span> <span class="n">dual_arg</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+    <span class="n">form_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arguments</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">form_arguments</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">arguments</span>
+    <span class="n">contracted</span> <span class="o">=</span> <span class="n">form_arguments</span><span class="p">[</span><span class="mi">0</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">slot_args</span><span class="p">)</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">contracted</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arguments</span> <span class="k">if</span> <span class="n">a</span> <span class="o">!=</span> <span class="n">contracted</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="BaseFormOperator">
 <a class="viewcode-back" href="../../../api/api-core.html#ufl.core.base_form_operator.BaseFormOperator">[docs]</a>
 <span class="nd">@ufl_type</span><span class="p">(</span><span class="n">num_ops</span><span class="o">=</span><span class="s2">"varying"</span><span class="p">,</span> <span class="n">is_differential</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">BaseFormOperator</span><span class="p">(</span><span class="n">Operator</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">Counted</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Base form operator."""</span>
+<span class="w">    </span><span class="sd">"""Base form operator ``N(u; v*, uhat)``.</span>
+
+<span class="sd">    ``N`` is nonlinear in its operands ``u`` and linear in its argument slots: the</span>
+<span class="sd">    dual slot ``v*``, paired with the output of ``N``, and the primal slots ``uhat``,</span>
+<span class="sd">    which hold the directions of differentiation.</span>
+
+<span class="sd">    With a Form ``A`` in the dual slot, ``N(u; A)`` is ``A`` composed with ``N``, which</span>
+<span class="sd">    is an Action: ``Action(N, A)`` if the primal slots of ``N`` contain the Argument</span>
+<span class="sd">    numbered 0, otherwise ``Action(A, N)``.</span>
+
+<span class="sd">    For a 2-form ``A(v_0, v_1)``, with Arguments numbered 0 and 1:</span>
+
+<span class="sd">    =========================  =======================  ================  ================</span>
+<span class="sd">    Argument in a primal slot  ``N(u; A, uhat)``        Equal Action      Arguments</span>
+<span class="sd">    =========================  =======================  ================  ================</span>
+<span class="sd">    none                       ``A(v_0, N(u))``         ``Action(A, N)``  ``(v_0,)``</span>
+<span class="sd">    ``w_1``                    ``A(v_0, N(u; w_1))``    ``Action(A, N)``  ``(v_0, w_1)``</span>
+<span class="sd">    ``w_0``                    ``A(N(u; w_0), v_1)``    ``Action(N, A)``  ``(w_0, v_1)``</span>
+<span class="sd">    =========================  =======================  ================  ================</span>
+
+<span class="sd">    Here ``N`` in the Action is ``N(u; v*, uhat)``, and the output of ``N`` must be in</span>
+<span class="sd">    the function space of the Argument it replaces. With ``w_1``, the result is a linear</span>
+<span class="sd">    map from ``w_1`` to the dual of ``v_0``. With ``w_0``, it is a linear map from ``v_1``</span>
+<span class="sd">    to the dual of ``w_0``. Interpolate has ``u == uhat``, so ``Interpolate(e, A)`` is</span>
+<span class="sd">    ``N(e; A, e)``.</span>
+<span class="sd">    """</span>
 
     <span class="n">ufl_operands</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 
@@ -441,13 +482,38 @@
 <span class="w">        </span><span class="sd">"""Initialise.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            operands: operands on which acts the operator.</span>
-<span class="sd">            function_space: the FunctionSpace or MixedFunctionSpace on</span>
-<span class="sd">                which to build this Function.</span>
-<span class="sd">            derivatives: tuple specifying the derivative multiindex.</span>
-<span class="sd">            argument_slots: tuple composed containing expressions with</span>
-<span class="sd">                ufl.Argument or ufl.Coefficient objects.</span>
+<span class="sd">            operands:</span>
+<span class="sd">                The expressions that the operator acts on. The operator can be</span>
+<span class="sd">                nonlinear in them.</span>
+<span class="sd">            function_space:</span>
+<span class="sd">                The FunctionSpace or MixedFunctionSpace of the operator output.</span>
+<span class="sd">            derivatives:</span>
+<span class="sd">                The derivative multi-index: the number of times that the</span>
+<span class="sd">                operator is differentiated with respect to each operand.</span>
+<span class="sd">            argument_slots:</span>
+<span class="sd">                The slots in which the operator is linear, given as</span>
+<span class="sd">                ``(dual_slot, *primal_slots)``. The dual slot is paired with the</span>
+<span class="sd">                operator output, and it can be one of these:</span>
+
+<span class="sd">                - A Coargument on the dual of ``function_space``. The output</span>
+<span class="sd">                  stays free, so the operator is a function in</span>
+<span class="sd">                  ``function_space``.</span>
+<span class="sd">                - A Cofunction on the dual of ``function_space``, which</span>
+<span class="sd">                  contracts the output to the number ``&lt;c, N(u)&gt;``.</span>
+<span class="sd">                - A Form with an Argument on ``function_space``. The output</span>
+<span class="sd">                  takes the place of that Argument, as in an Action. If the</span>
+<span class="sd">                  primal slots use number 0, that is the lowest-numbered</span>
+<span class="sd">                  Argument, as in ``Action(N(u), F)``. Otherwise it is the</span>
+<span class="sd">                  highest-numbered one, as in ``Action(F, N(u))``. The other</span>
+<span class="sd">                  Arguments of the form stay free.</span>
+
+<span class="sd">                Each primal slot is an expression of an Argument, or of a</span>
+<span class="sd">                Coefficient after an action.</span>
+<span class="sd">                If ``argument_slots`` is empty, the dual slot is a new Coargument</span>
+<span class="sd">                with number 0 on the dual of ``function_space``.</span>
 <span class="sd">        """</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_type</span>  <span class="c1"># Avoid cyclic import</span>
+
         <span class="n">BaseForm</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">ufl_operands</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">as_ufl</span><span class="p">,</span> <span class="n">operands</span><span class="p">))</span>
         <span class="n">argument_slots</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">as_ufl</span><span class="p">,</span> <span class="n">argument_slots</span><span class="p">))</span>
@@ -457,6 +523,7 @@
         <span class="c1"># -- Function space -- #</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">function_space</span><span class="p">,</span> <span class="n">AbstractFunctionSpace</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Expecting a FunctionSpace or FiniteElement."</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_function_space</span> <span class="o">=</span> <span class="n">function_space</span>
 
         <span class="c1"># -- Derivatives -- #</span>
         <span class="c1"># Some BaseFormOperator does have derivatives (e.g. ExternalOperator)</span>
@@ -469,7 +536,21 @@
             <span class="c1"># Make v*</span>
             <span class="n">v_star</span> <span class="o">=</span> <span class="n">Argument</span><span class="p">(</span><span class="n">function_space</span><span class="o">.</span><span class="n">dual</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
             <span class="n">argument_slots</span> <span class="o">=</span> <span class="p">(</span><span class="n">v_star</span><span class="p">,)</span>
+
+        <span class="n">dual_slot</span> <span class="o">=</span> <span class="n">argument_slots</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dual_slot</span><span class="p">,</span> <span class="n">BaseForm</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The dual slot must be a BaseForm."</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span> <span class="o">=</span> <span class="n">argument_slots</span>
+
+        <span class="n">slot_args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">a</span>
+            <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">argument_slots</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">base_form_op_as_expr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">contracted</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">dual_slot</span><span class="p">,</span> <span class="n">slot_args</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contracted</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">contracted</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()</span> <span class="o">!=</span> <span class="n">function_space</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The contracted argument in the dual slot must be on function_space."</span><span class="p">)</span>
 
         <span class="c1"># Internal variables for caching coefficient and domain data</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_coefficients</span> <span class="o">=</span> <span class="kc">None</span>
@@ -481,7 +562,7 @@
 
 <div class="viewcode-block" id="BaseFormOperator.argument_slots">
 <a class="viewcode-back" href="../../../api/api-core.html#ufl.core.base_form_operator.BaseFormOperator.argument_slots">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">argument_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outer_form</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">argument_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Returns a tuple of expressions containing argument and coefficient based expressions.</span>
 
 <span class="sd">        We get an argument uhat when we take the Gateaux derivative in</span>
@@ -490,15 +571,7 @@
 <span class="sd">        replace the last argument by coefficient: action(dNdu(u; uhat,</span>
 <span class="sd">        v*), w) = dNdu(u; w, v*) where du is a ufl.Coefficient.</span>
 <span class="sd">        """</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_arguments</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">outer_form</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span>
-        <span class="c1"># Takes into account argument contraction when a base form operator is in an outer form:</span>
-        <span class="c1"># For example:</span>
-        <span class="c1">#   F = N(u; v*) * v * dx can be seen as Action(v1 * v * dx, N(u; v*))</span>
-        <span class="c1">#   =&gt; F.arguments() should return (v,)!</span>
-        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extract_arguments</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -536,32 +609,20 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_form_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Analyze which Argument and Coefficient objects can be found in the base form."""</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_coefficients</span><span class="p">,</span> <span class="n">extract_type</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">Form</span>
 
         <span class="n">dual_arg</span><span class="p">,</span> <span class="o">*</span><span class="n">arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span>
-        <span class="c1"># When coarguments are treated as BaseForms, they have two</span>
-        <span class="c1"># arguments (one primal and one dual) as they map from V* to V*</span>
-        <span class="c1"># =&gt; V* x V -&gt; R. However, when they are treated as mere</span>
-        <span class="c1"># "arguments", the primal space argument is discarded and we</span>
-        <span class="c1"># only have the dual space argument (Coargument). This is the</span>
-        <span class="c1"># exact same situation than BaseFormOperator's arguments which</span>
-        <span class="c1"># are different depending on whether the BaseFormOperator is</span>
-        <span class="c1"># used in an outer form or not.</span>
+        <span class="c1"># When a Coargument is used as the dual slot, its primal argument</span>
+        <span class="c1"># is contracted and only the Coargument remains free.</span>
 
-        <span class="n">primal_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+        <span class="n">slot_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
             <span class="n">a</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">arguments</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">base_form_op_as_expr</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">primal_arg_num</span> <span class="o">=</span> <span class="p">{</span><span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">primal_args</span><span class="p">}</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dual_arg</span><span class="p">,</span> <span class="n">Form</span><span class="p">)</span> <span class="k">else</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">}</span>
-        <span class="n">dual_args</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
-            <span class="n">arg</span>
-            <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">dual_arg</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)</span> <span class="ow">or</span> <span class="n">arg</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">primal_arg_num</span>
-        <span class="p">)</span>
-        <span class="n">arguments</span> <span class="o">=</span> <span class="n">dual_args</span> <span class="o">+</span> <span class="n">primal_args</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">dual_args</span> <span class="o">=</span> <span class="n">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">dual_arg</span><span class="p">,</span> <span class="n">slot_args</span><span class="p">)</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">dual_args</span> <span class="o">+</span> <span class="n">slot_args</span>
         <span class="n">coefficients</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">extract_coefficients</span><span class="p">(</span><span class="n">op</span><span class="p">))</span>
         <span class="c1"># Define canonical numbering of arguments and coefficients</span>
         <span class="c1"># 1) Need concept of order since we may have arguments with the same number</span>
-        <span class="c1">#    because of form composition (`argument_slots(outer_form=True)`):</span>
+        <span class="c1">#    because of form composition:</span>
         <span class="c1">#    Example: Let u \in V1 and N \in V2 and F = N(u; v*) * dx, then</span>
         <span class="c1">#    `derivative(F, u)` will contain dNdu(u; uhat, v*) with v* = Argument(0, V2)</span>
         <span class="c1">#    and uhat = Argument(0, V1) (since F.arguments() = ())</span>
@@ -604,7 +665,7 @@
 <span class="w">        </span><span class="sd">"""Return a new object of the same type with new operands."""</span>
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
             <span class="o">*</span><span class="n">operands</span><span class="p">,</span>
-            <span class="n">function_space</span><span class="o">=</span><span class="n">function_space</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">(),</span>
+            <span class="n">function_space</span><span class="o">=</span><span class="n">function_space</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function_space</span><span class="p">,</span>
             <span class="n">derivatives</span><span class="o">=</span><span class="n">derivatives</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">,</span>
             <span class="n">argument_slots</span><span class="o">=</span><span class="n">argument_slots</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">(),</span>
         <span class="p">)</span>
@@ -618,17 +679,6 @@
         <span class="n">r</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"; derivatives=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="si">!r}</span><span class="s2">)"</span>
         <span class="k">return</span> <span class="n">r</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Hash code for use in dicts."""</span>
-        <span class="n">hashdata</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">op</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">),</span>
-            <span class="nb">tuple</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_argument_slots</span><span class="p">),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">derivatives</span><span class="p">,</span>
-            <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">()),</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="n">hashdata</span><span class="p">)</span>
-
     <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Check for equality."""</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -638,7 +688,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parent_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Is this a primal or dual expression?"""</span>
-        <span class="k">return</span> <span class="n">BaseForm</span> <span class="k">if</span> <span class="n">is_dual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span> <span class="k">else</span> <span class="n">Operator</span>
+        <span class="k">return</span> <span class="n">Operator</span> <span class="k">if</span> <span class="n">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span> <span class="k">else</span> <span class="n">BaseForm</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Add."""</span>
