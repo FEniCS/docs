@@ -215,7 +215,7 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="demo_custom_kernel.html">Custom cell kernel assembly</a></li>
-<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed assembly with a function mesh on a subset of cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed-domain assembly with a submesh of co-dimension 0</a></li>
 </ul>
 </div>
 </nav></div>
@@ -255,56 +255,76 @@
 <p>This demo illustrates how to:</p>
 <ul class="simple">
 <li><p>Solve a nonlinear elasticity problem with a Newton solver</p></li>
-<li><p>Compute the Jacobian of a nonlinear form using automatic
-differentiation</p></li>
-<li><p>Evaluate a derived quantity (the Cauchy stress) at points in the
-domain using <code class="docutils literal notranslate"><span class="pre">dolfinx::fem::Expression</span></code></p></li>
+<li><p>Compute the residual and Jacobian of a nonlinear problem by automatic
+differentiation of an energy functional</p></li>
+<li><p>Evaluate a derived quantity (the Cauchy stress) using
+<code class="docutils literal notranslate"><span class="pre">dolfinx::fem::Expression</span></code></p></li>
 </ul>
 <section id="equation-and-problem-definition">
 <h2>Equation and problem definition<a class="headerlink" href="#equation-and-problem-definition" title="Link to this heading">#</a></h2>
-<p>We solve a compressible neo-Hookean model in 3D, in which a unit
-cube is deformed by rotating one face by 60 degrees about its
-centre while the opposite face is held fixed. Denoting the
-displacement by <span class="math notranslate nohighlight">\(u\)</span> and the deformation gradient by
-<span class="math notranslate nohighlight">\(F = I + \nabla u\)</span>, the stored strain energy density is</p>
+<p>We consider a compressible neo-Hookean material occupying the unit
+cube <span class="math notranslate nohighlight">\(\Omega = [0, 1]^3\)</span>. Denoting the displacement by <span class="math notranslate nohighlight">\(u\)</span> and the
+deformation gradient by <span class="math notranslate nohighlight">\(F = I + \nabla u\)</span>, the stored strain energy
+density is</p>
 <div class="math notranslate nohighlight">
 \[
-   \psi(F) = \frac{\mu}{2} ({\rm tr}(C) - 3) - \mu \ln(J)
-   + \frac{\lambda}{2} (\ln(J))^{2},
+  \psi(F) = \frac{\mu}{2} ({\rm tr}(C) - 3) - \mu \ln(J)
+  + \frac{\lambda}{2} (\ln(J))^{2},
 \]</div>
-<p>where <span class="math notranslate nohighlight">\(C = F^{T} F\)</span> is the right Cauchy-Green tensor, <span class="math notranslate nohighlight">\(J =
-\det(F)\)</span>, and <span class="math notranslate nohighlight">\(\mu\)</span> and <span class="math notranslate nohighlight">\(\lambda\)</span> are the Lame parameters. The
-total potential energy is</p>
+<p>where <span class="math notranslate nohighlight">\(C = F^{T} F\)</span> is the right Cauchy-Green tensor, <span class="math notranslate nohighlight">\(J = \det(F)\)</span>,
+and <span class="math notranslate nohighlight">\(\mu\)</span> and <span class="math notranslate nohighlight">\(\lambda\)</span> are the Lamé parameters. The total potential
+energy is</p>
 <div class="math notranslate nohighlight">
 \[
-   \Pi(u) = \int_{\Omega} \psi(F) \, {\rm d} x
-   - \int_{\Omega} B \cdot u \, {\rm d} x
-   - \int_{\Gamma_{N}} T \cdot u \, {\rm d} s,
+  \Pi(u) = \int_{\Omega} \psi(F) \, {\rm d} x
+  - \int_{\Omega} B \cdot u \, {\rm d} x
+  - \int_{\partial\Omega} T \cdot u \, {\rm d} s,
 \]</div>
-<p>where <span class="math notranslate nohighlight">\(B\)</span> is a body force per unit volume and <span class="math notranslate nohighlight">\(T\)</span> is a traction
-on the (Neumann) boundary. The equilibrium displacement is the
-stationary point of <span class="math notranslate nohighlight">\(\Pi\)</span>, found here by computing the first
-variation of <span class="math notranslate nohighlight">\(\Pi\)</span> (the residual <span class="math notranslate nohighlight">\(F(u; v)\)</span>) and its Jacobian
-<span class="math notranslate nohighlight">\(J(u; du, v)\)</span>, and solving <span class="math notranslate nohighlight">\(F(u; v) = 0\)</span> for all test functions <span class="math notranslate nohighlight">\(v\)</span>
-with Newton’s method.</p>
+<p>where <span class="math notranslate nohighlight">\(B\)</span> is a body force per unit volume and <span class="math notranslate nohighlight">\(T\)</span> is a boundary
+traction. The equilibrium displacement makes <span class="math notranslate nohighlight">\(\Pi\)</span> stationary, i.e. it
+solves</p>
+<div class="math notranslate nohighlight">
+\[
+  L(u; v) = D_{u}\Pi(u)[v] = 0 \quad \forall \ v,
+\]</div>
+<p>where <span class="math notranslate nohighlight">\(v\)</span> satisfies homogeneous Dirichlet conditions. This nonlinear
+problem is solved by Newton’s method, which requires the Jacobian
+<span class="math notranslate nohighlight">\(a(u; \delta u, v) = D_{u}L(u; v)[\delta u]\)</span>. Both <span class="math notranslate nohighlight">\(L\)</span> and <span class="math notranslate nohighlight">\(a\)</span> are
+computed by UFL from <span class="math notranslate nohighlight">\(\Pi\)</span>. After solving, the Cauchy stress</p>
+<div class="math notranslate nohighlight">
+\[
+  \sigma = \frac{1}{J} \frac{\partial \psi}{\partial F} F^{T}
+\]</div>
+<p>is evaluated at the midpoint of each cell.</p>
+<p>This demo uses:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(E = 10\)</span> and <span class="math notranslate nohighlight">\(\nu = 0.3\)</span> (Young’s modulus and Poisson’s ratio), from
+which <span class="math notranslate nohighlight">\(\mu\)</span> and <span class="math notranslate nohighlight">\(\lambda\)</span> are computed</p></li>
+<li><p><span class="math notranslate nohighlight">\(B = T = 0\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(u = 0\)</span> on the face <span class="math notranslate nohighlight">\(x = 0\)</span></p></li>
+<li><p>On the face <span class="math notranslate nohighlight">\(x = 1\)</span>, a displacement equal to <span class="math notranslate nohighlight">\(0.005\)</span> times that of a
+<span class="math notranslate nohighlight">\(60^{\circ}\)</span> rotation of the face about its centre in the <span class="math notranslate nohighlight">\(y\)</span>-<span class="math notranslate nohighlight">\(z\)</span>
+plane</p></li>
+</ul>
+</section>
+<section id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading">#</a></h2>
 <p>Running this demo requires the files:
 <a class="reference download internal" download="" href="../_downloads/9d12d495d2c287f1eaffe93908de7f99/main.cpp"><code class="xref download docutils literal notranslate"><span class="pre">demo_hyperelasticity/main.cpp</span></code></a>,
 <a class="reference download internal" download="" href="../_downloads/fb61a8333c7f31ccf133f63d1f4d0a72/hyperelasticity.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_hyperelasticity/hyperelasticity.py</span></code></a> and
 <a class="reference download internal" download="" href="../_downloads/60274b3c7c51cc090d771c5d6ee2da68/CMakeLists.txt"><code class="xref download docutils literal notranslate"><span class="pre">demo_hyperelasticity/CMakeLists.txt</span></code></a>.</p>
-</section>
 <section id="ufl-form-file">
-<h2>UFL form file<a class="headerlink" href="#ufl-form-file" title="Link to this heading">#</a></h2>
-<p>The UFL file is implemented in
+<h3>UFL form file<a class="headerlink" href="#ufl-form-file" title="Link to this heading">#</a></h3>
+<p>The UFL forms and the stress expression are defined in
 <a class="reference download internal" download="" href="../_downloads/fb61a8333c7f31ccf133f63d1f4d0a72/hyperelasticity.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_hyperelasticity/hyperelasticity.py</span></code></a>.</p>
 <div class="dropdown admonition">
-<p class="admonition-title">UFL form implemented in python</p>
+<p class="admonition-title">UFL form implemented in Python</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">"""Hyperelasticity variational forms."""</span>
 </pre></div>
 </div>
-<p>The first step is to define the variational problem at hand.</p>
-<p>We are interested in solving for a discrete vector field in three
-dimensions, so first we need the appropriate finite element space and
-trial and test functions on this space:</p>
+<p>We solve for a vector field in three dimensions, so we need a
+vector-valued finite element space and trial and test functions on
+this space:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#module-basix.ufl"><span class="nn">basix.ufl</span></a><span class="w"> </span><span class="kn">import</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a>
 <span class="kn">from</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#module-ufl"><span class="nn">ufl</span></a><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">Coefficient</span></a><span class="p">,</span>
@@ -338,17 +358,17 @@ trial and test functions on this space:</p>
 <span class="n">v</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.TestFunction" title="ufl.TestFunction"><span class="n">TestFunction</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">V</span></a><span class="p">)</span>  <span class="c1"># Test function</span>
 </pre></div>
 </div>
-<p>Note that <code class="docutils literal notranslate"><span class="pre">element</span></code> with <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code> creates a finite element space
-of vector fields.</p>
-<p>Next, we will be needing functions for the boundary source <code class="docutils literal notranslate"><span class="pre">B</span></code>, the
-traction <code class="docutils literal notranslate"><span class="pre">T</span></code> and the displacement solution itself <code class="docutils literal notranslate"><span class="pre">u</span></code>:</p>
+<p>The argument <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code> makes <code class="docutils literal notranslate"><span class="pre">element</span></code> vector-valued. The same
+element describes the mesh geometry.</p>
+<p>Next, we define the displacement <code class="docutils literal notranslate"><span class="pre">u</span></code>, the body force <code class="docutils literal notranslate"><span class="pre">B</span></code> and the
+traction <code class="docutils literal notranslate"><span class="pre">T</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Functions</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">u</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">Coefficient</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">V</span></a><span class="p">)</span>  <span class="c1"># Displacement from previous iteration</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Constant" title="ufl.constant.Constant"><span class="n">B</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Constant" title="ufl.constant.Constant"><span class="n">Constant</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">mesh</span></a><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,))</span>  <span class="c1"># Body force per unit volume</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Constant" title="ufl.constant.Constant"><span class="n">T</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Constant" title="ufl.constant.Constant"><span class="n">Constant</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">mesh</span></a><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,))</span>  <span class="c1"># Traction force on the boundary</span>
 </pre></div>
 </div>
-<p>Now, we can define the kinematic quantities involved in the model:</p>
+<p>The kinematic quantities are:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Kinematics</span>
 <span class="n">d</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">u</span></a><span class="p">)</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Identity" title="ufl.constantvalue.Identity"><span class="n">I</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Identity" title="ufl.constantvalue.Identity"><span class="n">Identity</span></a><span class="p">(</span><span class="n">d</span><span class="p">)</span>  <span class="c1"># Identity tensor  # noqa: E741</span>
@@ -361,9 +381,8 @@ traction <code class="docutils literal notranslate"><span class="pre">T</span></
 <span class="n">J</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.det" title="ufl.det"><span class="n">det</span></a><span class="p">(</span><span class="n">F</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Before defining the energy density and thus the total potential
-energy, it only remains to specify constants for the elasticity
-parameters:</p>
+<p>The Lamé parameters are computed from Young’s modulus and Poisson’s
+ratio:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Elasticity parameters</span>
 <span class="n">E</span> <span class="o">=</span> <span class="mf">10.0</span>
 <span class="n">nu</span> <span class="o">=</span> <span class="mf">0.3</span>
@@ -371,9 +390,10 @@ parameters:</p>
 <span class="n">lmbda</span> <span class="o">=</span> <span class="n">E</span> <span class="o">*</span> <span class="n">nu</span> <span class="o">/</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">nu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nu</span><span class="p">))</span>
 </pre></div>
 </div>
-<p>Both the first variation of the potential energy, and the Jacobian of
-the variation, can be automatically computed by a call to
-<code class="docutils literal notranslate"><span class="pre">derivative</span></code>:</p>
+<p>The residual (the first variation of the potential energy) and its
+Jacobian are computed by <a class="reference external" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.derivative" title="(in UFL v2026.3.0.dev0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">derivative</span></code></a>. The
+Cauchy stress is computed by differentiating <code class="docutils literal notranslate"><span class="pre">psi</span></code> with respect to
+<code class="docutils literal notranslate"><span class="pre">F</span></code>, which is why <code class="docutils literal notranslate"><span class="pre">F</span></code> was declared a <code class="docutils literal notranslate"><span class="pre">variable</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Stored strain energy density (compressible neo-Hookean model)</span>
 <span class="n">psi</span> <span class="o">=</span> <span class="p">(</span><span class="n">mu</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">Ic</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">mu</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.ln" title="ufl.ln"><span class="n">ln</span></a><span class="p">(</span><span class="n">J</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">lmbda</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.ln" title="ufl.ln"><span class="n">ln</span></a><span class="p">(</span><span class="n">J</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>
 </pre></div>
@@ -397,13 +417,29 @@ the variation, can be automatically computed by a call to
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">forms</span> <span class="o">=</span> <span class="p">[</span><span class="n">F_form</span><span class="p">,</span> <span class="n">J_form</span><span class="p">]</span>
 <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="p">]</span>
+<span class="c1"># Evaluate the stress at the reference cell midpoint</span>
 <span class="n">expressions</span> <span class="o">=</span> <span class="p">[(</span><span class="n">sigma</span><span class="p">,</span> <span class="p">[[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">]])]</span>
 </pre></div>
 </div>
 </div>
 </section>
 <section id="c-program">
-<h2>C++ program<a class="headerlink" href="#c-program" title="Link to this heading">#</a></h2>
+<h3>C++ program<a class="headerlink" href="#c-program" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">main</span></code> function performs the following steps:</p>
+<ol class="arabic simple">
+<li><p>Create a tetrahedral mesh of <span class="math notranslate nohighlight">\(\Omega\)</span> with <span class="math notranslate nohighlight">\(10 \times 10 \times 10\)</span>
+cubes each divided into tetrahedra, and a vector-valued linear
+Lagrange space on it.</p></li>
+<li><p>Create the residual and Jacobian forms, which depend on the
+displacement <span class="math notranslate nohighlight">\(u\)</span>.</p></li>
+<li><p>Create the Dirichlet boundary conditions, interpolating the
+prescribed rotation into a <a class="reference internal" href="../fem.html#_CPPv4I_N7dolfinx6scalarE_NSt14floating_pointEEN7dolfinx3fem8FunctionE" title="dolfinx::fem::Function"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">dolfinx::fem::Function</span></code></a>.</p></li>
+<li><p>Create a <code class="docutils literal notranslate"><span class="pre">dolfinx::nls::petsc::SNESSolver</span></code> with callbacks
+that assemble the residual and Jacobian, configure it through the
+PETSc options database, and solve.</p></li>
+<li><p>Interpolate the Cauchy stress expression into a piecewise constant
+tensor-valued space, and write the displacement and stress to file.</p></li>
+</ol>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">"hyperelasticity.h"</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/finite-element.h&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cmath&gt;</span>
@@ -446,13 +482,6 @@ the variation, can be automatically computed by a call to
 <span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">"[%Y-%m-%d %H:%M:%S.%e] [RANK {}] [%l] %v"</span><span class="p">,</span><span class="w"> </span><span class="n">mpi_rank</span><span class="p">);</span>
 <span class="w">  </span><span class="n">spdlog</span><span class="o">::</span><span class="n">set_pattern</span><span class="p">(</span><span class="n">fmt</span><span class="p">);</span>
 <span class="w">  </span><span class="p">{</span>
-<span class="w">    </span><span class="c1">// Inside the `main` function, we begin by defining a tetrahedral</span>
-<span class="w">    </span><span class="c1">// mesh of the domain and the function space on this mesh. Here, we</span>
-<span class="w">    </span><span class="c1">// choose to create a unit cube mesh with 25 ( = 24 + 1) vertices in</span>
-<span class="w">    </span><span class="c1">// one direction and 17 ( = 16 + 1) vertices in the other two</span>
-<span class="w">    </span><span class="c1">// directions. With this mesh, we initialize the (finite element)</span>
-<span class="w">    </span><span class="c1">// function space defined by the generated code.</span>
-
 <span class="w">    </span><span class="c1">// Create mesh and define function space</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">mesh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">mesh</span><span class="o">::</span><span class="n">Mesh</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">mesh</span><span class="o">::</span><span class="n">create_box</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span>
 <span class="w">        </span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="p">{{{</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">}}},</span><span class="w"> </span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">},</span>
@@ -469,10 +498,12 @@ the variation, can be automatically computed by a call to
 <span class="w">            </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FiniteElement</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span>
 <span class="w">                </span><span class="n">element</span><span class="p">,</span><span class="w"> </span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">geometry</span><span class="p">().</span><span class="n">dim</span><span class="p">(),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">{</span><span class="mi">3</span><span class="p">})));</span>
 
+<span class="w">    </span><span class="c1">// Body force and traction (zero)</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">B</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Constant</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">});</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">traction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Constant</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">});</span>
 
-<span class="w">    </span><span class="c1">// Define solution function</span>
+<span class="w">    </span><span class="c1">// Define the solution function and the residual (L) and Jacobian</span>
+<span class="w">    </span><span class="c1">// (a) forms</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">u</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">);</span>
 <span class="w">    </span><span class="n">fem</span><span class="o">::</span><span class="n">Form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a</span>
 <span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">create_form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">form_hyperelasticity_J_form</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="p">{{</span><span class="s">"u"</span><span class="p">,</span><span class="w"> </span><span class="n">u</span><span class="p">}},</span>
@@ -481,6 +512,8 @@ the variation, can be automatically computed by a call to
 <span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">create_form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">form_hyperelasticity_F_form</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="p">{{</span><span class="s">"u"</span><span class="p">,</span><span class="w"> </span><span class="n">u</span><span class="p">}},</span>
 <span class="w">                              </span><span class="p">{{</span><span class="s">"B"</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="s">"T"</span><span class="p">,</span><span class="w"> </span><span class="n">traction</span><span class="p">}},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{});</span>
 
+<span class="w">    </span><span class="c1">// Prescribed displacement on the face x = 1: 0.005 times the</span>
+<span class="w">    </span><span class="c1">// displacement of a rotation about the face centre</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">u_rotation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V</span><span class="p">);</span>
 <span class="w">    </span><span class="n">u_rotation</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
 <span class="w">        </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
@@ -605,8 +638,8 @@ the variation, can be automatically computed by a call to
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Number of linear solver iterations: "</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">lin_iter</span>
 <span class="w">              </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
 
-<span class="w">    </span><span class="c1">// Compute Cauchy stress. Construct appropriate Basix element for</span>
-<span class="w">    </span><span class="c1">// stress.</span>
+<span class="w">    </span><span class="c1">// Interpolate the Cauchy stress into a piecewise constant</span>
+<span class="w">    </span><span class="c1">// tensor-valued space</span>
 <span class="w">    </span><span class="n">fem</span><span class="o">::</span><span class="n">Expression</span><span class="w"> </span><span class="n">sigma_expression</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">create_expression</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span>
 <span class="w">        </span><span class="o">*</span><span class="n">expression_hyperelasticity_sigma</span><span class="p">,</span><span class="w"> </span><span class="p">{{</span><span class="s">"u"</span><span class="p">,</span><span class="w"> </span><span class="n">u</span><span class="p">}},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{});</span>
 
@@ -644,6 +677,7 @@ the variation, can be automatically computed by a call to
 </div>
 </section>
 </section>
+</section>
 </article>
 <footer class="prev-next-footer d-print-none">
 <div class="prev-next-area">
@@ -673,8 +707,11 @@ the variation, can be automatically computed by a call to
 <nav aria-labelledby="pst-page-navigation-heading-2" class="page-toc" id="pst-page-toc-nav">
 <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#equation-and-problem-definition">Equation and problem definition</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ufl-form-file">UFL form file</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#c-program">C++ program</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation">Implementation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ufl-form-file">UFL form file</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#c-program">C++ program</a></li>
+</ul>
+</li>
 </ul>
 </nav></div>
 <div class="sidebar-secondary-item">

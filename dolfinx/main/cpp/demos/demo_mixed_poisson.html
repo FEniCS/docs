@@ -215,7 +215,7 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="demo_custom_kernel.html">Custom cell kernel assembly</a></li>
-<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed assembly with a function mesh on a subset of cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed-domain assembly with a submesh of co-dimension 0</a></li>
 </ul>
 </div>
 </nav></div>
@@ -252,97 +252,85 @@
 <article class="bd-article">
 <section class="tex2jax_ignore mathjax_ignore" id="mixed-poisson-equation">
 <h1>Mixed Poisson equation<a class="headerlink" href="#mixed-poisson-equation" title="Link to this heading">#</a></h1>
-<p>This demo illustrates how to solve Poisson equation using a mixed
-(two-field) formulation. In particular, it illustrates how to</p>
+<p>This demo illustrates how to solve the Poisson equation using a mixed
+(two-field) formulation. In particular, it illustrates how to:</p>
 <ul class="simple">
-<li><p>Create a mixed finite element problem.</p></li>
-<li><p>Extract subspaces.</p></li>
-<li><p>Apply boundary conditions to different fields in a mixed problem.</p></li>
-<li><p>Create integration domain data to execute finite element kernels.
-over subsets of the boundary.</p></li>
+<li><p>Create a mixed finite element problem</p></li>
+<li><p>Extract subspaces</p></li>
+<li><p>Apply boundary conditions to different fields in a mixed problem</p></li>
+<li><p>Create integration domain data to execute finite element kernels
+over subsets of the boundary</p></li>
 <li><p>Use a submesh to represent boundary data</p></li>
 </ul>
+<section id="equation-and-problem-definition">
+<h2>Equation and problem definition<a class="headerlink" href="#equation-and-problem-definition" title="Link to this heading">#</a></h2>
+<p>A mixed formulation of the Poisson equation is obtained by introducing
+the gradient <span class="math notranslate nohighlight">\(\sigma = \nabla u\)</span> as an additional unknown. The
+equations then read</p>
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+  \sigma - \nabla u &amp;= 0 \quad {\rm in} \ \Omega, \\
+  \nabla \cdot \sigma &amp;= - f \quad {\rm in} \ \Omega,
+\end{align*}\]</div>
+<p>with boundary conditions</p>
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+  u &amp;= u_0 \quad {\rm on} \ \Gamma_{D}, \\
+  \sigma \cdot n &amp;= g \quad {\rm on} \ \Gamma_{N},
+\end{align*}\]</div>
+<p>where <span class="math notranslate nohighlight">\(n\)</span> is the outward unit normal to the boundary. In this
+formulation the flux condition <span class="math notranslate nohighlight">\(\sigma \cdot n = g\)</span> is essential (it
+is imposed on the function space), while <span class="math notranslate nohighlight">\(u = u_0\)</span> is natural (it
+appears in the variational form). The variational problem reads: find
+<span class="math notranslate nohighlight">\((\sigma, u) \in \Sigma_g \times V\)</span> such that</p>
+<div class="math notranslate nohighlight">
+\[
+  a((\sigma, u), (\tau, v)) = L((\tau, v))
+  \quad \forall \ (\tau, v) \in \Sigma_0 \times V,
+\]</div>
+<p>where</p>
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+  a((\sigma, u), (\tau, v)) &amp;=
+    \int_{\Omega} \sigma \cdot \tau + \nabla \cdot \tau \ u
+  + \nabla \cdot \sigma \ v \ {\rm d} x, \\
+  L((\tau, v)) &amp;= - \int_{\Omega} f v \ {\rm d} x
+  + \int_{\Gamma_D} u_0 \tau \cdot n \ {\rm d} s,
+\end{align*}\]</div>
+<p><span class="math notranslate nohighlight">\(\Sigma_g = \{ \tau \in H({\rm div}, \Omega) : \tau \cdot n = g \
+{\rm on} \ \Gamma_N \}\)</span> and <span class="math notranslate nohighlight">\(V = L^2(\Omega)\)</span>.</p>
+<p>To discretise, we choose finite-dimensional subspaces
+<span class="math notranslate nohighlight">\(\Sigma_{h} \subset H({\rm div}, \Omega)\)</span> and <span class="math notranslate nohighlight">\(V_h \subset V\)</span>. A
+stable choice is Raviart-Thomas elements of degree <span class="math notranslate nohighlight">\(k\)</span> for
+<span class="math notranslate nohighlight">\(\Sigma_{h}\)</span> and discontinuous Lagrange elements of degree <span class="math notranslate nohighlight">\(k-1\)</span> for
+<span class="math notranslate nohighlight">\(V_h\)</span>. This demo uses <span class="math notranslate nohighlight">\(k = 1\)</span>.</p>
+<p>The boundaries are defined as in the
+<a class="reference internal" href="demo_poisson.html"><span class="doc">Poisson demo</span></a>, but on the unit square:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\Omega = [0,1] \times [0,1]\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(\Gamma_{D} = \{(x, y) \in \partial \Omega : x = 0 \ {\rm or} \ x = 1\}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(\Gamma_{N} = \partial \Omega \setminus \Gamma_{D}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(u_0 = 20 y + 1\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(g = 10\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(f = \sin(5x) + 1\)</span></p></li>
+</ul>
+<p>The boundary data <span class="math notranslate nohighlight">\(u_0\)</span> is represented by a function on a submesh of
+the facets of <span class="math notranslate nohighlight">\(\Gamma_{D}\)</span>. Assembling <span class="math notranslate nohighlight">\(L\)</span> therefore involves two
+meshes: the integration domain (the full mesh) and the submesh.</p>
+</section>
+<section id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading">#</a></h2>
 <p>Running this demo requires the files:
 <a class="reference download internal" download="" href="../_downloads/38ae2d8ff00d15bc742beb857e4e9636/main.cpp"><code class="xref download docutils literal notranslate"><span class="pre">demo_mixed_poisson/main.cpp</span></code></a>,
 <a class="reference download internal" download="" href="../_downloads/e8aa264fcb0a0b6c5768859575e1f991/mixed_poisson.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_mixed_poisson/mixed_poisson.py</span></code></a> and
 <a class="reference download internal" download="" href="../_downloads/26636f940a7d314e6a9a7cd007b7b8d3/CMakeLists.txt"><code class="xref download docutils literal notranslate"><span class="pre">demo_mixed_poisson/CMakeLists.txt</span></code></a>.</p>
-</section>
-<section class="tex2jax_ignore mathjax_ignore" id="mixed-formulation-for-the-poisson-equation">
-<h1>Mixed formulation for the Poisson equation<a class="headerlink" href="#mixed-formulation-for-the-poisson-equation" title="Link to this heading">#</a></h1>
-<section id="equation-and-problem-definition">
-<h2>Equation and problem definition<a class="headerlink" href="#equation-and-problem-definition" title="Link to this heading">#</a></h2>
-<p>A mixed formulation of Poisson equation can be formulated by
-introducing an additional vector variable, the gradient
-<span class="math notranslate nohighlight">\(\sigma = \nabla u\)</span>. The partial differential equations
-then read</p>
-<div class="math notranslate nohighlight">
-\[\begin{split}
-\begin{align}
-  \sigma - \nabla u &amp;= 0 \quad {\rm in} \ \Omega, \\
-  \nabla \cdot \sigma &amp;= - f \quad {\rm in} \ \Omega,
-\end{align}
-\end{split}\]</div>
-<p>with boundary conditions</p>
-<div class="math notranslate nohighlight">
-\[\begin{split}
-  u = u_0 \quad {\rm on} \ \Gamma_{D},  \\
-  \sigma \cdot n = g \quad {\rm on} \ \Gamma_{N}.
-\end{split}\]</div>
-<p>where <span class="math notranslate nohighlight">\(n\)</span> denotes the outward unit normal vector on the boundary. We
-see that the boundary condition for the flux (<span class="math notranslate nohighlight">\(\sigma \cdot n = g\)</span>)
-is an essential boundary condition (which should be enforced in
-the function space), while the other boundary condition (<span class="math notranslate nohighlight">\(u = u_0\)</span>)
-is a natural boundary condition (which should be applied to the
-variational form). Inserting the boundary conditions, this
-variational problem can be phrased in the general form: find
-<span class="math notranslate nohighlight">\((\sigma, u) \in \Sigma_g \times V\)</span> such that</p>
-<div class="math notranslate nohighlight">
-\[
-   a((\sigma, u), (\tau, v)) = L((\tau, v))
-   \quad \forall \ (\tau, v) \in \Sigma_0 \times V,
-\]</div>
-<p>where the forms <span class="math notranslate nohighlight">\(a\)</span> and <span class="math notranslate nohighlight">\(L\)</span> are defined as</p>
-<div class="math notranslate nohighlight">
-\[\begin{split}
-\begin{align}
-  a((\sigma, u), (\tau, v)) &amp;:=
-    \int_{\Omega} \sigma \cdot \tau + \nabla \cdot \tau \ u
-  + \nabla \cdot \sigma \ v \ {\rm d} x, \\
-  L((\tau, v)) &amp;:= - \int_{\Omega} f v \ {\rm d} x
-  + \int_{\Gamma_D} u_0 \tau \cdot n  \ {\rm d} s,
-\end{align}
-\end{split}\]</div>
-<p>and <span class="math notranslate nohighlight">\(\Sigma_g := \{ \tau \in H({\rm div})\)</span> such that <span class="math notranslate nohighlight">\(\tau \cdot
-n|_{\Gamma_N} = g \}\)</span> and <span class="math notranslate nohighlight">\(V := L^2(\Omega)\)</span>.</p>
-<p>To discretize the above formulation, discrete function spaces
-<span class="math notranslate nohighlight">\(\Sigma_h \subset \Sigma\)</span> and <span class="math notranslate nohighlight">\(V_h \subset V\)</span> are needed to form a
-mixed function space <span class="math notranslate nohighlight">\(\Sigma_h \times V_h\)</span>. A stable choice of finite
-element spaces is to let <span class="math notranslate nohighlight">\(\Sigma_h\)</span> be a Raviart-Thomas elements of
-polynomial order <span class="math notranslate nohighlight">\(k\)</span> and <span class="math notranslate nohighlight">\(V_h\)</span> be discontinuous elements of
-polynomial order <span class="math notranslate nohighlight">\(k-1\)</span>.</p>
-<p>We will use a similar definition of the boundaries as in the demo
-for <a class="reference internal" href="demo_poisson.html"><span class="doc">the Poisson equation</span></a>, but here on a unit
-square domain:</p>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(\Omega = [0,1] \times [0,1]\)</span> (a unit square)</p></li>
-<li><p><span class="math notranslate nohighlight">\(\Gamma_{D} = \{(0, y) \cup (1, y) \subset \partial \Omega\}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(\Gamma_{N} = \{(x, 0) \cup (x, 1) \subset \partial \Omega\}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(u_0 = 20 y + 1\)</span> on <span class="math notranslate nohighlight">\(\Gamma_{D}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(g = 10\)</span> (flux) on <span class="math notranslate nohighlight">\(\Gamma_{N}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(f = \sin(5x) + 1\)</span> (source term)</p></li>
-</ul>
-</section>
 <section id="ufl-form-file">
-<h2>UFL form file<a class="headerlink" href="#ufl-form-file" title="Link to this heading">#</a></h2>
-<p>The UFL file is implemented in
+<h3>UFL form file<a class="headerlink" href="#ufl-form-file" title="Link to this heading">#</a></h3>
+<p>The UFL forms are defined in
 <a class="reference download internal" download="" href="../_downloads/e8aa264fcb0a0b6c5768859575e1f991/mixed_poisson.py"><code class="xref download docutils literal notranslate"><span class="pre">demo_mixed_poisson/mixed_poisson.py</span></code></a>.</p>
 <div class="dropdown admonition">
-<p class="admonition-title">UFL form implemented in python</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">"""Mixed Poisson problem with weakly enforced boundary conditions."""</span>
-<span class="c1"># The first step is to define the variational problem at hand. We define</span>
-<span class="c1"># the variational problem in UFL terms in a separate form file</span>
-<span class="c1"># {download}`demo_mixed_poisson/mixed_poisson.py`.  We begin by defining</span>
-<span class="c1"># the finite element:</span>
+<p class="admonition-title">UFL form implemented in Python</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">"""Mixed Poisson problem with boundary data on a submesh."""</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#module-basix"><span class="nn">basix</span></a><span class="w"> </span><span class="kn">import</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#basix.CellType" title="basix._basixcpp.CellType"><span class="n">CellType</span></a>
@@ -365,14 +353,15 @@ square domain:</p>
 <span class="n">msh_cell</span> <span class="o">=</span> <span class="n">CellType</span><span class="o">.</span><span class="n">triangle</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Weakly enforced boundary data will be represented using a function</span>
-<span class="c1"># space defined over a submesh of the boundary. We get the submesh cell</span>
-<span class="c1"># type from then mesh cell type.</span>
-<a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#basix.CellType" title="basix._basixcpp.CellType"><span class="n">submsh_cell</span></a> <span class="o">=</span> <span class="n">sub_entity_type</span><span class="p">(</span><span class="n">msh_cell</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<p>The Dirichlet data <span class="math notranslate nohighlight">\(u_0\)</span>, which is imposed weakly, is represented
+using a function space on a submesh of the boundary. The submesh cell
+type is the facet type of the mesh cell:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#basix.CellType" title="basix._basixcpp.CellType"><span class="n">submsh_cell</span></a> <span class="o">=</span> <span class="n">sub_entity_type</span><span class="p">(</span><span class="n">msh_cell</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Define finite elements for the problem</span>
-<span class="n">RT</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a><span class="p">(</span><span class="s2">"RT"</span><span class="p">,</span> <span class="n">msh_cell</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<p>The mixed element pairs degree 1 Raviart-Thomas with degree 0
+discontinuous Lagrange:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">RT</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a><span class="p">(</span><span class="s2">"RT"</span><span class="p">,</span> <span class="n">msh_cell</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 <span class="n">P</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a><span class="p">(</span><span class="s2">"DP"</span><span class="p">,</span> <span class="n">msh_cell</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="n">ME</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.mixed_element" title="basix.ufl.mixed_element"><span class="n">mixed_element</span></a><span class="p">([</span><span class="n">RT</span><span class="p">,</span> <span class="n">P</span><span class="p">])</span>
 </pre></div>
@@ -394,20 +383,43 @@ square domain:</p>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">f</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">Coefficient</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">V0</span></a><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We represent boundary data using a first-degree Lagrange space defined</span>
-<span class="c1"># over a submesh of the boundary</span>
-<a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">Q</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">FunctionSpace</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">submsh</span></a><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a><span class="p">(</span><span class="s2">"Lagrange"</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#basix.CellType" title="basix._basixcpp.CellType"><span class="n">submsh_cell</span></a><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<p>The boundary data is represented using a degree 1 Lagrange space on
+the submesh:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">Q</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">FunctionSpace</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">submsh</span></a><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.ufl.html#basix.ufl.element" title="basix.ufl.element"><span class="n">element</span></a><span class="p">(</span><span class="s2">"Lagrange"</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.html#basix.CellType" title="basix._basixcpp.CellType"><span class="n">submsh_cell</span></a><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">u0</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">Coefficient</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FunctionSpace" title="ufl.functionspace.FunctionSpace"><span class="n">Q</span></a><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Specify the weak form of the problem</span>
-<a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">Measure</span></a><span class="p">(</span><span class="s2">"dx"</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">msh</span></a><span class="p">)</span>
+<p>The forms are defined with measures on the mesh <code class="docutils literal notranslate"><span class="pre">msh</span></code>, which is the
+integration domain. <code class="docutils literal notranslate"><span class="pre">ds(1)</span></code> restricts the boundary integral to the
+facets marked 1, which the C++ program sets to the facets of
+<span class="math notranslate nohighlight">\(\Gamma_D\)</span>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">Measure</span></a><span class="p">(</span><span class="s2">"dx"</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">msh</span></a><span class="p">)</span>
 <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">ds</span></a> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">Measure</span></a><span class="p">(</span><span class="s2">"ds"</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Mesh" title="ufl.domain.Mesh"><span class="n">msh</span></a><span class="p">)</span>
 <span class="n">a</span> <span class="o">=</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.inner" title="ufl.inner"><span class="n">inner</span></a><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a> <span class="o">+</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.inner" title="ufl.inner"><span class="n">inner</span></a><span class="p">(</span><span class="n">u</span><span class="p">,</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.div" title="ufl.div"><span class="n">div</span></a><span class="p">(</span><span class="n">tau</span><span class="p">))</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a> <span class="o">+</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.inner" title="ufl.inner"><span class="n">inner</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.div" title="ufl.div"><span class="n">div</span></a><span class="p">(</span><span class="n">sigma</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a>
 <span class="n">L</span> <span class="o">=</span> <span class="o">-</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.inner" title="ufl.inner"><span class="n">inner</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">f</span></a><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">dx</span></a> <span class="o">+</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.inner" title="ufl.inner"><span class="n">inner</span></a><span class="p">(</span><a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Coefficient" title="ufl.coefficient.Coefficient"><span class="n">u0</span></a> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.FacetNormal" title="ufl.geometry.FacetNormal"><span class="n">n</span></a><span class="p">,</span> <span class="n">tau</span><span class="p">)</span> <span class="o">*</span> <a class="sphinx-codeautolink-a" href="https://docs.fenicsproject.org/ufl/main/api/api-ufl.html#ufl.Measure" title="ufl.measure.Measure"><span class="n">ds</span></a><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
+</section>
+<section id="c-program">
+<h3>C++ program<a class="headerlink" href="#c-program" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">main</span></code> function performs the following steps:</p>
+<ol class="arabic simple">
+<li><p>Create the mesh, the mixed Raviart-Thomas/discontinuous Lagrange
+space and its subspaces.</p></li>
+<li><p>Interpolate <span class="math notranslate nohighlight">\(f\)</span>, and interpolate a vector field whose normal
+component on <span class="math notranslate nohighlight">\(\Gamma_{N}\)</span> is <span class="math notranslate nohighlight">\(g\)</span>.</p></li>
+<li><p>Create a submesh of the facets of <span class="math notranslate nohighlight">\(\Gamma_{D}\)</span> with
+<a class="reference internal" href="../mesh.html#_CPPv4I_NSt14floating_pointEEN7dolfinx4mesh14create_submeshENSt5tupleI4MeshI1TE9EntityMap9EntityMapNSt6vectorINSt7int32_tEEEEERK4MeshI1TEiNSt4spanIKNSt7int32_tEEE" title="dolfinx::mesh::create_submesh"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">dolfinx::mesh::create_submesh()</span></code></a>, and interpolate <span class="math notranslate nohighlight">\(u_0\)</span>
+into a Lagrange space on it.</p></li>
+<li><p>Create a <a class="reference internal" href="../fem.html#_CPPv4I_N7dolfinx6scalarE_NSt14floating_pointEEN7dolfinx3fem11DirichletBCE" title="dolfinx::fem::DirichletBC"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">dolfinx::fem::DirichletBC</span></code></a> that constrains the
+normal component of <span class="math notranslate nohighlight">\(\sigma\)</span> on <span class="math notranslate nohighlight">\(\Gamma_{N}\)</span>.</p></li>
+<li><p>Create integration domain data for the facets of <span class="math notranslate nohighlight">\(\Gamma_{D}\)</span>, which
+carry the <code class="docutils literal notranslate"><span class="pre">ds(1)</span></code> integral in the UFL file.</p></li>
+<li><p>Create the forms, passing the
+<a class="reference internal" href="../mesh.html#_CPPv4N7dolfinx4mesh9EntityMapE" title="dolfinx::mesh::EntityMap"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">dolfinx::mesh::EntityMap</span></code></a> that relates the submesh to
+the mesh, then assemble and solve the linear system.</p></li>
+</ol>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">"mixed_poisson.h"</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/cell.h&gt;</span>
 <span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;basix/finite-element.h&gt;</span>
@@ -477,7 +489,7 @@ square domain:</p>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">W0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V0</span><span class="o">-&gt;</span><span class="n">collapse</span><span class="p">().</span><span class="n">first</span><span class="p">);</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">W1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">V1</span><span class="o">-&gt;</span><span class="n">collapse</span><span class="p">().</span><span class="n">first</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Create source function and interpolate $\sin(5x) + 1$</span>
+<span class="w">    </span><span class="c1">// Create source function and interpolate sin(5x) + 1</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">W1</span><span class="p">);</span>
 <span class="w">    </span><span class="n">f</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
 <span class="w">        </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
@@ -491,8 +503,8 @@ square domain:</p>
 <span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">f</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">{</span><span class="n">f</span><span class="p">.</span><span class="n">size</span><span class="p">()}};</span>
 <span class="w">        </span><span class="p">});</span>
 
-<span class="w">    </span><span class="c1">// Create boundary condition for $\sigma$ and interpolate such that</span>
-<span class="w">    </span><span class="c1">// flux = 10 (for top and bottom boundaries)</span>
+<span class="w">    </span><span class="c1">// Boundary value for sigma, chosen so that sigma.n = 10 on the top</span>
+<span class="w">    </span><span class="c1">// and bottom boundaries</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">W0</span><span class="p">);</span>
 <span class="w">    </span><span class="n">g</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
 <span class="w">        </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
@@ -528,11 +540,9 @@ square domain:</p>
 <span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="n">marker</span><span class="p">;</span>
 <span class="w">        </span><span class="p">});</span>
 
-<span class="w">    </span><span class="c1">// We'd like to represent `u_0` using a function space defined only</span>
-<span class="w">    </span><span class="c1">// on the facets in `dfacets`. To do so, we begin by calling</span>
-<span class="w">    </span><span class="c1">// `create_submesh` to get a `submesh` of those facets.  It also returns an</span>
-<span class="w">    </span><span class="c1">// `EntityMap` object, which relates entities in the submesh to entities in</span>
-<span class="w">    </span><span class="c1">// the original mesh. We will need this to assemble our mixed-domain form.</span>
+<span class="w">    </span><span class="c1">// Create a submesh of the facets in dfacets on which to represent</span>
+<span class="w">    </span><span class="c1">// u0. The returned EntityMap relates submesh entities to mesh</span>
+<span class="w">    </span><span class="c1">// entities, and is needed to assemble the mixed-domain form.</span>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">tdim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">dim</span><span class="p">();</span>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">fdim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tdim</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
 
@@ -545,7 +555,7 @@ square domain:</p>
 <span class="w">    </span><span class="p">};</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="p">[</span><span class="n">submesh</span><span class="p">,</span><span class="w"> </span><span class="n">entity_map</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">submesh_data</span><span class="p">(</span><span class="o">*</span><span class="n">mesh</span><span class="p">,</span><span class="w"> </span><span class="n">fdim</span><span class="p">,</span><span class="w"> </span><span class="n">dfacets</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Create an element for `u_0`</span>
+<span class="w">    </span><span class="c1">// Create an element for u0</span>
 <span class="w">    </span><span class="n">basix</span><span class="o">::</span><span class="n">cell</span><span class="o">::</span><span class="n">type</span><span class="w"> </span><span class="n">submesh_cell_type</span>
 <span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">dolfinx</span><span class="o">::</span><span class="n">mesh</span><span class="o">::</span><span class="n">cell_type_to_basix_type</span><span class="p">(</span>
 <span class="w">            </span><span class="n">submesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">cell_type</span><span class="p">());</span>
@@ -556,11 +566,11 @@ square domain:</p>
 <span class="w">                                 </span><span class="n">basix</span><span class="o">::</span><span class="n">element</span><span class="o">::</span><span class="n">dpc_variant</span><span class="o">::</span><span class="n">unset</span><span class="p">,</span><span class="w"> </span><span class="nb">false</span><span class="p">),</span>
 <span class="w">        </span><span class="n">submesh</span><span class="o">-&gt;</span><span class="n">geometry</span><span class="p">().</span><span class="n">dim</span><span class="p">());</span>
 
-<span class="w">    </span><span class="c1">// Create a function space for `u_0` on the submesh</span>
+<span class="w">    </span><span class="c1">// Create a function space for u0 on the submesh</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">Q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">FunctionSpace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;&gt;</span><span class="p">(</span>
 <span class="w">        </span><span class="n">fem</span><span class="o">::</span><span class="n">create_functionspace</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span><span class="n">submesh</span><span class="p">,</span><span class="w"> </span><span class="n">Qe</span><span class="p">));</span>
 
-<span class="w">    </span><span class="c1">// Boundary condition value for u and interpolate $20 y + 1$</span>
+<span class="w">    </span><span class="c1">// Interpolate the boundary value u0 = 20y + 1</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">u0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">fem</span><span class="o">::</span><span class="n">Function</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">Q</span><span class="p">);</span>
 <span class="w">    </span><span class="n">u0</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span>
 <span class="w">        </span><span class="p">[](</span><span class="k">auto</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span>
@@ -575,55 +585,40 @@ square domain:</p>
 <span class="w">    </span><span class="n">io</span><span class="o">::</span><span class="n">VTKFile</span><span class="w"> </span><span class="n">u0_file</span><span class="p">(</span><span class="n">MPI_COMM_WORLD</span><span class="p">,</span><span class="w"> </span><span class="s">"u0.pvd"</span><span class="p">,</span><span class="w"> </span><span class="s">"w"</span><span class="p">);</span>
 <span class="w">    </span><span class="n">u0_file</span><span class="p">.</span><span class="n">write</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">({</span><span class="o">*</span><span class="n">u0</span><span class="p">},</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Compute facets with $\sigma$ (flux) boundary condition facets,</span>
-<span class="w">    </span><span class="c1">// which is `{all boundary facet} - {u0 boundary facets}`</span>
+<span class="w">    </span><span class="c1">// Facets with the flux (sigma) boundary condition: all boundary</span>
+<span class="w">    </span><span class="c1">// facets except those in dfacets</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">nfacets</span><span class="p">;</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">ranges</span><span class="o">::</span><span class="n">set_difference</span><span class="p">(</span><span class="n">bfacets</span><span class="p">,</span><span class="w"> </span><span class="n">dfacets</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">back_inserter</span><span class="p">(</span><span class="n">nfacets</span><span class="p">));</span>
 
-<span class="w">    </span><span class="c1">// Get dofs that are constrained by \sigma</span>
+<span class="w">    </span><span class="c1">// Get the sigma degrees-of-freedom on these facets, in V and in the</span>
+<span class="w">    </span><span class="c1">// collapsed space W0</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ndofs</span>
 <span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">locate_dofs_topological</span><span class="p">(</span>
 <span class="w">            </span><span class="o">*</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">(),</span><span class="w"> </span><span class="p">{</span><span class="o">*</span><span class="n">V0</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">(),</span><span class="w"> </span><span class="o">*</span><span class="n">W0</span><span class="o">-&gt;</span><span class="n">dofmap</span><span class="p">()},</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">nfacets</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Create boundary condition for $\sigma$. $\sigma \cdot n$ will be</span>
-<span class="w">    </span><span class="c1">// constrained to be equal to the normal component of $g$. The</span>
-<span class="w">    </span><span class="c1">// boundary conditions are applied to degrees-of-freedom ndofs, and</span>
-<span class="w">    </span><span class="c1">// `V0` is the subspace that is constrained.</span>
+<span class="w">    </span><span class="c1">// Create the boundary condition, constraining sigma.n to the normal</span>
+<span class="w">    </span><span class="c1">// component of g. V0 is the constrained subspace.</span>
 <span class="w">    </span><span class="n">fem</span><span class="o">::</span><span class="n">DirichletBC</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">bc</span><span class="p">(</span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">ndofs</span><span class="p">,</span><span class="w"> </span><span class="n">V0</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Create integration domain data for `u0` boundary condition</span>
-<span class="w">    </span><span class="c1">// (applied on the `ds(1)` in the UFL file). First we get facet data</span>
-<span class="w">    </span><span class="c1">// integration data for facets in dfacets.</span>
+<span class="w">    </span><span class="c1">// Compute the integration entities for the facets in dfacets, on</span>
+<span class="w">    </span><span class="c1">// which the ds(1) integral in the UFL file is evaluated</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">domains</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">compute_integration_domains</span><span class="p">(</span>
 <span class="w">        </span><span class="n">fem</span><span class="o">::</span><span class="n">IntegralType</span><span class="o">::</span><span class="n">exterior_facet</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">mesh</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">(),</span><span class="w"> </span><span class="n">dfacets</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Create data structure for the `ds(1)` integration domain in form</span>
-<span class="w">    </span><span class="c1">// (see the UFL file). It is for en exterior facet integral (the key</span>
-<span class="w">    </span><span class="c1">// in the map), and exterior facet domain marked as '1' in the UFL</span>
-<span class="w">    </span><span class="c1">// file, and `domains` holds the necessary data to perform</span>
-<span class="w">    </span><span class="c1">// integration of selected facets.</span>
+<span class="w">    </span><span class="c1">// Map exterior facet integrals with subdomain ID 1 to these</span>
+<span class="w">    </span><span class="c1">// integration entities</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span>
 <span class="w">        </span><span class="n">fem</span><span class="o">::</span><span class="n">IntegralType</span><span class="p">,</span>
 <span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">int32_t</span><span class="o">&gt;&gt;&gt;&gt;</span>
 <span class="w">        </span><span class="n">subdomain_data</span><span class="p">{{</span><span class="n">fem</span><span class="o">::</span><span class="n">IntegralType</span><span class="o">::</span><span class="n">exterior_facet</span><span class="p">,</span><span class="w"> </span><span class="p">{{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">domains</span><span class="p">}}}};</span>
 
-<span class="w">    </span><span class="c1">// Since we are doing a `ds(1)` integral on mesh and `u0` is defined</span>
-<span class="w">    </span><span class="c1">// on the `submesh`, our form involves more than one mesh. The mesh</span>
-<span class="w">    </span><span class="c1">// used to define the measure and passed to `create_form` is called</span>
-<span class="w">    </span><span class="c1">// the integration domain mesh (here, `mesh`). To assemble our</span>
-<span class="w">    </span><span class="c1">// mixed-domain form, we must provide an `EntityMap` for each</span>
-<span class="w">    </span><span class="c1">// additional mesh in the form. In this case, the only other mesh is</span>
-<span class="w">    </span><span class="c1">// `submesh`. Hence, we supply the entity map returned from</span>
-<span class="w">    </span><span class="c1">// `create_submesh`, which relates entities in `mesh` and `submesh`.</span>
-
-<span class="w">    </span><span class="c1">// Define variational forms and attach he required data</span>
+<span class="w">    </span><span class="c1">// Define the bilinear form</span>
 <span class="w">    </span><span class="n">fem</span><span class="o">::</span><span class="n">Form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">create_form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">*</span><span class="n">form_mixed_poisson_a</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">V</span><span class="p">,</span><span class="w"> </span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{},</span>
 <span class="w">                                         </span><span class="n">subdomain_data</span><span class="p">,</span><span class="w"> </span><span class="p">{});</span>
 
-<span class="w">    </span><span class="c1">// Since this form involves multiple domains (i.e. both `mesh` and</span>
-<span class="w">    </span><span class="c1">// `submesh` for the boundary condition), we must pass the entity</span>
-<span class="w">    </span><span class="c1">// maps just created. We must also tell the form which domain to</span>
-<span class="w">    </span><span class="c1">// integrate with respect to (in this case `mesh`)</span>
+<span class="w">    </span><span class="c1">// L involves mesh (the integration domain, passed last) and submesh</span>
+<span class="w">    </span><span class="c1">// (on which u0 is defined). An EntityMap must be supplied for each</span>
+<span class="w">    </span><span class="c1">// mesh other than the integration domain.</span>
 <span class="w">    </span><span class="n">fem</span><span class="o">::</span><span class="n">Form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">L</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fem</span><span class="o">::</span><span class="n">create_form</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span>
 <span class="w">        </span><span class="o">*</span><span class="n">form_mixed_poisson_L</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="n">V</span><span class="p">},</span><span class="w"> </span><span class="p">{{</span><span class="s">"f"</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="s">"u0"</span><span class="p">,</span><span class="w"> </span><span class="n">u0</span><span class="p">}},</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="n">subdomain_data</span><span class="p">,</span>
 <span class="w">        </span><span class="p">{</span><span class="n">entity_map</span><span class="p">},</span><span class="w"> </span><span class="n">V</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">());</span>
@@ -715,6 +710,7 @@ square domain:</p>
 </div>
 </section>
 </section>
+</section>
 </article>
 <footer class="prev-next-footer d-print-none">
 <div class="prev-next-area">
@@ -743,10 +739,10 @@ square domain:</p>
   </div>
 <nav aria-labelledby="pst-page-navigation-heading-2" class="page-toc" id="pst-page-toc-nav">
 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Mixed Poisson equation</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#mixed-formulation-for-the-poisson-equation">Mixed formulation for the Poisson equation</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#equation-and-problem-definition">Equation and problem definition</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#ufl-form-file">UFL form file</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation">Implementation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ufl-form-file">UFL form file</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#c-program">C++ program</a></li>
 </ul>
 </li>
 </ul>

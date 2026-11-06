@@ -334,14 +334,13 @@
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="demo_hyperelasticity.html">Hyperelasticity</a></li>
 <li class="toctree-l1"><a class="reference internal" href="demo_mixed_poisson.html">Mixed Poisson equation</a></li>
-
 <li class="toctree-l1"><a class="reference internal" href="demo_poisson_matrix_free.html">Matrix-free conjugate gradient (CG) solver</a></li>
 <li class="toctree-l1 current active"><a aria-current="page" class="current reference internal" href="#">Interpolation between different meshes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="demo_interpolation-io.html">Interpolation and IO</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="demo_custom_kernel.html">Custom cell kernel assembly</a></li>
-<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed assembly with a function mesh on a subset of cells</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demo_codim_0_assembly.html">Mixed-domain assembly with a submesh of co-dimension 0</a></li>
 </ul>
 </div>
 </nav></div>
@@ -415,14 +414,19 @@ SPDX-License-Identifier:    LGPL-3.0-or-later
 meshes that discretise the same domain with different cell types
 (a tetrahedral mesh and a hexahedral mesh)
 and different Lagrange degrees</p></li>
-<li><p>Create the point-ownership data needed by
-<code class="docutils literal notranslate"><span class="pre">dolfinx::fem::create_interpolation_data()</span></code> for a non-matching-mesh
-interpolation</p></li>
+<li><p>Compute the point-ownership data for interpolation between
+non-matching meshes with
+<code class="docutils literal notranslate"><span class="pre">dolfinx::fem::create_interpolation_data</span></code></p></li>
 </ul>
 <p>A vector field is first interpolated from an analytical expression
 into a piecewise linear Lagrange space on the tetrahedral mesh, and
-is then interpolated from there into a piecewise quadratic Lagrange
-space on the hexahedral mesh.</p>
+then from there into a piecewise quadratic Lagrange space on the
+hexahedral mesh. The second step evaluates the tetrahedral-mesh
+function at the interpolation points of the hexahedral-mesh space;
+these points may lie on other MPI ranks, so the ranks that own each
+point are found first.</p>
+<section id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Link to this heading">#</a></h2>
 <p>Running this demo requires the files:
 <a class="reference download internal" download="" href="../_downloads/d58c183c3ea1c029ccbafc4e1c45ce4d/main.cpp"><code class="xref download docutils literal notranslate"><span class="pre">demo_interpolation_different_meshes/main.cpp</span></code></a> and
 <a class="reference download internal" download="" href="../_downloads/0335793623bbf36439caa685e39abd76/CMakeLists.txt"><code class="xref download docutils literal notranslate"><span class="pre">demo_interpolation_different_meshes/CMakeLists.txt</span></code></a>.</p>
@@ -493,7 +497,9 @@ space on the hexahedral mesh.</p>
 <span class="w">    </span><span class="c1">// Interpolate an expression into u_tet</span>
 <span class="w">    </span><span class="n">u_tet</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span><span class="n">fun</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Interpolate from u_tet to u_hex</span>
+<span class="w">    </span><span class="c1">// Interpolate from u_tet to u_hex. First find, for each</span>
+<span class="w">    </span><span class="c1">// interpolation point of V_hex, the rank and cell of mesh_tet that</span>
+<span class="w">    </span><span class="c1">// contain it (1e-8 is the padding of the bounding-box search).</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">cell_map</span>
 <span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">mesh_hex</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">index_map</span><span class="p">(</span><span class="n">mesh_hex</span><span class="o">-&gt;</span><span class="n">topology</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">dim</span><span class="p">());</span>
 <span class="w">    </span><span class="n">assert</span><span class="p">(</span><span class="n">cell_map</span><span class="p">);</span>
@@ -504,7 +510,9 @@ space on the hexahedral mesh.</p>
 <span class="w">            </span><span class="n">u_hex</span><span class="o">-&gt;</span><span class="n">function_space</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">geometry</span><span class="p">(),</span>
 <span class="w">            </span><span class="o">*</span><span class="n">u_hex</span><span class="o">-&gt;</span><span class="n">function_space</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">element</span><span class="p">(),</span>
 <span class="w">            </span><span class="o">*</span><span class="n">u_tet</span><span class="o">-&gt;</span><span class="n">function_space</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">mesh</span><span class="p">(),</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span><span class="w"> </span><span class="mf">1e-8</span><span class="p">);</span>
-<span class="w">    </span><span class="c1">// Tolerance and maximum number of iterations for the pullback</span>
+<span class="w">    </span><span class="c1">// Tolerance and maximum number of Newton iterations for pulling</span>
+<span class="w">    </span><span class="c1">// points back to the reference cell of mesh_tet. They are needed</span>
+<span class="w">    </span><span class="c1">// only for non-affine geometry, so are ignored for this mesh.</span>
 <span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">eps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0e4</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">numeric_limits</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">epsilon</span><span class="p">();</span>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">max_iter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">15</span><span class="p">;</span>
 <span class="w">    </span><span class="n">u_hex</span><span class="o">-&gt;</span><span class="n">interpolate</span><span class="p">(</span><span class="o">*</span><span class="n">u_tet</span><span class="p">,</span><span class="w"> </span><span class="n">cells</span><span class="p">,</span><span class="w"> </span><span class="n">eps</span><span class="p">,</span><span class="w"> </span><span class="n">max_iter</span><span class="p">,</span><span class="w"> </span><span class="n">interpolation_data</span><span class="p">);</span>
@@ -523,6 +531,7 @@ space on the hexahedral mesh.</p>
 <span class="p">}</span>
 </pre></div>
 </div>
+</section>
 </section>
 
 
@@ -563,6 +572,18 @@ space on the hexahedral mesh.</p>
                 <dialog id="pst-secondary-sidebar-modal" tabindex="-1"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#implementation">Implementation</a></li>
+</ul>
+  </nav></div>
 
   <div class="sidebar-secondary-item">
 
