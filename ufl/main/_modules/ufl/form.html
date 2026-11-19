@@ -413,10 +413,11 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_scalar_constant_expression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">_is_scaling_constant</span><span class="p">,</span> <span class="n">is_scalar_constant_expression</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constant</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constant</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">ufl_err_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.terminal</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormArgument</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.ufl_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">UFLType</span><span class="p">,</span> <span class="n">ufl_type</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.domain</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_unique_domain</span><span class="p">,</span> <span class="n">sort_domains</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.equation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Equation</span>
@@ -634,12 +635,44 @@
         <span class="k">return</span> <span class="bp">NotImplemented</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Take the action of this form on the given coefficient."""</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.formoperators</span><span class="w"> </span><span class="kn">import</span> <span class="n">action</span>
+<span class="w">        </span><span class="sd">"""Scale this form by a constant.</span>
 
-            <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
+<span class="sd">        A constant is a number or a scalar expression of Constants, and it scales</span>
+<span class="sd">        the form from either side. Taking the action of a form on a function with</span>
+<span class="sd">        ``*`` is deprecated: use ``form @ f`` or ``action(form, f)`` instead.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">_is_scaling_constant</span><span class="p">(</span><span class="n">coefficient</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__rmul__</span><span class="p">(</span><span class="n">coefficient</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">FormArgument</span> <span class="o">|</span> <span class="n">BaseForm</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">"Taking the action of a form with `form * f` is deprecated, "</span>
+                    <span class="s2">"use `form @ f` or `action(form, f)` instead."</span><span class="p">,</span>
+                    <span class="ne">DeprecationWarning</span><span class="p">,</span>
+                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">BaseForm</span><span class="o">.</span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">NotImplemented</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Take the action of this form on a function."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">FormArgument</span> <span class="o">|</span> <span class="n">BaseForm</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"A form can only act on a Coefficient, an Argument or a base form operator, "</span>
+                <span class="sa">f</span><span class="s2">"not on </span><span class="si">{</span><span class="n">ufl_err_str</span><span class="p">(</span><span class="n">coefficient</span><span class="p">)</span><span class="si">}</span><span class="s2">. "</span>
+                <span class="s2">"To scale a form by a constant, multiply it from the left."</span>
+            <span class="p">)</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.formoperators</span><span class="w"> </span><span class="kn">import</span> <span class="n">action</span>
+
+        <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Scale this form by ``1 / scalar``."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar_constant_expression</span><span class="p">(</span><span class="n">scalar</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"A form can only be divided by a scalar constant."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__rmul__</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">scalar</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Immediately evaluate the != operator (as opposed to the == operator)."""</span>
@@ -659,9 +692,7 @@
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">operands</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Return a new object of the same type with new operands."""</span>
-        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="o">*</span><span class="n">operands</span><span class="p">)</span>
-
-    <span class="fm">__matmul__</span> <span class="o">=</span> <span class="fm">__mul__</span></div>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="o">*</span><span class="n">operands</span><span class="p">)</span></div>
 
 
 
@@ -996,14 +1027,6 @@
             <span class="k">return</span> <span class="n">Form</span><span class="p">([</span><span class="n">scalar</span> <span class="o">*</span> <span class="n">itg</span> <span class="k">for</span> <span class="n">itg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">integrals</span><span class="p">()])</span>
         <span class="k">return</span> <span class="bp">NotImplemented</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""UFL form operator: Take the action of this form on the given coefficient."""</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="n">Expr</span><span class="p">):</span>
-            <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.formoperators</span><span class="w"> </span><span class="kn">import</span> <span class="n">action</span>
-
-            <span class="k">return</span> <span class="n">action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coefficient</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">NotImplemented</span>
-
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""UFL form operator: Evaluate form by replacing arguments and coefficients.</span>
 
@@ -1050,8 +1073,6 @@
             <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">repdict</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
-
-    <span class="fm">__matmul__</span> <span class="o">=</span> <span class="fm">__mul__</span>
 
     <span class="c1"># --- String conversion functions, for UI purposes only ---</span>
 

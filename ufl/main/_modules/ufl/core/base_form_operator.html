@@ -417,7 +417,6 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Operator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.ufl_type</span><span class="w"> </span><span class="kn">import</span> <span class="n">ufl_type</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.duals</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_primal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.functionspace</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractFunctionSpace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.utils.counted</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counted</span>
@@ -490,6 +489,12 @@
 <span class="sd">    map from ``w_1`` to the dual of ``v_0``. With ``w_0``, it is a linear map from ``v_1``</span>
 <span class="sd">    to the dual of ``w_0``. Interpolate has ``u == uhat``, so ``Interpolate(e, A)`` is</span>
 <span class="sd">    ``N(e; A, e)``.</span>
+
+<span class="sd">    The arithmetic of the operator follows its value. With a free output, the operator</span>
+<span class="sd">    is a function, and it is an expression. If the dual slot contracts the output,</span>
+<span class="sd">    the operator is a form in its free arguments, which forms can add and constants</span>
+<span class="sd">    can scale. A 0-form operator ``I0`` is a number, so it is an expression, as in</span>
+<span class="sd">    ``I0 * u``, ``I0**2`` or ``I0 - 1``. Adding ``I0`` to a Form gives a ``FormSum``.</span>
 <span class="sd">    """</span>
 
     <span class="n">ufl_operands</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Expr</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
@@ -715,8 +720,16 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parent_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Is this a primal or dual expression?"""</span>
-        <span class="k">return</span> <span class="n">Operator</span> <span class="k">if</span> <span class="n">is_primal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ufl_function_space</span><span class="p">())</span> <span class="k">else</span> <span class="n">BaseForm</span>
+<span class="w">        </span><span class="sd">"""Is this an expression or a form?</span>
+
+<span class="sd">        The operator is an expression if its dual slot leaves the output free, or if</span>
+<span class="sd">        it has no arguments and is a number. Otherwise the dual slot contracts the</span>
+<span class="sd">        output and leaves a form in the free arguments.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">Operator</span>
+        <span class="n">dual_slot_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Operator</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">dual_slot_arguments</span><span class="p">)</span> <span class="k">else</span> <span class="n">BaseForm</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Add."""</span>
@@ -726,13 +739,31 @@
 <span class="w">        </span><span class="sd">"""Add."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Subtract."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Subtract."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
     <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Multiply."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Multiply."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Divide."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span><span class="o">.</span><span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rtruediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Divide by the operator, unless it is a form."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent_type</span> <span class="ow">is</span> <span class="n">BaseForm</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">NotImplemented</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="o">.</span><span class="fm">__rtruediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span></div>
 
 </pre></div>
 
