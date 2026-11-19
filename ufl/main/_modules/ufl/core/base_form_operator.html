@@ -453,6 +453,9 @@
     <span class="n">vstar</span><span class="p">,</span> <span class="o">*</span><span class="n">slots</span> <span class="o">=</span> <span class="n">N</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span>
     <span class="n">slot_args</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">slots</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
     <span class="n">contracted</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">vstar</span><span class="p">,</span> <span class="n">slot_args</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">contracted</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># A Coargument or a Cofunction in the dual slot contracts no argument of A.</span>
+        <span class="k">return</span> <span class="n">A</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">slot_args</span><span class="p">):</span>
         <span class="n">number</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">else</span><span class="p">:</span>
@@ -662,11 +665,12 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">ufl_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">"""Return the UFL shape of the coefficient produced by the operator."""</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">()</span>
-        <span class="n">arg</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">arg</span><span class="o">.</span><span class="n">_ufl_shape</span>
+<span class="w">        </span><span class="sd">"""Return the value shape in the operator output space.</span>
+
+<span class="sd">        Applying a derivative to its directions leaves the output shape unchanged,</span>
+<span class="sd">        independently of the shapes and numbers of the slot arguments.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function_space</span><span class="o">.</span><span class="n">value_shape</span>
 
 <div class="viewcode-block" id="BaseFormOperator.ufl_function_space">
 <a class="viewcode-back" href="../../../api/api-core.html#ufl.core.base_form_operator.BaseFormOperator.ufl_function_space">[docs]</a>
@@ -719,6 +723,12 @@
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_contracts_output</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Whether the dual slot contracts the output, instead of leaving it free."""</span>
+        <span class="n">dual_slot_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">dual_slot_arguments</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_parent_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Is this an expression or a form?</span>
 
@@ -726,10 +736,9 @@
 <span class="sd">        it has no arguments and is a number. Otherwise the dual slot contracts the</span>
 <span class="sd">        output and leaves a form in the free arguments.</span>
 <span class="sd">        """</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">():</span>
-            <span class="k">return</span> <span class="n">Operator</span>
-        <span class="n">dual_slot_arguments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">Operator</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">dual_slot_arguments</span><span class="p">)</span> <span class="k">else</span> <span class="n">BaseForm</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">arguments</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_contracts_output</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">BaseForm</span>
+        <span class="k">return</span> <span class="n">Operator</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Add."""</span>

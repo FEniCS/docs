@@ -403,16 +403,19 @@
 <span class="c1">#</span>
 <span class="c1"># Modified by Anders Logg, 2009-2010</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">singledispatchmethod</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ufl.classes</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">has_exact_type</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_type</span><span class="p">,</span> <span class="n">has_exact_type</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.algorithms.map_integrands</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_integrands</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Coargument</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.argument</span><span class="w"> </span><span class="kn">import</span> <span class="n">Argument</span><span class="p">,</span> <span class="n">Coargument</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.classes</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseForm</span><span class="p">,</span> <span class="n">CoefficientDerivative</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">as_ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.constantvalue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Zero</span><span class="p">,</span> <span class="n">as_ufl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.base_form_operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">_split_dual_slot_arguments</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.core.expr</span><span class="w"> </span><span class="kn">import</span> <span class="n">Expr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ufl.corealg.dag_traverser</span><span class="w"> </span><span class="kn">import</span> <span class="n">DAGTraverser</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ufl.form</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZeroBaseForm</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Replacer</span><span class="p">(</span><span class="n">DAGTraverser</span><span class="p">):</span>
@@ -455,26 +458,53 @@
                 <span class="k">return</span> <span class="n">o</span>
             <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
+    <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">Sum</span><span class="p">)</span>
+    <span class="nd">@DAGTraverser</span><span class="o">.</span><span class="n">postorder</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Replace the terms of a sum, which add as forms if they become forms."""</span>
+        <span class="k">if</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">new</span> <span class="ow">is</span> <span class="n">old</span> <span class="k">for</span> <span class="n">new</span><span class="p">,</span> <span class="n">old</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">o</span>
+        <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="k">return</span> <span class="n">left</span> <span class="o">+</span> <span class="n">right</span>
+
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">BaseFormOperator</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Replace a base form operator.</span>
 
 <span class="sd">        The Coargument of an operator in an operand or a primal slot of ``o`` pairs</span>
 <span class="sd">        with the output of that operator, so it is bound there. Only the dual slot of</span>
-<span class="sd">        ``o`` can hold a free Coargument.</span>
+<span class="sd">        ``o`` can hold a free Coargument. The dual slot binds its contracted Argument,</span>
+<span class="sd">        which is not replaced even if it equals an Argument of a primal slot.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="n">o</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
         <span class="n">primal_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">Coargument</span><span class="p">)}</span>
         <span class="n">vstar</span><span class="p">,</span> <span class="o">*</span><span class="n">slots</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">()</span>
+        <span class="n">slot_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slots</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="kc">True</span><span class="p">)]</span>
+        <span class="n">contracted</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">vstar</span><span class="p">,</span> <span class="n">slot_arguments</span><span class="p">)</span>
+        <span class="n">dual_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="n">contracted</span><span class="p">}</span>
         <span class="n">new_ops</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">primal_mapping</span><span class="p">)</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span><span class="p">)</span>
         <span class="n">new_slots</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">replace</span><span class="p">(</span><span class="n">vstar</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapping</span><span class="p">),</span>
+            <span class="n">replace</span><span class="p">(</span><span class="n">vstar</span><span class="p">,</span> <span class="n">dual_mapping</span><span class="p">),</span>
             <span class="o">*</span><span class="p">(</span><span class="n">replace</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">primal_mapping</span><span class="p">)</span> <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">slots</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">new_ops</span> <span class="o">==</span> <span class="n">o</span><span class="o">.</span><span class="n">ufl_operands</span> <span class="ow">and</span> <span class="n">new_slots</span> <span class="o">==</span> <span class="n">o</span><span class="o">.</span><span class="n">argument_slots</span><span class="p">():</span>
             <span class="k">return</span> <span class="n">o</span>
-        <span class="k">return</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">new_ops</span><span class="p">,</span> <span class="n">argument_slots</span><span class="o">=</span><span class="n">new_slots</span><span class="p">)</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">_ufl_expr_reconstruct_</span><span class="p">(</span><span class="o">*</span><span class="n">new_ops</span><span class="p">,</span> <span class="n">argument_slots</span><span class="o">=</span><span class="n">new_slots</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">Zero</span><span class="p">)</span> <span class="k">for</span> <span class="n">slot</span> <span class="ow">in</span> <span class="n">new_slots</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="k">return</span> <span class="n">new</span>
+        <span class="c1"># o is linear in its primal slots.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">new</span><span class="o">.</span><span class="n">_contracts_output</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Zero</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">ufl_shape</span><span class="p">)</span>
+        <span class="c1"># The dual slot contracts o into a form, which keeps the Arguments of the</span>
+        <span class="c1"># slots that became zero.</span>
+        <span class="n">mapped</span> <span class="o">=</span> <span class="p">(</span><span class="n">primal_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slots</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">extract_type</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">Argument</span><span class="p">,</span> <span class="kc">True</span><span class="p">))</span>
+        <span class="n">slot_arguments</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">mapped</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Argument</span><span class="p">)]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">dual_arguments</span> <span class="o">=</span> <span class="n">_split_dual_slot_arguments</span><span class="p">(</span><span class="n">new_slots</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">slot_arguments</span><span class="p">)</span>
+        <span class="n">arguments</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">((</span><span class="o">*</span><span class="n">dual_arguments</span><span class="p">,</span> <span class="o">*</span><span class="n">slot_arguments</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">ZeroBaseForm</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">number</span><span class="p">())))</span>
 
     <span class="nd">@process</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">ufl</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">CoefficientDerivative</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o</span><span class="p">):</span>
