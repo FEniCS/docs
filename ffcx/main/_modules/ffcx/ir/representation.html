@@ -607,6 +607,7 @@
     <span class="n">required_constants</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.definitions</span><span class="w"> </span><span class="kn">import</span> <span class="n">entity_types</span><span class="p">,</span> <span class="n">supported_integral_types</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.ir.elementtables</span><span class="w"> </span><span class="kn">import</span> <span class="n">interpolated_elements</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.ir.integral</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonExpressionIR</span><span class="p">,</span> <span class="n">TensorPart</span><span class="p">,</span> <span class="n">compute_integral_ir</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">ffcx.ir.representationutils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">QuadratureRule</span><span class="p">,</span>
@@ -688,16 +689,16 @@
 <span class="sd">    packed into contiguous arrays, and writes ``[point][component][dof]...``.</span>
 <span class="sd">    """</span>
 
-    <span class="c1">#: The proxy coefficient</span>
-    <span class="n">interpolation</span><span class="p">:</span> <span class="n">ProxyCoefficient</span>
+    <span class="c1">#: The proxy coefficient, or the interpolation whose table is built for each cell</span>
+    <span class="n">interpolation</span><span class="p">:</span> <span class="n">ProxyCoefficient</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span>
     <span class="c1">#: Name of the expression kernel</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="c1">#: The coefficients the kernel reads, in the order it reads them</span>
     <span class="n">coefficients</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Coefficient</span><span class="p">]</span>
     <span class="c1">#: The constants the kernel reads, in the order it reads them</span>
     <span class="n">constants</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Constant</span><span class="p">]</span>
-    <span class="c1">#: Shape of the values the kernel writes: the number of points and the</span>
-    <span class="c1">#: reference value size</span>
+    <span class="c1">#: Shape of the values the kernel writes: the number of points, the</span>
+    <span class="c1">#: reference value size and the number of dofs of each argument</span>
     <span class="n">shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span></div>
 
 
@@ -708,7 +709,10 @@
 <span class="w">    </span><span class="sd">"""Intermediate representation of the interpolations evaluated in a kernel."""</span>
 
     <span class="c1">#: Proxy coefficients, whose dofs are built for each cell</span>
-    <span class="n">proxies</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InterpolationKernelIR</span><span class="p">]</span></div>
+    <span class="n">proxies</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InterpolationKernelIR</span><span class="p">]</span>
+    <span class="c1">#: Interpolations of an expression linear in an argument, whose element</span>
+    <span class="c1">#: table is built for each cell</span>
+    <span class="n">tables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InterpolationKernelIR</span><span class="p">]</span></div>
 
 
 
@@ -993,7 +997,7 @@
     <span class="n">form_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">unique_elements</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_ElementBase</span><span class="p">],</span>
     <span class="n">integral_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">str</span><span class="p">],</span>
-    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="n">object_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="n">prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">options</span><span class="p">,</span>
@@ -1006,8 +1010,8 @@
 <span class="sd">        form_index: Index of form in the sequence of forms.</span>
 <span class="sd">        unique_elements: Set of unique elements in the form.</span>
 <span class="sd">        integral_names: Map from `(form_index, integral_index)` to the name of the integral.</span>
-<span class="sd">        kernel_names: Map from a proxy coefficient to the name of the expression</span>
-<span class="sd">            kernel that evaluates it at the interpolation points of its target element.</span>
+<span class="sd">        kernel_names: Map from an interpolation to the name of the expression kernel</span>
+<span class="sd">            that evaluates it at the interpolation points of its target element.</span>
 <span class="sd">        object_names: Map from object Python id to object name.</span>
 <span class="sd">        prefix: Namespace prefix for generated code.</span>
 <span class="sd">        options: Options for the intermediate representation. 'part': If the full tensor or</span>
@@ -1235,30 +1239,37 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_interpolation_ir</span><span class="p">(</span>
-    <span class="n">interpolations</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ProxyCoefficient</span><span class="p">],</span>
-    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">interpolations</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Iterable</span><span class="p">[</span><span class="n">ProxyCoefficient</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">],</span>
+    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InterpolationIR</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Compute intermediate representation of the interpolations evaluated in a kernel.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        interpolations: The proxy coefficients.</span>
-<span class="sd">        kernel_names: Map from a proxy coefficient to the name of its expression kernel.</span>
+<span class="sd">        interpolations: The proxy coefficients and the interpolations whose</span>
+<span class="sd">            table is built for each cell.</span>
+<span class="sd">        kernel_names: Map from an interpolation to the name of its expression kernel.</span>
 <span class="sd">    """</span>
     <span class="n">proxies</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InterpolationKernelIR</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">tables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">InterpolationKernelIR</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">interpolation</span> <span class="ow">in</span> <span class="n">interpolations</span><span class="p">:</span>
         <span class="n">target</span> <span class="o">=</span> <span class="n">interpolation</span><span class="o">.</span><span class="n">ufl_element</span><span class="p">()</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">basix</span><span class="o">.</span><span class="n">ufl</span><span class="o">.</span><span class="n">_ElementBase</span><span class="p">)</span>
-        <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">basix_element</span><span class="o">.</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">target</span><span class="o">.</span><span class="n">reference_value_size</span><span class="p">)</span>
-        <span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="n">InterpolationKernelIR</span><span class="p">(</span>
-                <span class="n">interpolation</span><span class="o">=</span><span class="n">interpolation</span><span class="p">,</span>
-                <span class="n">name</span><span class="o">=</span><span class="n">kernel_names</span><span class="p">[</span><span class="n">interpolation</span><span class="p">],</span>
-                <span class="n">coefficients</span><span class="o">=</span><span class="n">interpolation_coefficients</span><span class="p">(</span><span class="n">interpolation</span><span class="p">),</span>
-                <span class="n">constants</span><span class="o">=</span><span class="n">interpolation_constants</span><span class="p">(</span><span class="n">interpolation</span><span class="p">),</span>
-                <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="n">shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">basix_element</span><span class="o">.</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">target</span><span class="o">.</span><span class="n">reference_value_size</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="k">return</span> <span class="n">InterpolationIR</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interpolation</span><span class="p">,</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">):</span>
+            <span class="c1"># One dof axis for each argument the expression is linear in</span>
+            <span class="n">shape</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">element</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">interpolated_elements</span><span class="p">(</span><span class="n">interpolation</span><span class="p">))</span>
+        <span class="n">kernel</span> <span class="o">=</span> <span class="n">InterpolationKernelIR</span><span class="p">(</span>
+            <span class="n">interpolation</span><span class="o">=</span><span class="n">interpolation</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">kernel_names</span><span class="p">[</span><span class="n">interpolation</span><span class="p">],</span>
+            <span class="n">coefficients</span><span class="o">=</span><span class="n">interpolation_coefficients</span><span class="p">(</span><span class="n">interpolation</span><span class="p">),</span>
+            <span class="n">constants</span><span class="o">=</span><span class="n">interpolation_constants</span><span class="p">(</span><span class="n">interpolation</span><span class="p">),</span>
+            <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="p">(</span><span class="n">proxies</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interpolation</span><span class="p">,</span> <span class="n">ProxyCoefficient</span><span class="p">)</span> <span class="k">else</span> <span class="n">tables</span><span class="p">)</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">InterpolationIR</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">tables</span><span class="o">=</span><span class="n">tables</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_form_ir</span><span class="p">(</span>
@@ -1355,7 +1366,7 @@
     <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">visualise</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">object_names</span><span class="p">,</span>
-    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">kernel_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ProxyCoefficient</span> <span class="o">|</span> <span class="n">ufl</span><span class="o">.</span><span class="n">Interpolate</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Compute intermediate representation of an Expression.</span>
 
@@ -1373,7 +1384,7 @@
 <span class="sd">        visualise: If set, the image format in which to store the graph</span>
 <span class="sd">            representation of the expression.</span>
 <span class="sd">        object_names: Map from object Python id to object name.</span>
-<span class="sd">        kernel_names: Map from a proxy coefficient to the name of its expression kernel.</span>
+<span class="sd">        kernel_names: Map from an interpolation to the name of its expression kernel.</span>
 <span class="sd">    """</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Computing IR for Expression </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
@@ -1410,8 +1421,8 @@
     <span class="n">expr_name</span> <span class="o">=</span> <span class="n">object_names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">original_expr</span><span class="p">),</span> <span class="n">index</span><span class="p">)</span>
     <span class="n">ir</span><span class="p">[</span><span class="s2">"name_from_uflfile"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"expression_</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">expr_name</span><span class="si">}</span><span class="s2">"</span>
 
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">argument_elements</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Expression with more than one Argument not implemented."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">argument_elements</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Expression with more than two Arguments not implemented."</span><span class="p">)</span>
 
     <span class="c1"># The coefficients passed to the kernel. Those of a proxy coefficient are</span>
     <span class="c1"># passed in its place, to evaluate it from. The kernel of an interpolation</span>
@@ -1419,9 +1430,8 @@
     <span class="c1"># `ffcx.analysis.interpolation_coefficients`.</span>
     <span class="n">original_coefficients</span> <span class="o">=</span> <span class="n">required_coefficients</span><span class="p">(</span><span class="n">original_expr</span><span class="p">)</span>
     <span class="n">coefficients</span> <span class="o">=</span> <span class="n">original_coefficients</span> <span class="k">if</span> <span class="n">is_interpolation_kernel</span> <span class="k">else</span> <span class="n">required_coefficients</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-    <span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ufl</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">extract_coefficients</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ProxyCoefficient</span><span class="p">)</span>
-    <span class="p">]</span>
+    <span class="n">interpolations</span> <span class="o">=</span> <span class="n">kernel_interpolations</span><span class="p">([</span><span class="n">expr</span><span class="p">])</span>
+    <span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">interpolations</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">ProxyCoefficient</span><span class="p">)]</span>
 
     <span class="n">coefficient_numbering</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Coefficient</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">coefficient_offsets</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">ufl</span><span class="o">.</span><span class="n">Coefficient</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -1448,7 +1458,7 @@
     <span class="n">ir</span><span class="p">[</span><span class="s2">"coefficient_names"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
         <span class="n">object_names</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">obj</span><span class="p">),</span> <span class="sa">f</span><span class="s2">"w</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
     <span class="p">]</span>
-    <span class="n">ir</span><span class="p">[</span><span class="s2">"interpolation"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_compute_interpolation_ir</span><span class="p">(</span><span class="n">kernel_interpolations</span><span class="p">([</span><span class="n">expr</span><span class="p">]),</span> <span class="n">kernel_names</span><span class="p">)</span>
+    <span class="n">ir</span><span class="p">[</span><span class="s2">"interpolation"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_compute_interpolation_ir</span><span class="p">(</span><span class="n">interpolations</span><span class="p">,</span> <span class="n">kernel_names</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">tdim</span> <span class="o">:=</span> <span class="n">cell</span><span class="o">.</span><span class="n">topological_dimension</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">pdim</span> <span class="o">:=</span> <span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
